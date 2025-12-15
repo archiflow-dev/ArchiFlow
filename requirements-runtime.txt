@@ -1,0 +1,11 @@
+# Runtime System Requirements
+
+# Core dependencies
+psutil>=5.9.0  # For resource monitoring in LocalRuntime
+
+# Optional dependencies for specific runtimes
+aiohttp>=3.9.0  # For RemoteRuntime HTTP communication
+
+# Development and testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0

@@ -1,0 +1,40 @@
+llm:
+  default_provider: "openai"
+  providers:
+    openai:
+      model: "gpt-4o"
+      api_key: "${OPENAI_API_KEY}"
+      temperature: 0.7
+      max_tokens: 2000
+    
+    mock:
+      model: "mock-model"
+      temperature: 0.0
+
+tools:
+  enabled_tools:
+    - "read_file"
+    - "write_file"
+    - "list_files"
+  timeout: 30
+  max_output_size: 1048576  # 1MB
+
+agents:
+  coder:
+    llm_provider: "openai"
+    tools:
+      - "read_file"
+      - "write_file"
+      - "list_files"
+    max_iterations: 50
+    max_tokens_history: 8000
+  
+  default:
+    llm_provider: "mock"
+    tools:
+      - "read_file"
+    max_iterations: 10
+
+session:
+  persistence_dir: "sessions"
+  auto_restore: true
