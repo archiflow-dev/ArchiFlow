@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Type, Callable, Optional, Any
 
 from agent_framework.agents.base import BaseAgent, SimpleAgent
+from agent_framework.agents.simple_agent_v2 import SimpleAgent as SimpleAgentV2
 from agent_framework.agents.coding_agent import CodingAgent
 from agent_framework.agents.codebase_analyzer_agent import CodebaseAnalyzerAgent
 from agent_framework.agents.code_review_agent import CodeReviewAgent
@@ -54,12 +55,21 @@ class AgentFactory:
 
     def _register_agents(self):
         """Register all available agent types."""
-        # Register SimpleAgent
+        # Register SimpleAgent (original)
         self.register_agent(
             name="simple",
             agent_class=SimpleAgent,
             session_prefix="simple",
             requires_project_dir=False
+        )
+
+        # Register SimpleAgent v2 (enhanced with profiles)
+        self.register_agent(
+            name="simplev2",
+            agent_class=SimpleAgentV2,
+            session_prefix="simplev2",
+            requires_project_dir=False,
+            creator_func=self._create_simple_agent_v2
         )
 
         # Register CodingAgent
@@ -343,6 +353,27 @@ class AgentFactory:
         # Set execution context on all tools
         for tool in agent.tools.list_tools():
             tool.execution_context = agent.execution_context
+
+        return agent
+
+    def _create_simple_agent_v2(self, session_id, llm_provider, **kwargs) -> SimpleAgentV2:
+        """Create a SimpleAgent v2 with profile configuration."""
+        # Extract profile from kwargs
+        profile = kwargs.pop("profile", "general")
+        custom_prompt = kwargs.pop("custom_prompt", None)
+
+        agent = SimpleAgentV2(
+            session_id=session_id,
+            llm=llm_provider,
+            profile=profile,
+            custom_prompt=custom_prompt,
+            **kwargs
+        )
+
+        # Set execution context on all tools if available
+        if hasattr(agent, 'execution_context'):
+            for tool in agent.tools.list_tools():
+                tool.execution_context = agent.execution_context
 
         return agent
 

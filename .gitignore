@@ -168,3 +168,13 @@ CLAUDE.md
 
 # Documentation directory
 .docs/
+
+# Examples directory
+examples/
+docs/
+
+# Integration tests directory (keep code, ignore test artifacts)
+integration_tests/*.pyc
+integration_tests/__pycache__/
+integration_tests/.pytest_cache/
+integration_test_results/

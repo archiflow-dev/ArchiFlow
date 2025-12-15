@@ -161,7 +161,19 @@ class SimpleAgent(BaseAgent):
             self._system_added = True
 
     def get_system_message(self) -> str:
-        return self.system_prompt
+        """Get the system message for this agent."""
+        from datetime import datetime
+
+        # Get current date
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Build system message with date context
+        message_parts = [self.system_prompt]
+        message_parts.append(f"\n\nCurrent Date: {current_date}")
+        message_parts.append(f"Current DateTime: {current_datetime}")
+
+        return "".join(message_parts)
         
     def get_name(self) -> str:
         if isinstance(self.config, dict):

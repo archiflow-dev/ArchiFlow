@@ -8,6 +8,7 @@ from rich.console import Console
 from agent_cli.agents.factory import AgentFactoryError, AgentType, create_agent
 from agent_cli.commands.router import CommandRouter
 from agent_cli.session.manager import SessionManager
+from agent_framework.agents.profiles import AGENT_PROFILES, list_profiles
 
 console = Console()
 
@@ -20,16 +21,29 @@ async def new_command(*args: str, **context: object) -> None:
     Create a new agent session.
 
     Usage:
-        /new [agent-type]
+        /new [agent-type] [options...]
 
     Agent types:
         - coding: CodingAgent for software development tasks
+        - simple: SimpleAgent for general conversations
+        - simplev2: Enhanced SimpleAgent with profiles
         - analyzer: CodebaseAnalyzerAgent for codebase analysis and reporting
         - reviewer: CodeReviewAgent for code review tasks
-        - simple: SimpleAgent for general conversations
+        - product: ProductManagerAgent for product brainstorming
+        - architect: TechLeadAgent for system architecture
+
+    SimpleAgent v2 options:
+        --profile <name>: Set agent profile (general, analyst, researcher, planner, assistant, developer)
+        --prompt <text>: Custom system prompt
+        --project-dir <path>: Project directory (optional)
+
+    Examples:
+        /new simplev2 --profile analyst
+        /new simplev2 --profile custom --prompt "You are a creative writer"
+        /new simplev2 --profile general --project-dir /path/to/project
 
     Args:
-        *args: Command arguments (agent type, [project_directory])
+        *args: Command arguments
         **context: Context (expects 'session_manager' and 'repl_engine')
     """
     # Get session manager from context
@@ -44,10 +58,11 @@ async def new_command(*args: str, **context: object) -> None:
         console.print("[red]Error: REPL engine not available[/red]")
         return
 
-    # Parse agent type
+    # Parse agent type and options
     if not args:
         # Default to coding agent
         agent_type: AgentType = "coding"
+        kwargs = {}
     else:
         agent_type_str = args[0].lower()
         if agent_type_str not in VALID_AGENT_TYPES:
@@ -58,18 +73,46 @@ async def new_command(*args: str, **context: object) -> None:
             return
         agent_type = agent_type_str  # type: ignore[assignment]
 
-    # Parse project directory (optional, 2nd argument)
-    project_directory = None
-    if len(args) > 1:
-        project_directory = args[1]
+        # Parse additional arguments
+        kwargs = {}
+        i = 1
+        while i < len(args):
+            arg = args[i]
+
+            if agent_type == "simplev2":
+                if arg == "--profile" and i + 1 < len(args):
+                    kwargs["profile"] = args[i + 1]
+                    i += 2
+                elif arg == "--prompt" and i + 1 < len(args):
+                    kwargs["custom_prompt"] = args[i + 1]
+                    i += 2
+                elif arg == "--project-dir" and i + 1 < len(args):
+                    kwargs["project_directory"] = args[i + 1]
+                    i += 2
+                else:
+                    # For simplev2, unknown options are treated as errors
+                    console.print(f"[red]Error: Unknown option '{arg}' for simplev2 agent[/red]")
+                    return
+            else:
+                # For other agents, treat extra args as project directory
+                if i == 1:
+                    kwargs["project_directory"] = arg
+                i += 1
 
     # Create agent
     try:
         console.print(f"[cyan]Creating {agent_type} agent...[/cyan]")
-        if project_directory:
-            console.print(f"[dim]Project directory:[/dim] {project_directory}")
 
-        agent = create_agent(agent_type=agent_type, project_directory=project_directory)
+        # Display configuration details
+        if agent_type == "simplev2":
+            profile = kwargs.get("profile", "general")
+            console.print(f"[dim]Profile:[/dim] {profile}")
+            if "custom_prompt" in kwargs:
+                console.print(f"[dim]Custom prompt:[/dim] {kwargs['custom_prompt'][:50]}...")
+        if "project_directory" in kwargs:
+            console.print(f"[dim]Project directory:[/dim] {kwargs['project_directory']}")
+
+        agent = create_agent(agent_type=agent_type, **kwargs)
 
         # Create session
         session = session_manager.create_session(agent=agent)
@@ -417,6 +460,36 @@ async def architect_command(*args: str, **context: object) -> None:
         console.print(f"[red]Unexpected error:[/red] {e}")
 
 
+async def profiles_command(*args: str, **context: object) -> None:
+    """
+    List available SimpleAgent v2 profiles.
+
+    Usage:
+        /profiles
+
+    Displays all available profiles with their descriptions and capabilities.
+    """
+    console.print("\n[bold cyan]SimpleAgent v2 Profiles[/bold cyan]\n")
+
+    for profile_name in list_profiles():
+        profile = AGENT_PROFILES[profile_name]
+        console.print(f"[bold]{profile_name}[/bold]")
+        console.print(f"  [dim]Description:[/dim] {profile.description}")
+
+        if profile.capabilities:
+            console.print(f"  [dim]Capabilities:[/dim] {', '.join(profile.capabilities)}")
+
+        if profile.tool_categories:
+            console.print(f"  [dim]Tool Categories:[/dim] {', '.join(profile.tool_categories)}")
+
+        console.print()  # Empty line for readability
+
+    console.print("[yellow]Usage Examples:[/yellow]")
+    console.print("  /new simplev2 --profile general")
+    console.print("  /new simplev2 --profile analyst --project-dir ./my-project")
+    console.print("  /new simplev2 --profile custom --prompt \"You are a creative writing assistant\"")
+
+
 async def code_command(*args: str, **context: object) -> None:
     """
     Create a CodingAgent session for software development tasks.
@@ -639,7 +712,13 @@ def register_session_commands(router: CommandRouter) -> None:
         name="new",
         handler=new_command,
         description="Create a new agent session",
-        usage=f"new [agent-type] [project-dir]  # agent-type: {', '.join(VALID_AGENT_TYPES)}",
+        usage=f"new [agent-type] [options...]  # agent-type: {', '.join(VALID_AGENT_TYPES)}",
+    )
+
+    router.register(
+        name="profiles",
+        handler=profiles_command,
+        description="List available SimpleAgent v2 profiles",
     )
 
     router.register(

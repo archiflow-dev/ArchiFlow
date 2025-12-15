@@ -162,7 +162,7 @@ class WebSearchTool(BaseTool):
             return None, f"Error performing Google search: {type(e).__name__}: {str(e)}"
 
     async def _search_duckduckgo(self, query: str, num_results: int) -> tuple[Optional[List[SearchResult]], Optional[str]]:
-        """Search using DuckDuckGo API.
+        """Search using DuckDuckGo HTML parsing.
 
         Args:
             query: The search query
@@ -172,50 +172,145 @@ class WebSearchTool(BaseTool):
             Tuple of (results_list, error_message)
         """
         try:
-            # DuckDuckGo Instant Answer API
-            url = "https://api.duckduckgo.com/"
+            # Use DuckDuckGo HTML version and parse results
+            # This is more reliable than the API which returns test data
+            url = "https://html.duckduckgo.com/html/"
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            }
             params = {
                 "q": query,
-                "format": "json",
-                "no_html": "1",
-                "skip_disambig": "1"
+                "kl": "us-en"
             }
 
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(url, params=params)
-                data = response.json()
+            async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
+                response = await client.get(url, params=params, headers=headers)
+
                 if response.status_code != 200:
-                    return None, f"DuckDuckGo API error: HTTP {response.status_code}.\n Details: {data}"
+                    return None, f"DuckDuckGo search error: HTTP {response.status_code}"
+
+                # Parse HTML results
+                from bs4 import BeautifulSoup
+                soup = BeautifulSoup(response.text, 'html.parser')
 
                 results = []
 
-                # Get instant answer if available
-                if data.get("AbstractText"):
-                    result = SearchResult(
-                        title=data.get("Heading", query),
-                        url=data.get("AbstractURL", ""),
-                        snippet=data.get("AbstractText", ""),
-                        source="DuckDuckGo"
-                    )
-                    results.append(result)
+                # Find result divs
+                result_divs = soup.find_all('div', class_='result')
 
-                # Get related topics
-                for topic in data.get("RelatedTopics", [])[:num_results]:
-                    if isinstance(topic, dict) and "Text" in topic:
+                for div in result_divs[:num_results]:
+                    # Extract title and link
+                    title_tag = div.find('a', class_='result__a')
+                    if not title_tag:
+                        continue
+
+                    title = title_tag.get_text(strip=True)
+                    url = title_tag.get('href', '')
+
+                    # Extract snippet
+                    snippet_tag = div.find('a', class_='result__snippet')
+                    if snippet_tag:
+                        snippet = snippet_tag.get_text(strip=True)
+                    else:
+                        # Fallback to any text content
+                        snippet_div = div.find('div', class_='result__body')
+                        if snippet_div:
+                            # Remove any script/style tags and get text
+                            for script in snippet_div(["script", "style"]):
+                                script.decompose()
+                            snippet = snippet_div.get_text(strip=True)
+                        else:
+                            snippet = ""
+
+                    # Clean up snippet
+                    snippet = ' '.join(snippet.split())[:300]  # Limit to 300 chars
+
+                    if title and url:
                         result = SearchResult(
-                            title=topic.get("Text", "")[:100],
-                            url=topic.get("FirstURL", ""),
-                            snippet=topic.get("Text", ""),
+                            title=title,
+                            url=url,
+                            snippet=snippet,
                             source="DuckDuckGo"
                         )
                         results.append(result)
 
-                return results[:num_results], None
+                return results, None
 
+        except ImportError:
+            # Fallback to API method if bs4 is not available
+            return await self._search_duckduckgo_api_fallback(query, num_results)
         except httpx.TimeoutException:
             return None, "Search request timed out"
         except Exception as e:
             return None, f"Error performing DuckDuckGo search: {type(e).__name__}: {str(e)}"
+
+    async def _search_duckduckgo_api_fallback(self, query: str, num_results: int) -> tuple[Optional[List[SearchResult]], Optional[str]]:
+        """Fallback method using DuckDuckGo API with better error handling."""
+        try:
+            # Use the vqd endpoint for more reliable results
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                # First, get a VQD token
+                vqd_url = "https://duckduckgo.com/"
+                params = {"q": query}
+                response = await client.get(vqd_url, params=params)
+
+                if response.status_code != 200:
+                    return None, f"DuckDuckGo vqd token error: HTTP {response.status_code}"
+
+                # Extract VQD from HTML
+                import re
+                vqd_match = re.search(r'vqd=([\d-]+)', response.text)
+                if not vqd_match:
+                    return None, "Could not extract VQD token from DuckDuckGo"
+
+                vqd = vqd_match.group(1)
+
+                # Now perform the actual search
+                search_url = "https://duckduckgo.com/html/"
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                }
+                params = {
+                    "q": query,
+                    "vqd": vqd,
+                    "kl": "us-en"
+                }
+
+                response = await client.get(search_url, params=params, headers=headers)
+
+                if response.status_code != 200:
+                    return None, f"DuckDuckGo search error: HTTP {response.status_code}"
+
+                # Parse results from HTML
+                from bs4 import BeautifulSoup
+                soup = BeautifulSoup(response.text, 'html.parser')
+
+                results = []
+                result_divs = soup.find_all('div', class_='result')
+
+                for div in result_divs[:num_results]:
+                    title_tag = div.find('a', class_='result__a')
+                    if title_tag:
+                        title = title_tag.get_text(strip=True)
+                        url = title_tag.get('href', '')
+
+                        snippet_tag = div.find('a', class_='result__snippet')
+                        snippet = snippet_tag.get_text(strip=True) if snippet_tag else ""
+
+                        if title and url:
+                            result = SearchResult(
+                                title=title,
+                                url=url,
+                                snippet=snippet,
+                                source="DuckDuckGo"
+                            )
+                            results.append(result)
+
+                return results, None
+
+        except Exception as e:
+            # Final fallback with a simple web search simulation
+            return None, f"DuckDuckGo search failed: {str(e)}. Consider using a different search provider or installing BeautifulSoup4."
 
     async def _perform_search(
         self,

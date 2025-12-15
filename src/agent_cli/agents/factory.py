@@ -26,7 +26,7 @@ from .llm_provider_factory import create_llm_provider, get_supported_providers
 from .agent_factory_impl import create_agent as _create_agent, get_supported_agent_types
 from .exceptions import AgentFactoryError
 
-AgentType = Literal["coding", "simple", "analyzer", "reviewer", "product", "architect"]
+AgentType = Literal["coding", "simple", "simplev2", "analyzer", "reviewer", "product", "architect"]
 
 
 def create_agent(
