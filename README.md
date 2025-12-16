@@ -59,7 +59,25 @@ ArchiFlow is a **production-ready, event-driven AI agent framework** designed fo
 - Python 3.10 or higher
 - Git
 
-### Install from Source
+### Quick Setup (Recommended)
+
+Use the setup script for automated installation:
+
+**Linux/macOS:**
+```bash
+git clone https://github.com/yourusername/archiflow.git
+cd archiflow
+./setup.sh
+```
+
+**Windows:**
+```cmd
+git clone https://github.com/yourusername/archiflow.git
+cd archiflow
+setup.bat
+```
+
+### Manual Installation
 
 ```bash
 # Clone the repository
@@ -83,9 +101,12 @@ cp .env.example .env
 
 ```bash
 # Install runtime dependencies
-pip install -r requirements-runtime.txt
+pip install -r requirements.txt
 
 # Or install with development dependencies
+pip install -r requirements-dev.txt
+
+# Or install with development dependencies (alternative method)
 pip install -e ".[dev]"
 ```
 

@@ -1,0 +1,32 @@
+# Core dependencies for ArchiFlow
+# Required for running the application
+
+# CLI and Terminal Interface
+click>=8.1.0
+prompt_toolkit>=3.0.0
+rich>=13.0.0
+
+# Configuration and Data Validation
+pyyaml>=6.0
+pydantic>=2.0.0
+
+# Async file operations
+aiofiles>=23.0.0
+
+# System monitoring
+psutil>=5.9.0
+
+# HTTP client for web tools
+httpx>=0.24.0
+
+# HTML to markdown conversion
+html2text>=2020.1.16
+
+# OpenAI SDK (used by OpenAI and GLM providers)
+openai>=1.0.0
+
+# Optional: Anthropic SDK (will be installed if using Anthropic provider)
+# anthropic>=0.3.0
+
+# Note: Anthropic SDK is optional and only required if using Anthropic provider
+# Install with: pip install anthropic>=0.3.0
