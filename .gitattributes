@@ -1,0 +1,28 @@
+# Set the default behavior, in case people don't have core.autocrlf set.
+* text=auto
+
+# Explicitly declare text files you want to always be normalized and converted
+# to native line endings on checkout.
+*.java text
+*.py text
+*.yaml text
+*.yml text
+*.json text
+*.md text
+*.txt text
+*.sh text
+*.bat text
+*.cmd text
+
+# Denote all files that are truly binary and should not be modified.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+
+# License file should maintain Unix line endings
+LICENSE text eol=lf
