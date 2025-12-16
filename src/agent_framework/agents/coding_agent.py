@@ -3,6 +3,10 @@ Coding Agent Implementation.
 """
 import logging
 from typing import Optional, List, Dict, Any, Callable
+from datetime import datetime
+import json
+import os
+from pathlib import Path
 
 from ..messages.types import BaseMessage, UserMessage, AgentFinishedMessage
 from ..tools.tool_base import ToolRegistry
@@ -11,6 +15,47 @@ from .project_agent import ProjectAgent
 from ..tools.all_tools import get_tool_collection
 
 logger = logging.getLogger(__name__)
+
+
+def _backup_existing_pr_description(review_dir: Path) -> None:
+    """
+    Backup existing pr_description.md to history folder with timestamp.
+
+    Args:
+        review_dir: Path to the review directory
+    """
+    pr_file = review_dir / "pr_description.md"
+
+    if pr_file.exists():
+        try:
+            # Create history directory if it doesn't exist
+            history_dir = review_dir / "history"
+            history_dir.mkdir(exist_ok=True)
+
+            # Create timestamped backup filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_file = history_dir / f"pr_description_{timestamp}.md"
+
+            # Read original content
+            original_content = pr_file.read_text(encoding='utf-8')
+
+            # Add backup header with original file info
+            backup_header = f"""# Backup of pr_description.md
+
+**Original file**: .agent/review/pr_description.md
+**Backup timestamp**: {datetime.now().isoformat()}
+**Reason**: New PR description being generated
+
+---
+
+"""
+
+            # Write to backup file
+            backup_file.write_text(backup_header + original_content, encoding='utf-8')
+            logger.info(f"Backed up existing pr_description.md to {backup_file}")
+
+        except Exception as e:
+            logger.error(f"Failed to backup existing pr_description.md: {e}")
 
 
 class CodingAgent(ProjectAgent):
@@ -443,9 +488,13 @@ Generate the PR description now:"""
         except Exception as e:
             logger.error(f"LLM generation failed: {e}")
             pr_description = self._generate_fallback_pr_description(context)
-        
+  
         # Save (ensure directory exists)
         review_dir.mkdir(parents=True, exist_ok=True)
+
+        # Backup existing PR description if it exists
+        _backup_existing_pr_description(review_dir)
+
         pr_file = review_dir / "pr_description.md"
         pr_file.write_text(pr_description, encoding='utf-8')
         
