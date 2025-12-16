@@ -1283,6 +1283,23 @@ Architectural security features and best practices:
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+### TL;DR
+
+✅ **What you CAN do:**
+- Commercial use
+- Distribution
+- Modification
+- Private use
+- Sublicensing
+
+❌ **What you MUST do:**
+- Include the copyright notice
+- Include the license text
+- State changes if you modify the code
+
+⚠️ **No Warranty:**
+The software is provided "as is" without warranty of any kind.
+
 ## 🙏 Acknowledgments
 
 - [Rich](https://github.com/Textualize/rich) for beautiful terminal output
