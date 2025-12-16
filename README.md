@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/images/logo.png" alt="ArchiFlow Logo" width="200"/>
+</p>
+
 # ArchiFlow
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
@@ -732,6 +736,10 @@ A versatile agent for general queries and basic interactions when specialized ex
 A minimal agent implementation for testing and simple tasks. Demonstrates core agent patterns and is useful for quick prototypes.
 
 ## 🔄 Complete Development Lifecycle Workflow
+
+<p align="center">
+  <img src="assets/images/multi_agent_flow.jpg" alt="Multi-Agent Workflow Diagram" width="700"/>
+</p>
 
 The ArchiFlow agents work together to form a complete software development team, following industry best practices:
 

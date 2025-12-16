@@ -6,6 +6,7 @@ from urllib.parse import urlparse, urlunparse
 import httpx
 import html2text
 from .tool_base import BaseTool, ToolResult
+from ..config.env_loader import load_env
 
 
 class WebFetchTool(BaseTool):
@@ -229,29 +230,39 @@ class WebFetchTool(BaseTool):
             Tuple of (llm_response, error_message)
         """
         try:
-            # Import LLM components
-            from app.llm.openai import LLMOpenAI
-            from app.configs.config import LLMConfig
-            from app.schema.message import Message
+            # Load environment variables
+            load_env()
 
-            # Get API key from environment
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                return None, "OPENAI_API_KEY not found in environment. Set it to use WebFetch."
+            # Import LLM factory to use configured provider
+            from agent_cli.agents.llm_provider_factory import create_llm_provider
+            from agent_framework.messages.types import SystemMessage, UserMessage
 
-            # Create a lightweight config for fast processing
-            config = LLMConfig(
-                api_key=api_key,
-                base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
-                model=os.getenv("WEBFETCH_MODEL", "gpt-4o-mini"),  # Use fast, cheap model
-                max_tokens=2000,
-                temperature=0.1,  # Low temperature for factual extraction
-                api_type="Openai",
-                api_version="v1"
-            )
+            # Use the default LLM provider from environment
+            # Allow override with WEBFETCH_PROVIDER if needed
+            provider_name = os.getenv("WEBFETCH_PROVIDER", os.getenv("DEFAULT_LLM_PROVIDER", "mock"))
 
-            # Create LLM instance
-            llm = LLMOpenAI(config)
+            # Get default model from environment, allow override with WEBFETCH_MODEL
+            # First try WEBFETCH_MODEL, then provider-specific default model, then None
+            model_name = os.getenv("WEBFETCH_MODEL")
+            if not model_name:
+                # Try provider-specific default model
+                if provider_name.lower() == "openai":
+                    model_name = os.getenv("OPENAI_MODEL", os.getenv("DEFAULT_OPENAI_MODEL"))
+                elif provider_name.lower() == "anthropic":
+                    model_name = os.getenv("ANTHROPIC_MODEL", os.getenv("DEFAULT_ANTHROPIC_MODEL"))
+                elif provider_name.lower() == "glm":
+                    model_name = os.getenv("GLM_MODEL", os.getenv("DEFAULT_ZHIPU_MODEL"))
+                # If still None, let factory use provider's default
+
+            # Create LLM provider using factory
+            try:
+                llm = create_llm_provider(provider=provider_name, model=model_name)
+            except Exception as e:
+                # If provider creation fails, try with mock provider as fallback
+                try:
+                    llm = create_llm_provider(provider="mock", model="mock")
+                except Exception as e2:
+                    return None, f"Failed to create LLM provider ({provider_name}): {str(e)}. Mock fallback also failed: {str(e2)}"
 
             # Truncate content if too long (keep first part)
             max_content_length = 100000  # ~25k tokens
@@ -259,20 +270,31 @@ class WebFetchTool(BaseTool):
                 content = content[:max_content_length] + "\n\n[Content truncated...]"
 
             # Create messages
-            system_msg = Message.system_message(
-                "You are a helpful assistant that extracts and summarizes information from web content. "
-                "The content has been converted from HTML to markdown format."
+            system_msg = SystemMessage(
+                session_id="web_fetch",
+                sequence=1,
+                content="You are a helpful assistant that extracts and summarizes information from web content. "
+                       "The content has been converted from HTML to markdown format. "
+                       "Provide clear, factual responses based on the content provided."
             )
-            user_msg = Message.user_message(
-                f"Here is the web page content:\n\n{content}\n\n"
-                f"User request: {prompt}\n\n"
-                f"Please provide a clear and concise response."
+            user_msg = UserMessage(
+                session_id="web_fetch",
+                sequence=2,
+                content=f"Here is the web page content:\n\n{content}\n\n"
+                       f"User request: {prompt}\n\n"
+                       f"Please provide a clear and concise response based on the content."
             )
 
-            # Query the LLM
-            response = await llm.query([system_msg, user_msg])
+            # Convert messages to LLM format
+            messages = [
+                {"role": "system", "content": system_msg.content},
+                {"role": "user", "content": user_msg.content}
+            ]
 
-            if response and hasattr(response, 'content') and response.content:
+            # Generate response
+            response = llm.generate(messages)
+
+            if response and response.content:
                 return response.content, None
             else:
                 return None, "LLM returned empty response"
