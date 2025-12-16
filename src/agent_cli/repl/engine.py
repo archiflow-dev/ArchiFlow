@@ -11,6 +11,7 @@ from typing import Any
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
+from prompt_toolkit.key_binding import KeyBindings
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -78,6 +79,10 @@ class REPLEngine:
         self.agent_idle = asyncio.Event()
         self.agent_idle.set()
 
+        # Event to track if agent should be aborted
+        self.agent_abort = asyncio.Event()
+        self.agent_abort.clear()
+
         # Prompt improvement - Phase 1: Vagueness detection (LLM-based)
         # Use lazy initialization to speed up startup
         self._vagueness_detector = None
@@ -95,6 +100,7 @@ class REPLEngine:
             self.session_manager  # Pass session manager for agent sync
         )
 
+        
     @property
     def vagueness_detector(self):
         """Lazy initialization of vagueness detector."""
@@ -125,6 +131,51 @@ class REPLEngine:
                 "path": "ansiblue",
             }
         )
+
+    def _handle_abort(self) -> None:
+        """Handle agent abort when Escape key is pressed."""
+        if not self.agent_idle.is_set():
+            # Agent is running, send abort signal
+            console.print("\n[red]⚡ Aborting agent execution...[/red]")
+
+            # Send abort message to active session
+            success = self.session_manager.abort_agent()
+
+            if success:
+                # Set the abort event
+                self.agent_abort.set()
+
+                # Also set idle to return control to user
+                self.agent_idle.set()
+
+                console.print("[yellow]Agent execution aborted. Press Enter to continue.[/yellow]")
+            else:
+                console.print("[red]Failed to abort agent - no active session[/red]")
+        else:
+            # Agent is idle, ignore Escape key
+            console.print("\n[dim]Agent is idle - nothing to abort[/dim]")
+
+    
+    def _get_key_bindings(self) -> KeyBindings:
+        """Create key bindings for the prompt session."""
+        kb = KeyBindings()
+
+        @kb.add('escape')
+        def _(event):
+            """Handle Escape key press to abort agent execution."""
+            # Only handle abort if agent is running
+            if not self.agent_idle.is_set():
+                # Clear any current input
+                event.app.current_buffer.reset()
+                # Handle the abort
+                self._handle_abort()
+                # Don't show the escape character
+                event.app.current_buffer.insert_text("")
+            else:
+                # Agent is idle, ignore Escape
+                pass
+
+        return kb
 
     def _get_prompt(self) -> str:
         """
@@ -163,6 +214,8 @@ You can:
 - Use `/shell-commands` to see all available shell commands
 - Use `/help` to see available CLI commands
 - Use `/exit` or press Ctrl+D to quit
+- Press **Ctrl+C** to abort a running agent during thinking
+- Press **Escape** to abort when prompted for input
 
 The prompt shows your current directory: `[path] >>> `
 
@@ -354,7 +407,7 @@ Type your message and press Enter to begin.
             self.renderer.error(f"Error rendering message: {e}")
         finally:
             # Check if we should unblock input
-            if msg_type in ("AGENT_FINISHED", "WAIT_FOR_USER_INPUT", "Error"):
+            if msg_type in ("AGENT_FINISHED", "WAIT_FOR_USER_INPUT", "Error", "AbortAck"):
                 logger.debug(f"Setting agent_idle event for message type: {msg_type}")
                 self.agent_idle.set()
 
@@ -372,6 +425,7 @@ Type your message and press Enter to begin.
             self.session = PromptSession(
                 history=self.history,
                 style=self._create_style(),
+                key_bindings=self._get_key_bindings(),
             )
 
         # Start message processing task
@@ -398,13 +452,38 @@ Type your message and press Enter to begin.
                     await self._process_input(user_input)
 
                     # Wait for agent if it's running
+                    # Note: We only wait if there's actually an agent running
+                    # The agent_idle event is set when agent is idle and cleared when agent is working
                     if not self.agent_idle.is_set():
                         logger.debug("Starting spinner, waiting for agent to finish...")
-                        with console.status("[bold green]Thinking...[/bold green]", spinner="dots") as status:
-                            await self.agent_idle.wait()
+
+                        # Check if abort was triggered from previous iteration
+                        if self.agent_abort.is_set():
+                            self.agent_abort.clear()
+                            continue
+
+                        with console.status(
+                            "[bold green]Thinking...[/bold green]",
+                            spinner="dots"
+                        ) as status:
+                            # Wait for agent to finish
+                            # Note: prompt_toolkit key bindings don't work during async/await
+                            # The user must use Ctrl+C to abort during thinking phase
+                            # Escape key works only during prompt input phase
+                            try:
+                                await self.agent_idle.wait()
+                            except asyncio.CancelledError:
+                                # User pressed Ctrl+C
+                                self._handle_abort()
+                                self.agent_idle.set()
+
                             # Explicitly stop to ensure it updates
                             status.stop()
+
                         logger.debug("Spinner stopped, agent is idle")
+                    else:
+                        # Agent is idle, this is normal - we can accept new input
+                        pass
 
                 except KeyboardInterrupt:
                     # Ctrl+C - cancel current line

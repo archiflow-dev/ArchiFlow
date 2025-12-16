@@ -99,6 +99,18 @@ class RuntimeExecutor:
         """
         try:
             payload = message.payload
+
+            # Check for Abort message
+            if payload.get('type') == 'Abort':
+                logger.info("Received abort signal in runtime executor")
+                # Publish abort acknowledgement
+                self.broker.publish(self.context.client_topic, {
+                    "type": "AbortAck",
+                    "session_id": payload.get('session_id'),
+                    "content": "Tool execution aborted"
+                })
+                return
+
             # Check if it's a batch request
             if 'tool_calls' in payload:
                 await self._handle_batch_request(message)
@@ -239,8 +251,20 @@ class RuntimeExecutor:
         """Handle BatchToolCallRequest."""
         from agent_framework.runtime.messages import BatchToolCallRequest
         from agent_framework.messages.types import BatchToolResultObservation, ToolResultObservation
-        
+
         try:
+            # Check for Abort message first
+            payload = message.payload
+            if payload.get('type') == 'Abort':
+                logger.info("Received abort signal in batch request handler")
+                # Publish abort acknowledgement
+                self.broker.publish(self.context.client_topic, {
+                    "type": "AbortAck",
+                    "session_id": payload.get('session_id'),
+                    "content": "Batch tool execution aborted"
+                })
+                return
+
             request = BatchToolCallRequest.from_dict(message.payload)
             
             # For now, we assume all tools are independent and run them in parallel

@@ -40,7 +40,22 @@ class AgentController:
                 return
 
             msg_type = payload.get('type')
-            
+
+            # Handle Abort message immediately
+            if msg_type == "Abort":
+                logger.info("Received abort signal, cancelling agent execution")
+                # Call abort on the agent if it has the method
+                if hasattr(self.agent, 'abort'):
+                    self.agent.abort()
+                # Publish abort acknowledgement to client
+                self.broker.publish(self.context.client_topic, {
+                    "type": "AbortAck",
+                    "session_id": payload.get('session_id'),
+                    "content": "Agent execution aborted"
+                })
+                # Return without processing
+                return
+
             # Map legacy/simple types to class names if needed, or rely on sender to be correct
             # For robustness, let's handle the mapping here or ensure senders are correct.
             # Let's assume senders will be updated to send class names, but we can have a fallback map.

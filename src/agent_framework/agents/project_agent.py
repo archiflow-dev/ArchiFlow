@@ -12,7 +12,7 @@ from typing import Optional, Callable, List, Dict, Any
 from abc import abstractmethod
 
 from ..messages.types import (
-    BaseMessage, SystemMessage, ToolCallMessage,
+    BaseMessage, UserMessage, SystemMessage, ToolCallMessage,
     ToolResultObservation, LLMRespondMessage, AgentFinishedMessage,
     ToolCall
 )
@@ -502,6 +502,21 @@ class ProjectAgent(BaseAgent):
         """
         if not self.is_running:
             return None
+
+        # Check if agent was aborted
+        if getattr(self, 'aborted', False):
+            # Create an aborted message
+            from ..messages.types import AgentFinishedMessage
+            return AgentFinishedMessage(
+                session_id=self.session_id,
+                sequence=self._next_sequence(),
+                content="Agent execution was aborted",
+                status="aborted"
+            )
+
+        # Reset aborted flag for new user messages
+        if isinstance(message, UserMessage):
+            self.aborted = False
 
         # 1. Update Memory
         self._update_memory(message)

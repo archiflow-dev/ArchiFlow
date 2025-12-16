@@ -77,6 +77,7 @@ class BaseAgent(ABC):
         )
         self.tracker = EnvironmentTracker()
         self.persistent_memory = PersistentMemory()
+        self.aborted = False  # Flag to track if agent was aborted
 
         self.context_injector = ContextInjector(
             tracker=self.tracker,
@@ -94,6 +95,15 @@ class BaseAgent(ABC):
     def get_system_message(self) -> str:
         """Get the system message for this agent."""
         pass
+
+    def abort(self) -> None:
+        """Abort the agent's current execution."""
+        self.aborted = True
+        logger.info(f"Agent {self.__class__.__name__} aborted")
+
+    def reset_aborted(self) -> None:
+        """Reset the aborted flag (for new messages)."""
+        self.aborted = False
 
     @abstractmethod
     def step(self, message: BaseMessage) -> BaseMessage:
@@ -141,6 +151,7 @@ class SimpleAgent(BaseAgent):
         self.sequence_counter = 0
         self.is_running = True
         self._system_added = False
+        self.aborted = False
 
         # Use dict config for flexibility
         config = {
@@ -192,10 +203,25 @@ class SimpleAgent(BaseAgent):
         """Process a message."""
         if not self.is_running:
             return None
-            
+
+        # Check if agent was aborted
+        if getattr(self, 'aborted', False):
+            # Create an aborted message
+            from ..messages.types import AgentFinishedMessage
+            return AgentFinishedMessage(
+                session_id=self.session_id,
+                sequence=self._next_sequence(),
+                content="Agent execution was aborted",
+                status="aborted"
+            )
+
+        # Reset aborted flag for new user messages
+        if isinstance(message, UserMessage):
+            self.aborted = False
+
         # 1. Update Memory
         self._update_memory(message)
-        
+
         # 2. Handle Stop
         if isinstance(message, StopMessage):
             self.is_running = False

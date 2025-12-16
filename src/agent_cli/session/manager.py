@@ -228,6 +228,47 @@ class SessionManager:
 
         return True
 
+    def abort_agent(self, session_id: str | None = None) -> bool:
+        """
+        Abort the currently running agent in a session.
+
+        Args:
+            session_id: Optional session ID (uses active session if not provided)
+
+        Returns:
+            True if abort message was sent, False otherwise
+        """
+        # Get session
+        if session_id:
+            session = self.get_session(session_id)
+        else:
+            session = self.get_active_session()
+
+        if not session or not session.active:
+            return False
+
+        # Publish Abort message to agent_topic
+        session.broker.publish(
+            session.context.agent_topic,
+            {
+                "type": "Abort",
+                "content": "Agent execution aborted by user",
+                "session_id": session.session_id,
+            },
+        )
+
+        # Also publish to runtime_topic to stop any running tool execution
+        session.broker.publish(
+            session.context.runtime_topic,
+            {
+                "type": "Abort",
+                "content": "Tool execution aborted by user",
+                "session_id": session.session_id,
+            },
+        )
+
+        return True
+
     def close_session(self, session_id: str) -> bool:
         """
         Close a session and cleanup resources.
