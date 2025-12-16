@@ -244,7 +244,7 @@ Don't keep trying the same tool repeatedly if it's clearly not working."""
                     tool_name=tc.name,
                     arguments=json.loads(tc.arguments) if isinstance(tc.arguments, str) else tc.arguments
                 ))
-                
+
             tool_msg = ToolCallMessage(
                 session_id=self.session_id,
                 sequence=self._next_sequence(),

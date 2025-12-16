@@ -293,7 +293,13 @@ Use TODO tools to track progress through phases:
 3. Mark ALL todos as completed BEFORE calling finish_task
 
 ## RULES
-*   **Explain your thinking**: Before using tools, briefly explain what you're about to do and why. This helps users understand your approach. If you respond with a tool call, also include a message to the user in plain language in the same assistant message before the tool call.
+*   **ALWAYS explain your thinking**: You MUST ALWAYS include a thinking/explanation message when using tools. Your response should follow this format:
+    1. First, explain in plain language what you're about to do and why (this will be displayed as "💭 Thinking").
+    2. Then, provide the tool call(s).
+
+    IMPORTANT: If you respond with a tool call, also include a message to the user in plain language in the same assistant message before the tool call.
+
+    This is MANDATORY - every tool execution must be preceded by thinking.
 *   **Use `todo_write` proactively**: The system relies on the todo list state. Update it frequently.
 
 ## TERMINATION

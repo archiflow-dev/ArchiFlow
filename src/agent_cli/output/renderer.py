@@ -341,7 +341,7 @@ class OutputRenderer:
             args = message.get("arguments", {})
             
             # Special rendering for todo_write
-            if tool_name == "todo_write" and "todos" in args:
+            if (tool_name == "todo_write" or tool_name == "todo_write_v2") and "todos" in args:
                 self.render_todo_list(args["todos"])
             else:
                 # Show detailed tool information based on tool type

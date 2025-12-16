@@ -89,12 +89,28 @@ class CodingAgent(ProjectAgent):
     *   If you need to explore or research, do it before making changes.
 3.  **UPDATE**: After completing a step, use `todo_write` to mark it as "completed" and the next step as "in_progress".
 4.  **VERIFY**: ALWAYS verify your changes (e.g., run tests, check file content) before marking a step as completed.
+   - **If you've written code**: Create/update tests and run them to ensure they pass
+   - **If tests exist**: Run the test suite to verify no regressions
+   - **No tests?**: Create appropriate tests before considering the task complete
 5.  **FINISH**: When all steps are marked "completed" and you have verified the solution, use the `finish_task` tool to signal completion.
 
 ## RULES
-*   **Explain your thinking**: Before using tools, briefly explain what you're about to do and why. This helps users understand your approach. If you respond with a tool call, also include a message to the user in plain language in the same assistant message before the tool call.
+*   **ALWAYS explain your thinking**: You MUST ALWAYS include a thinking/explanation message when using tools. Your response should follow this format:
+    1. First, explain in plain language what you're about to do and why (this will be displayed as "💭 Thinking").
+    2. Then, provide the tool call(s).
+
+    IMPORTANT: If you respond with a tool call, also include a message to the user in plain language in the same assistant message before the tool call.
+
+    Example: "I need to read the configuration file to understand the current settings. Let me check the config.json file."
+
+    This is MANDATORY - every tool execution must be preceded by thinking.
 *   **Use `todo_write` proactively**: The system relies on the todo list state. Update it frequently.
 *   **Verification is mandatory**: Never assume your code works. Verify it.
+*   **Testing is required**: Always create tests for your changes and ensure all tests pass before marking a task as completed. This includes:
+    - Writing unit tests for new functionality
+    - Running existing test suites to verify no regressions
+    - Creating integration tests when appropriate
+    - Verifying test coverage for critical paths
 *   **Clarity**: If the user's request is unclear, you may ask for clarification, but try to resolve ambiguities yourself if possible.
 *   **Tools**: You have access to file editing, shell commands, and file reading. Use them effectively.
 
