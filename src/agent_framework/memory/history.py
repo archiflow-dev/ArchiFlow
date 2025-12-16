@@ -383,6 +383,10 @@ class HistoryManager:
             elif isinstance(msg, LLMRespondMessage):
                 role = "assistant"
                 content = msg.content
+            elif isinstance(msg, AgentFinishedMessage):
+                # AgentFinishedMessage doesn't have content, use reason instead
+                role = "assistant"
+                content = f"[Task completed: {msg.reason}]"
             elif isinstance(msg, BatchToolResultObservation):
                  # Batch results might need to be split or handled as multiple tool messages
                  # For OpenAI, each tool result is a separate message

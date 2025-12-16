@@ -60,7 +60,8 @@ class AgentFactory:
             name="simple",
             agent_class=SimpleAgent,
             session_prefix="simple",
-            requires_project_dir=False
+            requires_project_dir=False,
+            creator_func=self._create_simple_agent
         )
 
         # Register SimpleAgent v2 (enhanced with profiles)
@@ -214,40 +215,42 @@ class AgentFactory:
                 **kwargs
             )
 
-        # Default creation logic
-        try:
-            # Special handling for SimpleAgent which uses different parameter order
-            if config.agent_class == SimpleAgent:
-                # Filter out project_directory since SimpleAgent doesn't use it
-                filtered_kwargs = {k: v for k, v in kwargs.items() if k != 'project_directory'}
-                agent = config.agent_class(session_id=session_id, llm=llm_provider, **filtered_kwargs)
-            else:
-                # Most agents expect: session_id, llm (or llm_provider), **kwargs
-                # Check if the class has a parameter named 'llm' or 'llm_provider'
-                import inspect
-                sig = inspect.signature(config.agent_class.__init__)
-                if 'llm_provider' in sig.parameters:
-                    agent = config.agent_class(
-                        session_id=session_id,
-                        llm_provider=llm_provider,
-                        **kwargs
-                    )
+        # Default creation logic (only when no creator_func is provided)
+        else:
+            try:
+                # Special handling for SimpleAgent which uses different parameter order
+                # This only applies when there's no custom creator_func
+                if config.agent_class == SimpleAgent:
+                    # Filter out project_directory since SimpleAgent doesn't use it
+                    filtered_kwargs = {k: v for k, v in kwargs.items() if k != 'project_directory'}
+                    agent = config.agent_class(session_id=session_id, llm=llm_provider, **filtered_kwargs)
                 else:
-                    agent = config.agent_class(
-                        session_id=session_id,
-                        llm=llm_provider,
-                        **kwargs
-                    )
+                    # Most agents expect: session_id, llm (or llm_provider), **kwargs
+                    # Check if the class has a parameter named 'llm' or 'llm_provider'
+                    import inspect
+                    sig = inspect.signature(config.agent_class.__init__)
+                    if 'llm_provider' in sig.parameters:
+                        agent = config.agent_class(
+                            session_id=session_id,
+                            llm_provider=llm_provider,
+                            **kwargs
+                        )
+                    else:
+                        agent = config.agent_class(
+                            session_id=session_id,
+                            llm=llm_provider,
+                            **kwargs
+                        )
 
-            # Set execution context on all tools for agents that have them
-            if hasattr(agent, 'tools') and hasattr(agent, 'execution_context'):
-                for tool in agent.tools.list_tools():
-                    tool.execution_context = agent.execution_context
+                # Set execution context on all tools for agents that have them
+                if hasattr(agent, 'tools') and hasattr(agent, 'execution_context'):
+                    for tool in agent.tools.list_tools():
+                        tool.execution_context = agent.execution_context
 
-            return agent
+                return agent
 
-        except Exception as e:
-            raise AgentFactoryError(f"Failed to create {agent_type} agent: {e}") from e
+            except Exception as e:
+                raise AgentFactoryError(f"Failed to create {agent_type} agent: {e}") from e
 
     def get_supported_agent_types(self) -> list[str]:
         """Get list of supported agent type names."""
@@ -374,6 +377,42 @@ class AgentFactory:
         if hasattr(agent, 'execution_context'):
             for tool in agent.tools.list_tools():
                 tool.execution_context = agent.execution_context
+
+        return agent
+
+    def _create_simple_agent(self, session_id, llm_provider, **kwargs) -> SimpleAgent:
+        """Create a SimpleAgent with finish_task tool."""
+        # Create a ToolRegistry and register essential tools including finish_task
+        from agent_framework.tools.all_tools import register_all_tools
+        from agent_framework.tools.tool_base import ToolRegistry
+
+        # Register all tools and get the populated global registry
+        register_all_tools()
+        from agent_framework.tools.tool_base import registry
+        tools_registry = registry
+
+        # Always set the enhanced system prompt
+        enhanced_prompt = """You are a helpful assistant with access to various tools.
+
+IMPORTANT: When you have completed the user's request, you MUST call the finish_task tool
+with the reason for completion. This signals that you are done and the task is complete.
+
+If a tool fails or returns insufficient information:
+1. Do your best with what you have or with your general knowledge
+2. Explain the limitations to the user
+3. Then call finish_task
+
+Don't keep trying the same tool repeatedly if it's clearly not working."""
+
+        # Override any existing system_prompt
+        kwargs['system_prompt'] = enhanced_prompt
+
+        agent = SimpleAgent(
+            session_id=session_id,
+            llm=llm_provider,
+            tools=tools_registry,
+            **kwargs
+        )
 
         return agent
 

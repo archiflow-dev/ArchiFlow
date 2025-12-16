@@ -136,7 +136,25 @@ class SimpleAgent(BaseAgent):
         self.session_id = session_id
         self.tools = tools or ToolRegistry()
         self.tool_registry = self.tools
-        self.system_prompt = system_prompt
+
+        # Add instructions about finish_task and handling failures
+        if system_prompt == "You are a helpful assistant.":
+            # Default prompt - add important instructions
+            self.system_prompt = """You are a helpful assistant with access to various tools.
+
+IMPORTANT: When you have completed the user's request, you MUST call the finish_task tool
+with the reason for completion. This signals that you are done and the task is complete.
+
+If a tool fails or returns insufficient information:
+1. Do your best with what you have or with your general knowledge
+2. Explain the limitations to the user
+3. Then call finish_task
+
+Don't keep trying the same tool repeatedly if it's clearly not working."""
+        else:
+            # Custom prompt - use as is (user might have their own finish_task instructions)
+            self.system_prompt = system_prompt
+
         self.publish_callback = publish_callback
         self.sequence_counter = 0
         self.is_running = True
@@ -150,15 +168,14 @@ class SimpleAgent(BaseAgent):
         }
         super().__init__(llm, config)
 
-        # Only add system message if explicitly provided (not default)
-        # This maintains backward compatibility with tests
-        if system_prompt != "You are a helpful assistant.":
-            self.history.add(SystemMessage(
-                session_id=self.session_id,
-                sequence=self._next_sequence(),
-                content=self.system_prompt
-            ))
-            self._system_added = True
+        # Always add system message (it now includes finish_task instructions)
+        # The enhanced prompt is used even for the default case
+        self.history.add(SystemMessage(
+            session_id=self.session_id,
+            sequence=self._next_sequence(),
+            content=self.system_prompt
+        ))
+        self._system_added = True
 
     def get_system_message(self) -> str:
         """Get the system message for this agent."""

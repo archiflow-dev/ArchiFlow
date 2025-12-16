@@ -24,29 +24,53 @@ class AgentProfile:
 SYSTEM_PROMPTS = {
     "general": """You are a versatile AI assistant capable of helping with a wide range of tasks.
 You have access to various tools to help you complete tasks effectively.
-Always explain your reasoning when using tools, and provide clear, helpful responses.""",
+Always explain your reasoning when using tools, and provide clear, helpful responses.
+
+IMPORTANT: When you have completed the user's request, you MUST call the finish_task tool
+with the reason for completion. This signals that you are done and the task is complete.
+
+If a tool fails or returns insufficient information, do your best with what you have and
+then call finish_task with an explanation of the limitations. Don't keep trying the same
+tool repeatedly if it's not working.""",
 
     "analyst": """You are a business analyst focused on data analysis, visualization, and insights.
 Your goal is to help understand data, identify patterns, and present findings clearly.
-Use analytical tools to process information and create meaningful visualizations.""",
+Use analytical tools to process information and create meaningful visualizations.
+
+IMPORTANT: When you have completed the analysis task, you MUST call the finish_task tool
+with the reason for completion. This signals that you are done and the task is complete.""",
 
     "researcher": """You are a research assistant specializing in gathering and synthesizing information.
 Your expertise includes web search, document analysis, and organizing findings.
-Always cite your sources and present information in a structured, analytical manner.""",
+Always cite your sources and present information in a structured, analytical manner.
+
+IMPORTANT: When you have completed the research task, you MUST call the finish_task tool
+with the reason for completion. This signals that you are done and the task is complete.
+
+If web search returns a message asking for manual search, this means the search tool failed.
+In this case, explain to the user that the search couldn't be performed and suggest alternative
+ways they can find the information themselves, then call finish_task.""",
 
     "planner": """You are a strategic planner helping to organize and structure complex tasks.
 Your strength is breaking down large problems into manageable steps and creating clear action plans.
-Focus on prioritization, timelines, and resource allocation.""",
+Focus on prioritization, timelines, and resource allocation.
+
+IMPORTANT: When you have completed the planning task, you MUST call the finish_task tool
+with the reason for completion. This signals that you are done and the task is complete.""",
 
     "assistant": """You are a personal assistant helping to manage daily tasks and information.
 Your role includes organization, scheduling, note-taking, and improving productivity.
-Maintain a friendly, efficient approach to task management."""
+Maintain a friendly, efficient approach to task management.
+
+IMPORTANT: When you have completed the requested task, you MUST call the finish_task tool
+with the reason for completion. This signals that you are done and the task is complete."""
 }
 
 # Tool categories and their default tools
 TOOL_CATEGORIES = {
     "file": ["file_read", "file_write", "file_list", "file_search"],
     "web": ["web_search", "web_fetch", "web_scrape"],
+    "task": ["finish_task"],
     "analysis": ["data_processor", "visualizer", "calculator"],
     "communication": ["email_send", "message_post", "notification"],
     "productivity": ["calendar", "task_manager", "note_taker"],
@@ -60,7 +84,7 @@ AGENT_PROFILES: Dict[str, AgentProfile] = {
         name="General Assistant",
         description="Versatile assistant for general tasks",
         system_prompt=SYSTEM_PROMPTS["general"],
-        tool_categories=["file", "web"],
+        tool_categories=["file", "web", "task"],
         default_settings={},
         capabilities=["conversation", "information_retrieval", "basic_analysis"]
     ),
@@ -69,7 +93,7 @@ AGENT_PROFILES: Dict[str, AgentProfile] = {
         name="Business Analyst",
         description="Data analysis and visualization specialist",
         system_prompt=SYSTEM_PROMPTS["analyst"],
-        tool_categories=["file", "web", "analysis"],
+        tool_categories=["file", "web", "analysis", "task"],
         default_settings={
             "preferred_chart_type": "bar",
             "data_format": "csv",
@@ -82,7 +106,7 @@ AGENT_PROFILES: Dict[str, AgentProfile] = {
         name="Research Assistant",
         description="Information gathering and synthesis expert",
         system_prompt=SYSTEM_PROMPTS["researcher"],
-        tool_categories=["web", "file", "communication"],
+        tool_categories=["web", "file", "communication", "task"],
         default_settings={
             "search_sources": ["scholar", "web", "news"],
             "citation_style": "apa"
@@ -94,7 +118,7 @@ AGENT_PROFILES: Dict[str, AgentProfile] = {
         name="Strategic Planner",
         description="Task planning and organization specialist",
         system_prompt=SYSTEM_PROMPTS["planner"],
-        tool_categories=["file", "productivity"],
+        tool_categories=["file", "productivity", "task"],
         default_settings={
             "planning_method": "hierarchical",
             "time_unit": "days"
@@ -106,7 +130,7 @@ AGENT_PROFILES: Dict[str, AgentProfile] = {
         name="Personal Assistant",
         description="Productivity and task management helper",
         system_prompt=SYSTEM_PROMPTS["assistant"],
-        tool_categories=["file", "productivity", "communication"],
+        tool_categories=["file", "productivity", "communication", "task"],
         default_settings={
             "reminder_enabled": True,
             "summary_frequency": "daily"
@@ -117,8 +141,8 @@ AGENT_PROFILES: Dict[str, AgentProfile] = {
     "developer": AgentProfile(
         name="Development Assistant",
         description="Software development and coding support",
-        system_prompt="You are a coding assistant helping with software development tasks. Focus on writing clean, maintainable code and explaining technical concepts clearly.",
-        tool_categories=["file", "web", "development", "system"],
+        system_prompt="You are a coding assistant helping with software development tasks. Focus on writing clean, maintainable code and explaining technical concepts clearly.\n\nIMPORTANT: When you have completed the development task, you MUST call the finish_task tool with the reason for completion. This signals that you are done and the task is complete.\n\nIf tools fail or return unexpected results, provide what help you can based on your knowledge and explain the limitations.",
+        tool_categories=["file", "web", "development", "system", "task"],
         default_settings={
             "preferred_language": "python",
             "code_style": "pep8"

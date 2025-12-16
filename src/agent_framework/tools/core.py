@@ -15,6 +15,7 @@ from .tool_base import BaseTool, ToolRegistry
 from .read_tool import ReadTool
 from .write_tool import WriteTool
 from .list_tool import ListTool
+from .finish_tool import FinishAction
 
 # Try to import web tools, with preference for the more reliable v2 version
 WebSearchTool = None
@@ -37,6 +38,7 @@ except ImportError:
 TOOL_REGISTRY = {
     "file": [ReadTool, WriteTool, ListTool],
     "web": [tool for tool in [WebSearchTool, WebFetchTool] if tool is not None],
+    "task": [FinishAction],  # Task management tools like finish_task
     # Additional categories will be added as tools are implemented
     "analysis": [],  # Placeholder for data analysis tools
     "communication": [],  # Placeholder for communication tools
@@ -60,6 +62,12 @@ TOOL_METADATA = {
         "tools": {
             "web_search": "Search the web",
             "web_fetch": "Fetch web page content"
+        }
+    },
+    "task": {
+        "description": "Task management tools",
+        "tools": {
+            "finish_task": "Signal that the task is complete"
         }
     }
 }

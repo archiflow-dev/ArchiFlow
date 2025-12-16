@@ -121,12 +121,15 @@ class SimpleAgent(BaseAgent):
         tool_registry = ToolRegistry()
 
         if profile == "custom":
-            # For custom profile, load basic tools
-            tool_categories = ["file", "web"]
+            # For custom profile, load basic tools + finish_task
+            tool_categories = ["file", "web", "task"]
         else:
             # Get tool categories from profile
             profile_config = get_profile(profile)
             tool_categories = profile_config.tool_categories
+            # Always include finish_task tool
+            if "task" not in tool_categories:
+                tool_categories.append("task")
 
         # Load tools by category
         for category in tool_categories:
