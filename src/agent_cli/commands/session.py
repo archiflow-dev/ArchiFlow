@@ -119,8 +119,7 @@ async def new_command(*args: str, **context: object) -> None:
 
         # Subscribe to output to receive agent messages
         # This ensures messages are rendered immediately
-        if not repl_engine.subscribed:
-            repl_engine.subscribe_to_output()
+        repl_engine.subscribe_to_output(session.session_id)
 
         # Display success message
         console.print(
@@ -216,10 +215,8 @@ async def switch_command(*args: str, **context: object) -> None:
 
     session_manager.active_session_id = session_id
 
-    # Re-subscribe to the new session's output
-    # Mark as not subscribed so subscribe_to_output will set up new subscription
-    repl_engine.subscribed = False
-    repl_engine.subscribe_to_output()
+    # Subscribe to the new session's output
+    repl_engine.subscribe_to_output(session_id)
 
     console.print(f"[green]✓[/green] Switched to session: {session_id}")
 
@@ -278,8 +275,7 @@ async def brainstorm_command(*args: str, **context: object) -> None:
         session = session_manager.create_session(agent=agent)
 
         # Subscribe to output (similar to main REPL loop)
-        if not repl_engine.subscribed:
-            repl_engine.subscribe_to_output()
+        repl_engine.subscribe_to_output(session.session_id)
 
         # Display welcome message
         console.print(
@@ -399,8 +395,7 @@ async def architect_command(*args: str, **context: object) -> None:
         session = session_manager.create_session(agent=agent)
 
         # Subscribe to output (similar to main REPL loop)
-        if not repl_engine.subscribed:
-            repl_engine.subscribe_to_output()
+        repl_engine.subscribe_to_output(session.session_id)
 
         # Display welcome message
         console.print(
@@ -552,8 +547,7 @@ async def code_command(*args: str, **context: object) -> None:
         session = session_manager.create_session(agent=agent)
 
         # Subscribe to output (similar to main REPL loop)
-        if not repl_engine.subscribed:
-            repl_engine.subscribe_to_output()
+        repl_engine.subscribe_to_output(session.session_id)
 
         # Display success message
         console.print(
@@ -646,8 +640,7 @@ async def analyzer_command(*args: str, **context: object) -> None:
         session = session_manager.create_session(agent=agent)
 
         # Subscribe to output (similar to main REPL loop)
-        if not repl_engine.subscribed:
-            repl_engine.subscribe_to_output()
+        repl_engine.subscribe_to_output(session.session_id)
 
         # Display welcome message
         console.print(

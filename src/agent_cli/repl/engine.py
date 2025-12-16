@@ -70,8 +70,8 @@ class REPLEngine:
         # Message queue for async communication
         self.message_queue: asyncio.Queue[Any] = asyncio.Queue()
 
-        # Track if we're subscribed to client topic
-        self.subscribed = False
+        # Track which sessions we're subscribed to
+        self.subscribed_sessions: set[str] = set()
 
         # Event to track if agent is idle (waiting for input) or running
         # Start as set (idle) so we can accept initial input
@@ -171,15 +171,31 @@ Type your message and press Enter to begin.
         console.print(Panel(Markdown(welcome_text.strip()), border_style="orange1"))
         console.print()
 
-    def subscribe_to_output(self) -> None:
+    def subscribe_to_output(self, session_id: str | None = None) -> None:
         """
         Subscribe to client_topic to receive messages from agent.
 
         This sets up a broker subscriber that puts messages into the async queue
         for processing by the message renderer.
+
+        Args:
+            session_id: Optional session ID to subscribe to. If None, uses active session.
         """
-        session = self.session_manager.get_active_session()
+        # Get session to subscribe to
+        if session_id:
+            session = self.session_manager.get_session(session_id)
+        else:
+            session = self.session_manager.get_active_session()
+
         if not session:
+            return
+
+        # Check if already subscribed to this session
+        if session.session_id in self.subscribed_sessions:
+            logger.debug(
+                "Already subscribed to session %s, skipping",
+                session.session_id
+            )
             return
 
         # Define callback that puts messages into the queue
@@ -196,19 +212,21 @@ Type your message and press Enter to begin.
             tool_name = payload.get("tool_name", "")
 
             logger.debug(
-                "Received message on client_topic %s: type=%s, tool=%s",
+                "Received message on client_topic %s: type=%s, tool=%s, session=%s",
                 session.context.client_topic,
                 msg_type,
-                tool_name
+                tool_name,
+                session.session_id
             )
 
             # Special logging for ToolResult messages
             if msg_type == "ToolResult":
                 logger.info(
-                    "ToolResult received: tool=%s, status=%s, result_preview=%s...",
+                    "ToolResult received: tool=%s, status=%s, result_preview=%s..., session=%s",
                     tool_name,
                     payload.get("status"),
-                    payload.get("result", "")[:50]
+                    payload.get("result", "")[:50],
+                    session.session_id
                 )
                 # Also log to dedicated tool result logger with more detail
                 tool_result_logger.info(
@@ -217,6 +235,7 @@ Type your message and press Enter to begin.
                     f"Status: {payload.get('status')}\n"
                     f"Result: {payload.get('result', '')}\n"
                     f"Metadata: {payload.get('metadata', {})}\n"
+                    f"Session: {session.session_id}\n"
                     "============================="
                 )
 
@@ -224,17 +243,21 @@ Type your message and press Enter to begin.
             await self.message_queue.put(message)
 
         logger.info(
-            "Subscribing to client_topic %s",
-            session.context.client_topic
+            "Subscribing to client_topic %s for session %s",
+            session.context.client_topic,
+            session.session_id
         )
 
         # Subscribe to client_topic
         session.broker.subscribe(session.context.client_topic, on_message)
-        self.subscribed = True
+
+        # Track this subscription
+        self.subscribed_sessions.add(session.session_id)
 
         logger.info(
-            "Successfully subscribed to client_topic %s",
-            session.context.client_topic
+            "Successfully subscribed to client_topic %s for session %s",
+            session.context.client_topic,
+            session.session_id
         )
 
     async def process_messages(self) -> None:
@@ -357,8 +380,9 @@ Type your message and press Enter to begin.
         try:
             while self.running:
                 try:
-                    # Subscribe to output if we have an active session and not subscribed
-                    if not self.subscribed and self.session_manager.get_active_session():
+                    # Subscribe to output if we have an active session
+                    active_session = self.session_manager.get_active_session()
+                    if active_session and active_session.session_id not in self.subscribed_sessions:
                         self.subscribe_to_output()
 
                     # Get user input with dynamic prompt showing current directory
@@ -395,6 +419,8 @@ Type your message and press Enter to begin.
 
         finally:
             self.running = False
+            # Clean up all subscriptions
+            self.subscribed_sessions.clear()
             # Wait for message task to finish
             message_task.cancel()
             try:
