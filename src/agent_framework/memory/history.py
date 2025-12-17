@@ -1,17 +1,23 @@
 """
 History Manager with Selective Retention compaction strategy.
 """
-import logging
-from typing import List, Optional, Callable, Dict, Any
 import json
+import logging
+from typing import Any
 
-from ..messages.types import (
-    BaseMessage, UserMessage, SystemMessage, ToolCallMessage,
-    ToolResultObservation, BatchToolResultObservation,
-    AgentFinishedMessage, EnvironmentMessage, LLMRespondMessage
-)
-from .summarizer import HistorySummarizer, SimpleSummarizer
 from ..llm.model_config import ModelConfig
+from ..messages.types import (
+    AgentFinishedMessage,
+    BaseMessage,
+    BatchToolResultObservation,
+    EnvironmentMessage,
+    LLMRespondMessage,
+    SystemMessage,
+    ToolCallMessage,
+    ToolResultObservation,
+    UserMessage,
+)
+from .summarizer import HistorySummarizer
 
 logger = logging.getLogger(__name__)
 
@@ -25,16 +31,16 @@ class HistoryManager:
     3. Keep Last N messages (Working Context)
     4. Summarize or drop the middle
     """
-    
+
     def __init__(
         self,
         summarizer: HistorySummarizer,
-        model_config: Optional[ModelConfig] = None,
+        model_config: ModelConfig | None = None,
         system_prompt_tokens: int = 0,
         tools_tokens: int = 0,
         retention_window: int = 10,
         buffer_tokens: int = 500,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         auto_remove_old_todos: bool = True
     ):
         """
@@ -88,9 +94,9 @@ class HistoryManager:
                 "Consider providing model_config for optimal token management."
             )
 
-        self._messages: List[BaseMessage] = []
-        self.summary_message: Optional[SystemMessage] = None
-        
+        self._messages: list[BaseMessage] = []
+        self.summary_message: SystemMessage | None = None
+
     def add(self, message: BaseMessage) -> None:
         """Add a message to history and trigger compaction if needed."""
         # If this is a new TODO message and auto-removal is enabled, remove old TODOs
@@ -113,16 +119,16 @@ class HistoryManager:
                 f"Triggering compaction: {current_tokens} tokens > {self.max_tokens} limit"
             )
             self.compact()
-            
-    def get_messages(self) -> List[BaseMessage]:
+
+    def get_messages(self) -> list[BaseMessage]:
         """Get the current effective list of messages."""
         return self.messages
-        
+
     @property
-    def messages(self) -> List[BaseMessage]:
+    def messages(self) -> list[BaseMessage]:
         """Backward-compatible property to access internal messages list."""
         return self._messages
-        
+
     def get_token_estimate(self) -> int:
         """
         Rough estimate of token count.
@@ -136,11 +142,17 @@ class HistoryManager:
                 content += str(msg.content)
             if hasattr(msg, 'tool_calls') and msg.tool_calls:
                 content += str(msg.tool_calls)
-            
+
             total_chars += len(content)
-            
+
         return total_chars // 4
-        
+
+    def clear(self) -> None:
+        """Clear all messages from history."""
+        self._messages.clear()
+        self.summary_message = None
+        logger.info("History cleared - all messages removed")
+
     def compact(self) -> None:
         """
         Execute compaction strategy.
@@ -156,20 +168,20 @@ class HistoryManager:
         if len(self._messages) <= self.retention_window + 2:
             return
 
-        logger.info("Compacting history (current size: %d, tokens: %d)", 
+        logger.info("Compacting history (current size: %d, tokens: %d)",
                     len(self._messages), self.get_token_estimate())
-        
+
         preserved_head = []
         preserved_tail = []
         middle_chunk = []
-        
+
         # 1. Identify Head (System + Goal)
         idx = 0
         # Keep first SystemMessage if present
         if idx < len(self._messages) and isinstance(self._messages[idx], SystemMessage):
             preserved_head.append(self._messages[idx])
             idx += 1
-            
+
         # Keep first UserMessage (Goal) if present
         # We scan a bit forward to find the first user message
         found_goal = False
@@ -186,13 +198,13 @@ class HistoryManager:
                 found_goal = True
                 break
             temp_idx += 1
-            
+
         if not found_goal:
             # If no user message found early, just keep the first few as head
             end_head = min(idx + 1, len(self._messages))
             preserved_head.extend(self._messages[idx:end_head])
             idx = end_head
-            
+
         # 2. Identify Tail (Last N)
         tail_start = max(idx, len(self._messages) - self.retention_window)
         preserved_tail = self._messages[tail_start:]
@@ -235,7 +247,7 @@ class HistoryManager:
         # 3. Identify Middle
         if tail_start > idx:
             middle_chunk = self._messages[idx:tail_start]
-            
+
         if not middle_chunk:
             return
 
@@ -249,10 +261,10 @@ class HistoryManager:
             session_id=self._messages[0].session_id if self._messages else "unknown",
             sequence=0
         )
-        
+
         # Reconstruct messages
         self._messages = preserved_head + [summary_msg] + preserved_tail
-        
+
         logger.info("Compaction complete. New size: %d", len(self._messages))
 
     def _is_new_todo_message(self, message: BaseMessage) -> bool:
@@ -342,19 +354,19 @@ class HistoryManager:
                 f"(kept {len(todo_indices) - removed_count} in retention window)"
             )
 
-    def to_llm_format(self) -> List[Dict[str, Any]]:
+    def to_llm_format(self) -> list[dict[str, Any]]:
         """Convert to LLM format (delegates to existing logic or implements here)."""
         # Re-using the logic from the original ConversationHistory for consistency
         # Or we can import it. Let's implement a simple version here for independence
         # or better yet, adapt the one from agents/history.py
-        
+
         llm_messages = []
         for msg in self._messages:
             role = None
             content = ""
             tool_calls = None
             tool_call_id = None
-            
+
             if isinstance(msg, UserMessage):
                 role = "user"
                 content = msg.content
@@ -400,7 +412,7 @@ class HistoryManager:
             else:
                 role = "assistant"
                 content = msg.content
-            
+
             if role is not None:
                 msg_dict = {"role": role}
                 if content is not None:
@@ -412,5 +424,5 @@ class HistoryManager:
                 llm_messages.append(msg_dict)
             else:
                 logger.error(f"Message not in any of the User, System , Toolcall, Environment, ToolResult type. msg: {msg}")
-            
+
         return llm_messages
