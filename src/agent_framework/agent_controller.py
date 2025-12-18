@@ -58,12 +58,16 @@ class AgentController:
             from .messages.types import deserialize_message
             try:
                 base_message = deserialize_message(payload)
-                
+
                 # Step the agent
                 response = self.agent.step(base_message)
                 self._handle_agent_response(response)
             except ValueError as e:
                 logger.error(f"Failed to deserialize message: {e}")
+                logger.error(f"Payload type: {payload.get('type')}")
+                logger.error(f"Payload keys: {list(payload.keys())}")
+                import json
+                logger.error(f"Payload (first 500 chars): {json.dumps(payload)[:500]}")
                 
         except Exception as e:
             logger.error(f"Error in on_event: {e}", exc_info=True)

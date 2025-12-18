@@ -15,6 +15,7 @@ from typing import Literal
 
 from agent_framework.agents.base import BaseAgent, SimpleAgent
 from agent_framework.agents.coding_agent import CodingAgent
+from agent_framework.agents.coding_agent_v2 import CodingAgentV2
 from agent_framework.agents.codebase_analyzer_agent import CodebaseAnalyzerAgent
 from agent_framework.agents.code_review_agent import CodeReviewAgent
 from agent_framework.agents.product_manager_agent import ProductManagerAgent
@@ -26,7 +27,7 @@ from .llm_provider_factory import create_llm_provider, get_supported_providers
 from .agent_factory_impl import create_agent as _create_agent, get_supported_agent_types
 from .exceptions import AgentFactoryError
 
-AgentType = Literal["coding", "simple", "simplev2", "analyzer", "reviewer", "product", "architect"]
+AgentType = Literal["coding", "codingv2", "simple", "simplev2", "analyzer", "reviewer", "product", "architect"]
 
 
 def create_agent(
@@ -86,6 +87,36 @@ def create_coding_agent(
     """
     return _create_agent(
         agent_type="coding",
+        session_id=session_id,
+        llm_provider=llm_provider,
+        project_directory=project_directory,
+        **kwargs
+    )
+
+
+def create_coding_agent_v2(
+    session_id: str | None = None,
+    llm_provider: LLMProvider | None = None,
+    project_directory: str | None = None,
+    **kwargs: object,
+) -> CodingAgentV2:
+    """
+    Create a CodingAgentV2 instance (Claude Code based).
+
+    Args:
+        session_id: Optional session ID
+        llm_provider: Optional LLM provider
+        project_directory: Root directory of project to work on
+        **kwargs: Additional arguments
+
+    Returns:
+        CodingAgentV2 instance
+
+    Raises:
+        AgentFactoryError: If creation fails
+    """
+    return _create_agent(
+        agent_type="codingv2",
         session_id=session_id,
         llm_provider=llm_provider,
         project_directory=project_directory,

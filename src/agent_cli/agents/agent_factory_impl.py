@@ -13,6 +13,7 @@ from typing import Dict, Type, Callable, Optional, Any
 from agent_framework.agents.base import BaseAgent, SimpleAgent
 from agent_framework.agents.simple_agent_v2 import SimpleAgent as SimpleAgentV2
 from agent_framework.agents.coding_agent import CodingAgent
+from agent_framework.agents.coding_agent_v2 import CodingAgentV2
 from agent_framework.agents.codebase_analyzer_agent import CodebaseAnalyzerAgent
 from agent_framework.agents.code_review_agent import CodeReviewAgent
 from agent_framework.agents.product_manager_agent import ProductManagerAgent
@@ -81,6 +82,16 @@ class AgentFactory:
             requires_project_dir=True,
             default_debug_log_name="coding_agent.log",
             creator_func=self._create_coding_agent
+        )
+
+        # Register CodingAgentV2 (Claude Code based)
+        self.register_agent(
+            name="codingv2",
+            agent_class=CodingAgentV2,
+            session_prefix="codingv2",
+            requires_project_dir=True,
+            default_debug_log_name="coding_agent_v2.log",
+            creator_func=self._create_coding_agent_v2
         )
 
         # Register CodebaseAnalyzerAgent
@@ -282,6 +293,20 @@ class AgentFactory:
     def _create_coding_agent(self, session_id, llm_provider, **kwargs) -> CodingAgent:
         """Create a CodingAgent with proper configuration."""
         agent = CodingAgent(
+            llm=llm_provider,
+            session_id=session_id,
+            **kwargs
+        )
+
+        # Set execution context on all tools
+        for tool in agent.tools.list_tools():
+            tool.execution_context = agent.execution_context
+
+        return agent
+
+    def _create_coding_agent_v2(self, session_id, llm_provider, **kwargs) -> CodingAgentV2:
+        """Create a CodingAgentV2 (Claude Code based) with proper configuration."""
+        agent = CodingAgentV2(
             llm=llm_provider,
             session_id=session_id,
             **kwargs
