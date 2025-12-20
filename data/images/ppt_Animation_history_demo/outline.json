@@ -1,0 +1,102 @@
+{
+  "title": "The Evolution of Animation: From Hand-Drawn Dreams to Digital Realities",
+  "subtitle": "A Journey Through Animation History",
+  "slides": [
+    {
+      "id": 1,
+      "title": "The Dawn of Animation",
+      "bullet_points": [
+        "Pre-cinematic optical devices (zoetropes, phenakistoscopes)",
+        "Early experiments with persistence of vision",
+        "First animated sequences in the late 1800s",
+        "Émile Reynaud's praxinoscope and Théâtre Optique"
+      ],
+      "slide_type": "content",
+      "visual_notes": "Historical illustrations, vintage optical devices"
+    },
+    {
+      "id": 2,
+      "title": "Silent Era Pioneers",
+      "bullet_points": [
+        "Winsor McCay's 'Gertie the Dinosaur' (1914)",
+        "Felix the Cat: First animated superstar",
+        "Walt Disney's early Oswald the Lucky Rabbit",
+        "Transition from novelty to storytelling"
+      ],
+      "slide_type": "content",
+      "visual_notes": "Black and white character designs, vintage animation cels"
+    },
+    {
+      "id": 3,
+      "title": "The Golden Age of Animation",
+      "bullet_points": [
+        "Disney's 'Snow White' (1937): First feature-length animated film",
+        "Warner Bros. Looney Tunes revolutionize comedy",
+        "Technicolor brings vibrant worlds to life",
+        "Studio system dominance and artistic innovation"
+      ],
+      "slide_type": "content",
+      "visual_notes": "Classic color scenes from 1930s-40s animation"
+    },
+    {
+      "id": 4,
+      "title": "Television Revolution",
+      "bullet_points": [
+        "Hanna-Barbera mass-produce cartoons for TV",
+        "Limited animation techniques for cost efficiency",
+        "Saturday morning cartoon culture emerges",
+        "Global expansion: Japanese anime begins"
+      ],
+      "slide_type": "content",
+      "visual_notes": "TV show logos, Japanese anime influence"
+    },
+    {
+      "id": 5,
+      "title": "Digital Breakthrough",
+      "bullet_points": [
+        "Computer animation enters mainstream",
+        "Pixar's 'Toy Story' (1995) revolutionizes the industry",
+        "CGI blends with traditional techniques",
+        "Software democratizes animation creation"
+      ],
+      "slide_type": "content",
+      "visual_notes": "Early CGI examples, 3D wireframes"
+    },
+    {
+      "id": 6,
+      "title": "Modern Animation Renaissance",
+      "bullet_points": [
+        "3D animation dominance in features",
+        "2D animation finds new artistic expression",
+        "Streaming platforms expand opportunities",
+        "Global animation styles influence each other"
+      ],
+      "slide_type": "content",
+      "visual_notes": "Modern diverse animation styles, streaming platforms"
+    },
+    {
+      "id": 7,
+      "title": "Future Frontiers",
+      "bullet_points": [
+        "AI and machine learning in animation production",
+        "Real-time rendering and virtual production",
+        "Interactive and immersive animation experiences",
+        "Democratization through accessible tools"
+      ],
+      "slide_type": "content",
+      "visual_notes": "Futuristic concepts, AI-generated art"
+    },
+    {
+      "id": 8,
+      "title": "Animation's Enduring Legacy",
+      "bullet_points": [
+        "Animation as universal language of storytelling",
+        "Cultural impact across generations and borders",
+        "Artistic innovation continues to push boundaries",
+        "The future is limited only by imagination"
+      ],
+      "slide_type": "conclusion",
+      "visual_notes": "Collage of iconic animated moments through history"
+    }
+  ]
+}

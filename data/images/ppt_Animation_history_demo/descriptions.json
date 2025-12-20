@@ -1,0 +1,110 @@
+{
+  "title": "The Evolution of Animation: From Hand-Drawn Dreams to Digital Realities",
+  "subtitle": "A Journey Through Animation History",
+  "slides": [
+    {
+      "id": 1,
+      "title": "The Dawn of Animation",
+      "content": [
+        "Pre-cinematic optical devices (zoetropes, phenakistoscopes)",
+        "Early experiments with persistence of vision",
+        "First animated sequences in the late 1800s",
+        "Émile Reynaud's praxinoscope and Théâtre Optique"
+      ],
+      "image_prompt": "A vintage Victorian-era scene showing early animation devices including a zoetrope, phenakistoscope, and praxinoscope arranged on an ornate wooden table. Warm sepia tones with golden lighting, illustrated in a detailed engraving style. Historical accuracy with people in 19th-century clothing interacting with the devices.",
+      "visual_style": "Vintage sepia illustration, Victorian aesthetic, warm lighting",
+      "slide_type": "content"
+    },
+    {
+      "id": 2,
+      "title": "Silent Era Pioneers",
+      "content": [
+        "Winsor McCay's 'Gertie the Dinosaur' (1914)",
+        "Felix the Cat: First animated superstar",
+        "Walt Disney's early Oswald the Lucky Rabbit",
+        "Transition from novelty to storytelling"
+      ],
+      "image_prompt": "Black and white illustration featuring iconic silent era characters: Gertie the Dinosaur interacting with Winsor McCay, Felix the Cat winking, and Oswald the Rabbit. Characters appear in various poses with early film strip borders. Art deco geometric patterns in background, reminiscent of 1920s design.",
+      "visual_style": "Black and white Art Deco, vintage animation cel aesthetic",
+      "slide_type": "content"
+    },
+    {
+      "id": 3,
+      "title": "The Golden Age of Animation",
+      "content": [
+        "Disney's 'Snow White' (1937): First feature-length animated film",
+        "Warner Bros. Looney Tunes revolutionize comedy",
+        "Technicolor brings vibrant worlds to life",
+        "Studio system dominance and artistic innovation"
+      ],
+      "image_prompt": "Vibrant color scene showcasing Golden Age animation icons: Snow White with the Seven Dwarfs, Bugs Bunny and Daffy Duck in classic poses, and other famous characters. Rich Technicolor palette with jewel tones. Background features classic 1930s-40s animation studio elements like drawing boards and animation cels.",
+      "visual_style": "Classic Technicolor, vibrant 1930s-40s animation style",
+      "slide_type": "content"
+    },
+    {
+      "id": 4,
+      "title": "Television Revolution",
+      "content": [
+        "Hanna-Barbera mass-produce cartoons for TV",
+        "Limited animation techniques for cost efficiency",
+        "Saturday morning cartoon culture emerges",
+        "Global expansion: Japanese anime begins"
+      ],
+      "image_prompt": "Split screen composition showing Western TV cartoons like The Flintstones and Scooby-Doo on one side, with early Japanese anime characters like Astro Boy and Speed Racer on the other. Vintage TV set frame elements, bright primary colors, Saturday morning cereal box aesthetic.",
+      "visual_style": "Mid-century TV aesthetic, bright primary colors, cartoon style",
+      "slide_type": "content"
+    },
+    {
+      "id": 5,
+      "title": "Digital Breakthrough",
+      "content": [
+        "Computer animation enters mainstream",
+        "Pixar's 'Toy Story' (1995) revolutionizes the industry",
+        "CGI blends with traditional techniques",
+        "Software democratizes animation creation"
+      ],
+      "image_prompt": "Futuristic composition showing Woody and Buzz Lightyear from Toy Story alongside wireframe models and early CGI renderings. Digital grid patterns, pixel elements, and computer interface graphics blend with 3D character models. Blue and purple color scheme representing the digital revolution.",
+      "visual_style": "Digital aesthetic, 1990s computer graphics, wireframe elements",
+      "slide_type": "content"
+    },
+    {
+      "id": 6,
+      "title": "Modern Animation Renaissance",
+      "content": [
+        "3D animation dominance in features",
+        "2D animation finds new artistic expression",
+        "Streaming platforms expand opportunities",
+        "Global animation styles influence each other"
+      ],
+      "image_prompt": "Dynamic montage of modern animation including stylized 3D characters, artistic 2D animation, and diverse global styles. Streaming platform logos subtly integrated. Colorful, contemporary design with mixed media elements representing the variety of current animation techniques.",
+      "visual_style": "Contemporary mixed media, vibrant colors, diverse styles",
+      "slide_type": "content"
+    },
+    {
+      "id": 7,
+      "title": "Future Frontiers",
+      "content": [
+        "AI and machine learning in animation production",
+        "Real-time rendering and virtual production",
+        "Interactive and immersive animation experiences",
+        "Democratization through accessible tools"
+      ],
+      "image_prompt": "Futuristic scene showing AI-generated art, virtual reality headsets displaying animated worlds, and interactive motion capture. Holographic elements, neon accents, and floating data visualizations. Clean, minimalist design with holographic blue and purple tones representing cutting-edge technology.",
+      "visual_style": "Futuristic tech aesthetic, holographic effects, neon accents",
+      "slide_type": "content"
+    },
+    {
+      "id": 8,
+      "title": "Animation's Enduring Legacy",
+      "content": [
+        "Animation as universal language of storytelling",
+        "Cultural impact across generations and borders",
+        "Artistic innovation continues to push boundaries",
+        "The future is limited only by imagination"
+      ],
+      "image_prompt": "Elegant collage featuring iconic animation moments through history arranged in a circular timeline. Characters from different eras interact across the boundary lines. Warm, inviting color palette with gold accents. Background suggests a film reel winding through time, connecting past to future.",
+      "visual_style": "Timeless elegant montage, warm gold accents, inspirational",
+      "slide_type": "conclusion"
+    }
+  ]
+}
