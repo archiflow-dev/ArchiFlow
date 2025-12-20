@@ -43,6 +43,14 @@ class GenerateImageTool(BaseTool):
                 "description": "Slide number (1-based). Slide 1 establishes reference style.",
                 "minimum": 1
             },
+            "session_id": {
+                "type": "string",
+                "description": "Session ID for organizing images (default: 'default')"
+            },
+            "output_dir": {
+                "type": "string",
+                "description": "Output directory for images (default: data/images/{session_id})"
+            },
             "aspect_ratio": {
                 "type": "string",
                 "description": "Image aspect ratio",
@@ -89,6 +97,8 @@ class GenerateImageTool(BaseTool):
         self,
         prompt: str,
         slide_number: int,
+        session_id: str = "default",
+        output_dir: Optional[str] = None,
         aspect_ratio: str = "16:9",
         resolution: str = "2K",
         **kwargs
@@ -99,6 +109,8 @@ class GenerateImageTool(BaseTool):
         Args:
             prompt: Text description of the image to generate
             slide_number: Slide number (1-based)
+            session_id: Session ID for organizing images
+            output_dir: Output directory for images (default: data/images/{session_id})
             aspect_ratio: Image aspect ratio (default: "16:9")
             resolution: Image resolution (default: "2K")
 
@@ -148,9 +160,17 @@ class GenerateImageTool(BaseTool):
             if not image:
                 return self.fail_response("Failed to generate image")
 
+            # Determine output directory
+            if output_dir is None:
+                # Default to data/images/{session_id}
+                output_dir = os.path.join("data", "images", session_id)
+
+            # Create output directory if it doesn't exist
+            os.makedirs(output_dir, exist_ok=True)
+
             # Save image with proper naming convention
             filename = f"slide_{slide_number:03d}.png"
-            filepath = os.path.join(os.getcwd(), filename)
+            filepath = os.path.join(output_dir, filename)
 
             # Handle different image types (PIL Image vs Google Image)
             if hasattr(image, '_pil_image'):
@@ -181,6 +201,8 @@ class GenerateImageTool(BaseTool):
                 "file_path": filepath,
                 "filename": filename,
                 "slide_number": slide_number,
+                "session_id": session_id,
+                "output_dir": output_dir,
                 "image_size": pil_image.size,
                 "has_reference": self.reference_image is not None
             }

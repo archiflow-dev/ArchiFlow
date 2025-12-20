@@ -5,6 +5,7 @@ Unit tests for GenerateImageTool.
 import pytest
 import os
 import tempfile
+import shutil
 from unittest.mock import Mock, patch, MagicMock
 from PIL import Image
 
@@ -281,29 +282,25 @@ class TestGenerateImageTool:
         rgba_image = Image.new('RGBA', (1920, 1080), color=(100, 150, 200, 128))
         mock_image_provider.generate_first_slide = Mock(return_value=rgba_image)
 
+        # Use a specific output directory for testing
+        test_output_dir = tempfile.mkdtemp()
+
         result = await generate_image_tool.execute(
             prompt="RGBA slide",
-            slide_number=1
+            slide_number=1,
+            output_dir=test_output_dir
         )
 
         assert result.error is None
-        assert os.path.exists("slide_001.png")
+        expected_path = os.path.join(test_output_dir, "slide_001.png")
+        assert os.path.exists(expected_path)
 
         # Verify the saved image is RGB (PNG can handle RGBA but we convert for consistency)
-        saved_image = Image.open("slide_001.png")
+        saved_image = Image.open(expected_path)
         assert saved_image.mode == 'RGB'
 
         # Close the image to unlock file for deletion
         saved_image.close()
 
-        # Cleanup with retry
-        import time
-        for i in range(3):
-            try:
-                if os.path.exists("slide_001.png"):
-                    os.remove("slide_001.png")
-                break
-            except PermissionError:
-                if i == 2:
-                    raise
-                time.sleep(0.1)
+        # Cleanup
+        shutil.rmtree(test_output_dir, ignore_errors=True)
