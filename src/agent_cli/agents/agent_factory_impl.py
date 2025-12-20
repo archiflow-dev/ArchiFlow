@@ -18,6 +18,7 @@ from agent_framework.agents.codebase_analyzer_agent import CodebaseAnalyzerAgent
 from agent_framework.agents.code_review_agent import CodeReviewAgent
 from agent_framework.agents.product_manager_agent import ProductManagerAgent
 from agent_framework.agents.tech_lead_agent import TechLeadAgent
+from agent_framework.agents.ppt_agent import PPTAgent
 from agent_framework.llm.provider import LLMProvider
 
 from .exceptions import AgentFactoryError
@@ -132,6 +133,16 @@ class AgentFactory:
             requires_project_dir=True,
             default_debug_log_name="architect_agent.log",
             creator_func=self._create_tech_lead_agent
+        )
+
+        # Register PPTAgent
+        self.register_agent(
+            name="ppt",
+            agent_class=PPTAgent,
+            session_prefix="ppt",
+            requires_project_dir=True,
+            default_debug_log_name="ppt_agent.log",
+            creator_func=self._create_ppt_agent
         )
 
     def register_agent(
@@ -395,6 +406,36 @@ class AgentFactory:
             llm=llm_provider,
             profile=profile,
             custom_prompt=custom_prompt,
+            **kwargs
+        )
+
+        # Set execution context on all tools if available
+        if hasattr(agent, 'execution_context'):
+            for tool in agent.tools.list_tools():
+                tool.execution_context = agent.execution_context
+
+        return agent
+
+    def _create_ppt_agent(self, session_id, llm_provider, **kwargs) -> PPTAgent:
+        """Create a PPTAgent with proper configuration."""
+        import os
+
+        # Get Google API key from environment
+        google_api_key = os.getenv("GOOGLE_API_KEY")
+        if not google_api_key:
+            raise AgentFactoryError(
+                "GOOGLE_API_KEY environment variable is required for PPT Agent. "
+                "Please set it to use image generation features."
+            )
+
+        # Set project directory if not provided
+        if "project_directory" not in kwargs:
+            kwargs["project_directory"] = os.getcwd()
+
+        agent = PPTAgent(
+            session_id=session_id,
+            llm=llm_provider,
+            google_api_key=google_api_key,
             **kwargs
         )
 

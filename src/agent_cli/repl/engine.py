@@ -64,7 +64,7 @@ class REPLEngine:
 
         # Set up output renderer - use the same console instance
         # Get tool result line limit from environment variable or use default
-        tool_result_line_limit = int(os.environ.get("ARCHIFLOW_TOOL_RESULT_LINES", "20"))
+        tool_result_line_limit = int(os.environ.get("ARCHIFLOW_TOOL_RESULT_LINES", "10"))
         self.renderer = OutputRenderer(console_instance=console, tool_result_line_limit=tool_result_line_limit)
 
         # Message queue for async communication

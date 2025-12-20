@@ -38,6 +38,19 @@ class GenerateImageTool(BaseTool):
                 "type": "string",
                 "description": "Text description of the slide image to generate"
             },
+            "image_prompt": {
+                "type": "string",
+                "description": "Detailed visual description of what to show in the image"
+            },
+            "visual_style": {
+                "type": "string",
+                "description": "Style and aesthetic approach for the image"
+            },
+            "slide_type": {
+                "type": "string",
+                "enum": ["title", "content", "conclusion"],
+                "description": "Type of slide: title, content, or conclusion"
+            },
             "slide_number": {
                 "type": "integer",
                 "description": "Slide number (1-based). Slide 1 establishes reference style.",
@@ -93,6 +106,53 @@ class GenerateImageTool(BaseTool):
 
         super().__init__(**data)
 
+    def _build_enhanced_prompt(
+        self,
+        prompt: str,
+        image_prompt: Optional[str] = None,
+        visual_style: Optional[str] = None,
+        slide_type: Optional[str] = None,
+        slide_number: int = 1
+    ) -> str:
+        """
+        Build an enhanced prompt from all available slide information.
+
+        Args:
+            prompt: Basic prompt (could be slide content)
+            image_prompt: Detailed visual description
+            visual_style: Style and aesthetic approach
+            slide_type: Type of slide (title, content, conclusion)
+            slide_number: Slide number
+
+        Returns:
+            Enhanced prompt for image generation
+        """
+        # Start with the most detailed visual description if available
+        if image_prompt:
+            # image_prompt is already a comprehensive description
+            base_prompt = image_prompt
+        else:
+            # Use the basic prompt as fallback
+            base_prompt = prompt
+
+        # Add visual style if provided
+        if visual_style:
+            base_prompt += f"\n\nVisual Style: {visual_style}"
+
+        # Add slide type-specific guidance
+        if slide_type:
+            if slide_type.lower() == "title":
+                base_prompt += "\n\nSlide Type: Title slide - create an impactful opening image that establishes the presentation theme"
+            elif slide_type.lower() == "content":
+                base_prompt += "\n\nSlide Type: Content slide - create an informative visual that supports the slide's key message"
+            elif slide_type.lower() == "conclusion":
+                base_prompt += "\n\nSlide Type: Conclusion slide - create a memorable, inspiring image that summarizes the presentation"
+
+        # Add slide number for context
+        base_prompt += f"\n\nContext: Slide {slide_number} of a professional presentation"
+
+        return base_prompt
+
     async def execute(
         self,
         prompt: str,
@@ -101,18 +161,24 @@ class GenerateImageTool(BaseTool):
         output_dir: Optional[str] = None,
         aspect_ratio: str = "16:9",
         resolution: str = "2K",
+        image_prompt: Optional[str] = None,
+        visual_style: Optional[str] = None,
+        slide_type: Optional[str] = None,
         **kwargs
     ) -> ToolResult:
         """
         Generate an image for a presentation slide.
 
         Args:
-            prompt: Text description of the image to generate
+            prompt: Text description of the image to generate (can include slide content)
             slide_number: Slide number (1-based)
             session_id: Session ID for organizing images
             output_dir: Output directory for images (default: data/images/{session_id})
             aspect_ratio: Image aspect ratio (default: "16:9")
             resolution: Image resolution (default: "2K")
+            image_prompt: Detailed visual description of what to show
+            visual_style: Style and aesthetic approach
+            slide_type: Type of slide (title, content, conclusion)
 
         Returns:
             ToolResult containing the image path or error message
@@ -122,15 +188,25 @@ class GenerateImageTool(BaseTool):
                 "No image provider available. Please configure GOOGLE_API_KEY or provide an image provider."
             )
 
+        # Build enhanced prompt from all available information
+        enhanced_prompt = self._build_enhanced_prompt(
+            prompt=prompt,
+            image_prompt=image_prompt,
+            visual_style=visual_style,
+            slide_type=slide_type,
+            slide_number=slide_number
+        )
+
         try:
-            logger.info(f"Generating image for slide {slide_number}: {prompt}")
+            logger.info(f"Generating image for slide {slide_number}")
+            logger.debug(f"Enhanced prompt length: {len(enhanced_prompt)} characters")
 
             # Generate image based on slide number
             if slide_number == 1:
                 # First slide - establishes reference style
                 logger.info("Generating first slide (reference image)")
                 image = self.image_provider.generate_first_slide(
-                    prompt=prompt,
+                    prompt=enhanced_prompt,
                     aspect_ratio=aspect_ratio,
                     resolution=resolution
                 )
@@ -142,7 +218,7 @@ class GenerateImageTool(BaseTool):
                 if hasattr(self.image_provider, 'generate_subsequent_slide'):
                     logger.info(f"Generating slide {slide_number} using reference style")
                     image = self.image_provider.generate_subsequent_slide(
-                        prompt=prompt,
+                        prompt=enhanced_prompt,
                         slide_number=slide_number,
                         aspect_ratio=aspect_ratio,
                         resolution=resolution
@@ -151,7 +227,7 @@ class GenerateImageTool(BaseTool):
                     # Fallback for providers without reference support
                     logger.warning(f"Image provider doesn't support reference images, generating standalone image")
                     image = self.image_provider.generate_image(
-                        prompt=f"Professional presentation slide #{slide_number}: {prompt}",
+                        prompt=enhanced_prompt,
                         aspect_ratio=aspect_ratio,
                         resolution=resolution,
                         ref_images=[self.reference_image] if self.reference_image else None

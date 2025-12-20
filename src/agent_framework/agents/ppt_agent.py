@@ -385,7 +385,7 @@ Call `finish_task` when you have delivered:
 
 Would you like me to open the presentation or make any adjustments?"""
 
-    async def step(self, message: BaseMessage) -> BaseMessage:
+    def step(self, message: BaseMessage) -> BaseMessage:
         """Process a single message."""
         if not self.is_running:
             return None
@@ -744,7 +744,12 @@ Would you like me to open the presentation or make any adjustments?"""
         self.google_api_key = google_api_key
 
         # Set additional attributes BEFORE calling parent constructor
-        self.tools = tools or ToolRegistry()
+        if tools is None:
+            # Get the global registry with all registered tools
+            from ..tools.all_tools import registry
+            self.tools = registry
+        else:
+            self.tools = tools
         self.tool_registry = self.tools
         self.session_id = session_id
         self.project_directory = project_directory or f"data/sessions/{session_id}"

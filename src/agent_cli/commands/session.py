@@ -13,7 +13,7 @@ from agent_framework.agents.profiles import AGENT_PROFILES, list_profiles
 console = Console()
 
 # Get valid agent types from the AgentType literal
-VALID_AGENT_TYPES = get_args(AgentType)  # ("coding", "simple", "analyzer", "reviewer", "product", "architect")
+VALID_AGENT_TYPES = get_args(AgentType)  # ("coding", "simple", "simplev2", "analyzer", "reviewer", "product", "architect", "ppt")
 
 
 async def new_command(*args: str, **context: object) -> None:
@@ -31,6 +31,7 @@ async def new_command(*args: str, **context: object) -> None:
         - reviewer: CodeReviewAgent for code review tasks
         - product: ProductManagerAgent for product brainstorming
         - architect: TechLeadAgent for system architecture
+        - ppt: PPTAgent for presentation creation
 
     SimpleAgent v2 options:
         --profile <name>: Set agent profile (general, analyst, researcher, planner, assistant, developer)
@@ -586,6 +587,132 @@ async def code_command(*args: str, **context: object) -> None:
         console.print(f"[red]Unexpected error:[/red] {e}")
 
 
+async def ppt_command(*args: str, **context: object) -> None:
+    """
+    Create a PPTAgent session and start presentation creation.
+
+    This is a convenience command that creates a PPT agent session
+    automatically. The agent will help you create professional presentations
+    with AI-generated images and export to PPTX/PDF formats.
+
+    Usage:
+        /ppt [project-directory]
+
+    Args:
+        *args: Command arguments (optional project directory)
+        **context: Context (expects 'session_manager' and 'repl_engine')
+
+    Examples:
+        /ppt                          # Start PPT agent for current directory
+        /ppt /path/to/project         # Start PPT agent for specific project
+        /ppt ../presentations         # Start PPT agent for relative path
+
+    The PPT agent will:
+    - Generate presentation outlines from your ideas
+    - Create detailed slide descriptions
+    - Generate AI images for each slide
+    - Export to PowerPoint (PPTX) and PDF formats
+    - Handle external outline/description files
+
+    Requirements:
+    - GOOGLE_API_KEY environment variable for image generation
+    - Project directory for storing presentation files
+    """
+    import os
+
+    # Get session manager from context
+    session_manager = context.get("session_manager")
+    if not isinstance(session_manager, SessionManager):
+        console.print("[red]Error: Session manager not available[/red]")
+        return
+
+    # Get REPL engine from context (needed for agent_idle event)
+    repl_engine = context.get("repl_engine")
+    if repl_engine is None:
+        console.print("[red]Error: REPL engine not available[/red]")
+        return
+
+    # Check for Google API key
+    google_api_key = os.getenv("GOOGLE_API_KEY")
+    if not google_api_key:
+        console.print("[red]Error: GOOGLE_API_KEY environment variable is required[/red]")
+        console.print("[yellow]Please set your Google API key to use image generation features[/yellow]")
+        return
+
+    # Parse project directory (optional)
+    project_directory = args[0] if args else None
+
+    # Create PPT agent
+    try:
+        console.print("[bold magenta]📊 Starting Presentation Creation Session[/bold magenta]\n")
+
+        if project_directory:
+            console.print(f"[dim]Project directory:[/dim] {project_directory}")
+        else:
+            console.print("[dim]Project directory:[/dim] Current directory")
+
+        console.print("[dim]Agent type:[/dim] PPTAgent")
+        console.print("[dim]Image generation:[/dim] Google API (configured)")
+        console.print()
+
+        # Create agent using factory
+        agent = create_agent(agent_type="ppt", project_directory=project_directory)
+
+        # Create session
+        session = session_manager.create_session(agent=agent)
+
+        # Subscribe to output (similar to main REPL loop)
+        repl_engine.subscribe_to_output(session.session_id)
+
+        # Display welcome message
+        console.print(
+            f"[green]✓[/green] PPT Agent session created\n"
+            f"[dim]Session ID:[/dim] {session.session_id}\n"
+        )
+
+        console.print(
+            "\n[bold magenta]🎯 What I can help you create:[/bold magenta]\n"
+            "The PPT Agent will intelligently detect your needs and:\n"
+            "  1. [dim]IDEA MODE[/dim] - Generate outline from your idea\n"
+            "  2. [dim]OUTLINE MODE[/dim] - Work with your outline file\n"
+            "  3. [dim]GENERATION MODE[/dim] - Create slides from outline + descriptions\n"
+            "  4. [dim]REVISION MODE[/dim] - Update based on your feedback\n"
+        )
+
+        console.print(
+            "\n[bold green]📝 Features:[/bold green]\n"
+            "  • [yellow]AI Image Generation[/yellow] - Creates custom images for each slide\n"
+            "  • [yellow]File Detection[/yellow] - Automatically finds outline/description files\n"
+            "  • [yellow]Multiple Exports[/yellow] - PowerPoint (PPTX) and PDF formats\n"
+            "  • [yellow]Smart Workflows[/yellow] - Adapts to what you provide\n"
+        )
+
+        console.print(
+            "\n[cyan]Start by telling me about your presentation![/cyan]\n"
+            "You can:\n"
+            "  • Give me a topic or idea\n"
+            "  • Reference an outline file: 'Use outline from my_outline.json'\n"
+            "  • Provide both outline and description files\n"
+        )
+
+        # Ready message - wait for user input
+        console.print("[dim]→ PPT Agent is ready! Enter your presentation request to get started.[/dim]\n")
+
+    except AgentFactoryError as e:
+        console.print(f"[red]Error creating PPT agent:[/red] {e}")
+        if "GOOGLE_API_KEY" in str(e):
+            console.print(
+                "\n[yellow]To get your Google API key:[/yellow]\n"
+                "1. Visit https://console.cloud.google.com/\n"
+                "2. Create a new project or select existing one\n"
+                "3. Enable 'Generative AI API' and 'Cloud Vision API'\n"
+                "4. Create credentials (API Key)\n"
+                "5. Set environment variable: export GOOGLE_API_KEY='your-key'"
+            )
+    except Exception as e:
+        console.print(f"[red]Unexpected error:[/red] {e}")
+
+
 async def analyzer_command(*args: str, **context: object) -> None:
     """
     Create a CodebaseAnalyzerAgent session and start analysis.
@@ -753,4 +880,11 @@ def register_session_commands(router: CommandRouter) -> None:
         handler=architect_command,
         description="Start architecture design (creates tech lead agent for system design and planning)",
         usage="architect [project-directory]",
+    )
+
+    router.register(
+        name="ppt",
+        handler=ppt_command,
+        description="Start presentation creation (creates PPT agent with AI-generated images)",
+        usage="ppt [project-directory]",
     )

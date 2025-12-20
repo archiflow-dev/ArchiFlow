@@ -1,0 +1,132 @@
+{
+  "title": "ArchiFlow: Event-Driven AI Agent Framework",
+  "subtitle": "A Production-Ready Framework for Software Architecture, Development & Code Review",
+  "slides": [
+    {
+      "slide_number": 1,
+      "title": "ArchiFlow: Revolutionizing AI-Powered Development",
+      "type": "title",
+      "content": [
+        "Production-ready, event-driven AI agent framework",
+        "Message queue architecture inspired by RabbitMQ",
+        "Complete software development lifecycle automation",
+        "Multi-agent collaboration with loose coupling"
+      ],
+      "visual_notes": "Clean, modern design with technology focus, circuit board patterns, flow visualization"
+    },
+    {
+      "slide_number": 2,
+      "title": "The Challenge: Modern Development Complexity",
+      "type": "content", 
+      "content": [
+        "Fragmented tooling across development lifecycle",
+        "Manual handoffs between product, architecture, and code",
+        "Inconsistent quality assurance and review processes",
+        "Limited automation for complex workflows"
+      ],
+      "visual_notes": "Illustration of disconnected development stages with gaps between them"
+    },
+    {
+      "slide_number": 3,
+      "title": "Our Solution: Event-Driven Architecture",
+      "type": "content",
+      "content": [
+        "Central Message Broker with pub/sub topics",
+        "All communication through message queues (no direct coupling)",
+        "Session-specific isolated communication channels",
+        "Scalable, testable, and extensible design"
+      ],
+      "visual_notes": "Central hub with spokes radiating outward, showing message flow patterns"
+    },
+    {
+      "slide_number": 4,
+      "title": "Core Message Queue Architecture",
+      "type": "content",
+      "content": [
+        "Multi-backend storage: InMemory, File-based, Append-Only Log",
+        "Performance: 10,000+ messages/second throughput",
+        "<1ms latency for pub/sub operations",
+        "Thread-safe with full asyncio support"
+      ],
+      "visual_notes": "Technical diagram showing broker, topics, and storage backends"
+    },
+    {
+      "slide_number": 5,
+      "title": "AI Agent Ecosystem: Complete Development Team",
+      "type": "content",
+      "content": [
+        "🎯 Product Manager Agent: Requirements & PRDs",
+        "🏗️ Tech Lead Agent: Architecture & Design",
+        "💻 Coding Agent: Implementation & Testing", 
+        "🔍 Code Review Agent: Quality Assurance",
+        "📊 Codebase Analyzer: Health & Metrics"
+      ],
+      "visual_notes": "Avatar-style icons for each agent type in a circular formation"
+    },
+    {
+      "slide_number": 6,
+      "title": "Complete Development Lifecycle Workflow",
+      "type": "content",
+      "content": [
+        "Phase 1: Ideation & Requirements with Product Manager",
+        "Phase 2: Architecture & Design with Tech Lead",
+        "Phase 3: Implementation with Coding Agent",
+        "Phase 4: Quality Assurance with Code Review Agent",
+        "Phase 5: Continuous Improvement with Analyzer"
+      ],
+      "visual_notes": "Linear workflow diagram with handoff arrows between phases"
+    },
+    {
+      "slide_number": 7,
+      "title": "Technical Excellence: Performance & Quality",
+      "type": "content",
+      "content": [
+        "78 comprehensive test files with full coverage",
+        "40% reduction in LLM token usage through optimization",
+        "100+ concurrent agent sessions supported",
+        "CI/CD integration with SARIF and Reviewdog formats"
+      ],
+      "visual_notes": "Metrics dashboard with performance charts and quality indicators"
+    },
+    {
+      "slide_number": 8,
+      "title": "Enterprise-Ready Features",
+      "type": "content",
+      "content": [
+        "Security sandbox with isolated tool execution",
+        "Proxy support for corporate environments",
+        "Multiple AI providers: OpenAI, Anthropic, GLM",
+        "Cross-platform support (Linux, macOS, Windows)",
+        "No telemetry - all processing stays local"
+      ],
+      "visual_notes": "Enterprise security badges and provider logos"
+    },
+    {
+      "slide_number": 9,
+      "title": "Developer Experience: Rich CLI Interface",
+      "type": "content",
+      "content": [
+        "Interactive REPL with auto-completion",
+        "System commands integration (! prefix and auto-detection)",
+        "Session persistence across restarts",
+        "Platform-specific command mapping",
+        "Debug logging with file output"
+      ],
+      "visual_notes": "Terminal interface screenshot showing REPL in action"
+    },
+    {
+      "slide_number": 10,
+      "title": "Real-World Impact & Benefits",
+      "type": "conclusion",
+      "content": [
+        "🚀 Accelerated development from idea to production",
+        "🛡️ Multiple quality gates prevent issues",
+        "📚 Automatic documentation generation",
+        "🔧 Transparent traceability from requirements to code",
+        "🎯 Industry-standard best practices enforcement",
+        "⚡ Zero code duplication and clean architecture"
+      ],
+      "visual_notes": "Success metrics and benefit highlights with upward trending charts"
+    }
+  ]
+}

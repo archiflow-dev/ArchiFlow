@@ -58,7 +58,7 @@ class SessionConfig(BaseModel):
 
 class OutputConfig(BaseModel):
     """Configuration for output rendering."""
-    tool_result_line_limit: int = Field(default=20, gt=0, description="Maximum number of lines to display for tool results")
+    tool_result_line_limit: int = Field(default=10, gt=0, description="Maximum number of lines to display for tool results")
     show_tool_thoughts: bool = Field(default=True, description="Whether to show agent tool thoughts/reasoning")
     verbose_errors: bool = Field(default=False, description="Whether to show verbose error messages")
 

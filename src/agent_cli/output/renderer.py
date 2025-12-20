@@ -27,7 +27,7 @@ class OutputRenderer:
     Provides methods for different types of output (errors, success, info, etc.)
     """
 
-    def __init__(self, console_instance: Console | None = None, tool_result_line_limit: int = 20) -> None:
+    def __init__(self, console_instance: Console | None = None, tool_result_line_limit: int = 10) -> None:
         """
         Initialize the renderer.
 

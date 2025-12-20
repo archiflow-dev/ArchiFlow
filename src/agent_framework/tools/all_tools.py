@@ -79,6 +79,25 @@ try:
 except ImportError:
     pass
 
+# PPT Tools
+try:
+    from .ppt.generate_image_tool import GenerateImageTool
+    _optional_tools.append(('GenerateImageTool', GenerateImageTool))
+except ImportError:
+    pass
+
+try:
+    from .ppt.export_pptx_tool import ExportPPTXTool
+    _optional_tools.append(('ExportPPTXTool', ExportPPTXTool))
+except ImportError:
+    pass
+
+try:
+    from .ppt.export_pdf_tool import ExportPDFTool
+    _optional_tools.append(('ExportPDFTool', ExportPDFTool))
+except ImportError:
+    pass
+
 
 def register_all_tools():
     """Register all available tools with the global registry."""

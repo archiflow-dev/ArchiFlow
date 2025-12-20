@@ -134,8 +134,7 @@ class TestPPTAgent:
         assert result in formatted
         assert "\n\n" in formatted
 
-    @pytest.mark.asyncio
-    async def test_step_with_idea_only(self, ppt_agent, mock_llm):
+    def test_step_with_idea_only(self, ppt_agent, mock_llm):
         """Test processing a message with only an idea."""
         # Mock LLM response
         from unittest.mock import Mock
@@ -162,14 +161,13 @@ class TestPPTAgent:
         )
 
         # Process message
-        response = await ppt_agent.step(message)
+        response = ppt_agent.step(message)
 
         assert response is not None
         # Verify the agent attempted to process the idea
         mock_llm.generate.assert_called()
 
-    @pytest.mark.asyncio
-    async def test_step_with_outline_file(self, ppt_agent, temp_dir):
+    def test_step_with_outline_file(self, ppt_agent, temp_dir):
         """Test processing a message with outline file."""
         # Create outline file
         outline_file = Path(temp_dir) / "outline.json"
@@ -198,8 +196,7 @@ class TestPPTAgent:
         system_message = ppt_agent.get_system_message()
         assert "OUTLINE MODE" in system_message
 
-    @pytest.mark.asyncio
-    async def test_step_with_feedback(self, ppt_agent, temp_dir):
+    def test_step_with_feedback(self, ppt_agent, temp_dir):
         """Test processing feedback message."""
         # Create outline file to simulate existing work
         outline_file = Path(temp_dir) / "outline.json"
@@ -246,8 +243,7 @@ class TestPPTAgent:
         assert "TOOL USAGE" in system_message
         assert "COMPLETION CRITERIA" in system_message
 
-    @pytest.mark.asyncio
-    async def test_error_handling_missing_file(self, ppt_agent, mock_llm):
+    def test_error_handling_missing_file(self, ppt_agent, mock_llm):
         """Test handling of missing file references."""
         # Mock tools to simulate missing file
         ppt_agent.tools = Mock()
@@ -265,5 +261,5 @@ class TestPPTAgent:
         )
 
         # The agent should handle this gracefully
-        response = await ppt_agent.step(message)
+        response = ppt_agent.step(message)
         assert response is not None  # Should not crash

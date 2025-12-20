@@ -8,6 +8,31 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)]()
 
+## ✨ New Feature: PPT Agent - AI-Powered Presentation Designer
+
+**🎯 Create stunning presentations with AI-generated images!**
+
+The PPT Agent is ArchiFlow's latest addition - an intelligent AI agent that creates professional presentations from your ideas. With AI-powered image generation using Google's Gemini model, you can transform simple concepts into visually compelling presentations.
+
+**Key Features**:
+- 🎨 **AI Image Generation**: Creates custom images for each slide
+- 🤖 **Smart Mode Detection**: Automatically adapts to your input (idea, outline, or full generation)
+- 📁 **File Support**: Works with external outline and description files
+- 📊 **Multiple Exports**: Export to PowerPoint (PPTX) and PDF formats
+- 🎭 **Visual Consistency**: Maintains professional styling across all slides
+
+```bash
+# Quick start with PPT Agent
+/ppt                                    # Start with current directory
+/new ppt
+```
+
+**🎬 Watch the Demo**: [PPT Agent in Action](https://www.youtube.com/watch?v=qYHj1431ojM)
+
+[**Try PPT Agent →**](PPT_AGENT.md) [**Examples**](data/)
+
+---
+
 ArchiFlow is a **production-ready, event-driven AI agent framework** designed for software architecture, development, and code review tasks. Built on a **lightweight message queue system** (RabbitMQ-inspired) combined with an autonomous agent framework, it provides a powerful command-line interface (CLI) with a REPL (Read-Eval-Print Loop) for interacting with AI agents.
 
 **Key Architectural Principle**: All communication in ArchiFlow flows through a central message broker using publish/subscribe topics. This event-driven design ensures loose coupling between components, enables seamless extension, and provides the foundation for building sophisticated multi-agent systems.
@@ -24,7 +49,7 @@ ArchiFlow is a **production-ready, event-driven AI agent framework** designed fo
 
 ### AI & Agent System
 - **Multiple AI Providers**: OpenAI, Anthropic, GLM (Zhipu AI), and Mock providers
-- **6 Agent Types**: coding, simple, analyzer, reviewer, product, and architect
+- **7 Agent Types**: coding, simple, analyzer, reviewer, product, architect, and PPT
 - **Intelligent Memory Management**: Token-aware conversation history with selective retention
 - **Security Sandbox**: Isolated tool execution with configurable policies
 
@@ -755,6 +780,27 @@ A versatile agent for general queries and basic interactions when specialized ex
 *The Basic Agent*
 
 A minimal agent implementation for testing and simple tasks. Demonstrates core agent patterns and is useful for quick prototypes.
+
+#### 📊 PPT Agent
+*The Presentation Designer*
+
+Creates professional presentations with AI-generated images. Automatically detects the mode (idea only, outline, full generation) and handles the complete workflow from outline to export.
+
+**Key Features**:
+- AI-powered image generation using Google GenAI
+- Multiple export formats (PPTX, PDF)
+- Intelligent mode detection based on input
+- Support for external outline/description files
+- Consistent visual styling across slides
+
+**Usage**:
+```bash
+/ppt                                    # Quick start
+/ppt /path/to/presentations            # Specific directory
+/new ppt                               # Alternative creation
+```
+
+For detailed documentation, see [PPT Agent README](PPT_AGENT.md)
 
 ## 🔄 Complete Development Lifecycle Workflow
 
