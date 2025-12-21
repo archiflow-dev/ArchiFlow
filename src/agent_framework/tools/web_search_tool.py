@@ -4,6 +4,10 @@ from typing import Dict, List, Optional
 import httpx
 from .tool_base import BaseTool, ToolResult
 
+# Load environment variables from .env file
+from ..config.env_loader import load_env
+load_env()
+
 
 class SearchResult:
     """Represents a single search result."""
