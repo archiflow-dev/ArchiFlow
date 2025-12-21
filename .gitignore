@@ -172,6 +172,7 @@ CLAUDE.md
 # Examples directory
 examples/
 docs/
+data/
 
 # Integration tests directory (keep code, ignore test artifacts)
 integration_tests/*.pyc

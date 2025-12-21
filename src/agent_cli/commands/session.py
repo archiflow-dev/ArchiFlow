@@ -13,7 +13,7 @@ from agent_framework.agents.profiles import AGENT_PROFILES, list_profiles
 console = Console()
 
 # Get valid agent types from the AgentType literal
-VALID_AGENT_TYPES = get_args(AgentType)  # ("coding", "simple", "simplev2", "analyzer", "reviewer", "product", "architect", "ppt")
+VALID_AGENT_TYPES = get_args(AgentType)  # ("coding", "codingv2", "codingv3", "simple", "simplev2", "analyzer", "reviewer", "product", "architect", "ppt", "research")
 
 
 async def new_command(*args: str, **context: object) -> None:
@@ -25,6 +25,8 @@ async def new_command(*args: str, **context: object) -> None:
 
     Agent types:
         - coding: CodingAgent for software development tasks
+        - codingv2: Enhanced CodingAgent with Claude Code features
+        - codingv3: Advanced CodingAgent with structured workflows and modes
         - simple: SimpleAgent for general conversations
         - simplev2: Enhanced SimpleAgent with profiles
         - analyzer: CodebaseAnalyzerAgent for codebase analysis and reporting
@@ -32,6 +34,7 @@ async def new_command(*args: str, **context: object) -> None:
         - product: ProductManagerAgent for product brainstorming
         - architect: TechLeadAgent for system architecture
         - ppt: PPTAgent for presentation creation
+        - research: ResearchAgent for comprehensive research and reporting
 
     SimpleAgent v2 options:
         --profile <name>: Set agent profile (general, analyst, researcher, planner, assistant, developer)

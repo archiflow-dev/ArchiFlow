@@ -8,6 +8,8 @@ Supports creating:
 - CodeReviewAgent for code review tasks
 - ProductManagerAgent for product brainstorming and requirements
 - TechLeadAgent for system architecture and technical planning
+- PPTAgent for presentation creation
+- ResearchAgent for comprehensive research and reporting
 """
 
 import os
@@ -20,6 +22,9 @@ from agent_framework.agents.codebase_analyzer_agent import CodebaseAnalyzerAgent
 from agent_framework.agents.code_review_agent import CodeReviewAgent
 from agent_framework.agents.product_manager_agent import ProductManagerAgent
 from agent_framework.agents.tech_lead_agent import TechLeadAgent
+from agent_framework.agents.ppt_agent import PPTAgent
+from agent_framework.agents.research_agent import ResearchAgent
+from agent_framework.agents.coding_agent_v3 import CodingAgentV3
 from agent_framework.llm.provider import LLMProvider
 
 # Import the refactored factories
@@ -27,7 +32,7 @@ from .llm_provider_factory import create_llm_provider, get_supported_providers
 from .agent_factory_impl import create_agent as _create_agent, get_supported_agent_types
 from .exceptions import AgentFactoryError
 
-AgentType = Literal["coding", "codingv2", "simple", "simplev2", "analyzer", "reviewer", "product", "architect", "ppt"]
+AgentType = Literal["coding", "codingv2", "codingv3", "simple", "simplev2", "analyzer", "reviewer", "product", "architect", "ppt", "research"]
 
 
 def create_agent(
@@ -40,7 +45,7 @@ def create_agent(
     Create an agent instance.
 
     Args:
-        agent_type: Type of agent to create ("coding", "simple", "analyzer", "reviewer", "product", or "architect")
+        agent_type: Type of agent to create ("coding", "codingv2", "codingv3", "simple", "analyzer", "reviewer", "product", "architect", "ppt", or "research")
         session_id: Optional session ID
         llm_provider: Optional LLM provider (creates default if not provided)
         **kwargs: Additional arguments for agent creation
@@ -302,6 +307,66 @@ def create_tech_lead_agent(
     """
     return _create_agent(
         agent_type="architect",
+        session_id=session_id,
+        llm_provider=llm_provider,
+        project_directory=project_directory,
+        **kwargs
+    )
+
+
+def create_coding_agent_v3(
+    session_id: str | None = None,
+    llm_provider: LLMProvider | None = None,
+    project_directory: str | None = None,
+    **kwargs: object,
+) -> CodingAgentV3:
+    """
+    Create a CodingAgentV3 instance.
+
+    Args:
+        session_id: Optional session ID
+        llm_provider: Optional LLM provider
+        project_directory: Optional project directory for code
+        **kwargs: Additional arguments
+
+    Returns:
+        CodingAgentV3 instance
+
+    Raises:
+        AgentFactoryError: If creation fails
+    """
+    return _create_agent(
+        agent_type="codingv3",
+        session_id=session_id,
+        llm_provider=llm_provider,
+        project_directory=project_directory,
+        **kwargs
+    )
+
+
+def create_research_agent(
+    session_id: str | None = None,
+    llm_provider: LLMProvider | None = None,
+    project_directory: str | None = None,
+    **kwargs: object,
+) -> ResearchAgent:
+    """
+    Create a ResearchAgent instance.
+
+    Args:
+        session_id: Optional session ID
+        llm_provider: Optional LLM provider
+        project_directory: Optional project directory for saving research
+        **kwargs: Additional arguments
+
+    Returns:
+        ResearchAgent instance
+
+    Raises:
+        AgentFactoryError: If creation fails
+    """
+    return _create_agent(
+        agent_type="research",
         session_id=session_id,
         llm_provider=llm_provider,
         project_directory=project_directory,

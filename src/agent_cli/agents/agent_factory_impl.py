@@ -19,6 +19,8 @@ from agent_framework.agents.code_review_agent import CodeReviewAgent
 from agent_framework.agents.product_manager_agent import ProductManagerAgent
 from agent_framework.agents.tech_lead_agent import TechLeadAgent
 from agent_framework.agents.ppt_agent import PPTAgent
+from agent_framework.agents.research_agent import ResearchAgent
+from agent_framework.agents.coding_agent_v3 import CodingAgentV3
 from agent_framework.llm.provider import LLMProvider
 
 from .exceptions import AgentFactoryError
@@ -143,6 +145,26 @@ class AgentFactory:
             requires_project_dir=True,
             default_debug_log_name="ppt_agent.log",
             creator_func=self._create_ppt_agent
+        )
+
+        # Register ResearchAgent
+        self.register_agent(
+            name="research",
+            agent_class=ResearchAgent,
+            session_prefix="research",
+            requires_project_dir=True,
+            default_debug_log_name="research_agent.log",
+            creator_func=self._create_research_agent
+        )
+
+        # Register CodingAgentV3
+        self.register_agent(
+            name="codingv3",
+            agent_class=CodingAgentV3,
+            session_prefix="codingv3",
+            requires_project_dir=True,
+            default_debug_log_name="coding_agent_v3.log",
+            creator_func=self._create_coding_agent_v3
         )
 
     def register_agent(
@@ -436,6 +458,36 @@ class AgentFactory:
             session_id=session_id,
             llm=llm_provider,
             google_api_key=google_api_key,
+            **kwargs
+        )
+
+        # Set execution context on all tools if available
+        if hasattr(agent, 'execution_context'):
+            for tool in agent.tools.list_tools():
+                tool.execution_context = agent.execution_context
+
+        return agent
+
+    def _create_research_agent(self, session_id, llm_provider, **kwargs) -> ResearchAgent:
+        """Create a ResearchAgent with proper configuration."""
+        agent = ResearchAgent(
+            session_id=session_id,
+            llm=llm_provider,
+            **kwargs
+        )
+
+        # Set execution context on all tools if available
+        if hasattr(agent, 'execution_context'):
+            for tool in agent.tools.list_tools():
+                tool.execution_context = agent.execution_context
+
+        return agent
+
+    def _create_coding_agent_v3(self, session_id, llm_provider, **kwargs) -> CodingAgentV3:
+        """Create a CodingAgentV3 with proper configuration."""
+        agent = CodingAgentV3(
+            session_id=session_id,
+            llm=llm_provider,
             **kwargs
         )
 
