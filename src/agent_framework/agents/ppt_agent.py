@@ -329,6 +329,9 @@ Exit condition: When user approves revision"""
 - **read**: Load outline.json, descriptions.json
 - **write**: Save generated content
 - **list**: Check session directory contents
+- **bash**: Execute shell commands (rename/remove files, file management)
+- **web_search**: Search the web for information to include in presentations
+- **web_fetch**: Fetch content from URLs (images, reference material)
 - **generate_image**: Create slide images
 - **export_pptx**: Create PowerPoint presentation
 - **export_pdf**: Create PDF version
@@ -347,12 +350,18 @@ Exit condition: When user approves revision"""
 
 **Image Generation**:
 1. Read descriptions.json
-2. For each slide:
-   - Call generate_image with prompt
-   - Pass slide_number and session_id
-   - Track generated image paths
-3. Call export_pptx(session_id=session_id)
-4. Call export_pdf(session_id=session_id)
+2. For each slide, call generate_image with ALL available fields:
+   - prompt: Basic description (required)
+   - title: Slide title (for context in image)
+   - content: List of bullet points (for context in image)
+   - image_prompt: Detailed visual description
+   - visual_style: Style and aesthetic approach
+   - slide_type: "title", "content", or "conclusion"
+   - slide_number: Slide number (1-based)
+   - session_id: Session ID for organizing images
+3. Track generated image paths
+4. Call export_pptx(session_id=session_id)
+5. Call export_pdf(session_id=session_id)
 
 **File Operations**:
 - Always check if files exist before reading
@@ -735,6 +744,8 @@ Would you like me to open the presentation or make any adjustments?"""
         self.allowed_tools = [
             "read", "write",              # File operations
             "list",                      # Directory operations
+            "bash",                      # Shell commands (rename/remove files)
+            "web_search", "web_fetch",   # Web research capabilities
             "generate_image",            # Image generation
             "export_pptx", "export_pdf", # Presentation export
             "finish_task"                # Completion signal

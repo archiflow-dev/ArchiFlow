@@ -38,6 +38,15 @@ class GenerateImageTool(BaseTool):
                 "type": "string",
                 "description": "Text description of the slide image to generate"
             },
+            "title": {
+                "type": "string",
+                "description": "The slide title to incorporate into the image"
+            },
+            "content": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "List of bullet points/content items for the slide"
+            },
             "image_prompt": {
                 "type": "string",
                 "description": "Detailed visual description of what to show in the image"
@@ -109,6 +118,8 @@ class GenerateImageTool(BaseTool):
     def _build_enhanced_prompt(
         self,
         prompt: str,
+        title: Optional[str] = None,
+        content: Optional[list] = None,
         image_prompt: Optional[str] = None,
         visual_style: Optional[str] = None,
         slide_type: Optional[str] = None,
@@ -119,6 +130,8 @@ class GenerateImageTool(BaseTool):
 
         Args:
             prompt: Basic prompt (could be slide content)
+            title: Slide title to incorporate
+            content: List of bullet points/content items
             image_prompt: Detailed visual description
             visual_style: Style and aesthetic approach
             slide_type: Type of slide (title, content, conclusion)
@@ -127,31 +140,42 @@ class GenerateImageTool(BaseTool):
         Returns:
             Enhanced prompt for image generation
         """
-        # Start with the most detailed visual description if available
+        parts = []
+
+        # Add title context first for prominence
+        if title:
+            parts.append(f"Slide Title: {title}")
+
+        # Add content/bullet points for context
+        if content and isinstance(content, list) and len(content) > 0:
+            content_text = "\n".join(f"• {item}" for item in content)
+            parts.append(f"Slide Content:\n{content_text}")
+
+        # Add the main visual description
         if image_prompt:
             # image_prompt is already a comprehensive description
-            base_prompt = image_prompt
-        else:
+            parts.append(f"Visual Description: {image_prompt}")
+        elif prompt:
             # Use the basic prompt as fallback
-            base_prompt = prompt
+            parts.append(f"Visual Description: {prompt}")
 
         # Add visual style if provided
         if visual_style:
-            base_prompt += f"\n\nVisual Style: {visual_style}"
+            parts.append(f"Visual Style: {visual_style}")
 
         # Add slide type-specific guidance
         if slide_type:
             if slide_type.lower() == "title":
-                base_prompt += "\n\nSlide Type: Title slide - create an impactful opening image that establishes the presentation theme"
+                parts.append("Slide Type: Title slide - create an impactful opening image that establishes the presentation theme")
             elif slide_type.lower() == "content":
-                base_prompt += "\n\nSlide Type: Content slide - create an informative visual that supports the slide's key message"
+                parts.append("Slide Type: Content slide - create an informative visual that supports the slide's key message")
             elif slide_type.lower() == "conclusion":
-                base_prompt += "\n\nSlide Type: Conclusion slide - create a memorable, inspiring image that summarizes the presentation"
+                parts.append("Slide Type: Conclusion slide - create a memorable, inspiring image that summarizes the presentation")
 
         # Add slide number for context
-        base_prompt += f"\n\nContext: Slide {slide_number} of a professional presentation"
+        parts.append(f"Context: Slide {slide_number} of a professional presentation")
 
-        return base_prompt
+        return "\n\n".join(parts)
 
     async def execute(
         self,
@@ -161,6 +185,8 @@ class GenerateImageTool(BaseTool):
         output_dir: Optional[str] = None,
         aspect_ratio: str = "16:9",
         resolution: str = "2K",
+        title: Optional[str] = None,
+        content: Optional[list] = None,
         image_prompt: Optional[str] = None,
         visual_style: Optional[str] = None,
         slide_type: Optional[str] = None,
@@ -176,6 +202,8 @@ class GenerateImageTool(BaseTool):
             output_dir: Output directory for images (default: data/images/{session_id})
             aspect_ratio: Image aspect ratio (default: "16:9")
             resolution: Image resolution (default: "2K")
+            title: Slide title to incorporate into the image
+            content: List of bullet points/content items for the slide
             image_prompt: Detailed visual description of what to show
             visual_style: Style and aesthetic approach
             slide_type: Type of slide (title, content, conclusion)
@@ -191,6 +219,8 @@ class GenerateImageTool(BaseTool):
         # Build enhanced prompt from all available information
         enhanced_prompt = self._build_enhanced_prompt(
             prompt=prompt,
+            title=title,
+            content=content,
             image_prompt=image_prompt,
             visual_style=visual_style,
             slide_type=slide_type,
