@@ -46,7 +46,8 @@ class TestExportPDFTool:
         """Test tool initialization."""
         assert export_tool.name == "export_pdf"
         assert "title" in export_tool.parameters["required"]
-        assert export_tool.parameters["properties"]["output_dir"]["default"] == "data/ppt_exports"
+        # output_dir default is now dynamic based on session_id
+        assert "output_dir" in export_tool.parameters["properties"]
         assert export_tool.parameters["properties"]["page_size"]["default"] == "A4"
         assert export_tool.parameters["properties"]["orientation"]["default"] == "landscape"
         assert export_tool.parameters["properties"]["quality"]["default"] == 95

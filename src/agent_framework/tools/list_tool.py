@@ -20,7 +20,7 @@ class ListTool(BaseTool):
         "properties": {
             "path": {
                 "type": "string",
-                "description": "The absolute path to the directory to list (must be absolute, not relative)"
+                "description": "Path to the directory to list (absolute or relative to working directory)"
             },
             "ignore": {
                 "type": "array",
@@ -107,21 +107,18 @@ class ListTool(BaseTool):
         """List files and directories in a path.
 
         Args:
-            path: Absolute path to the directory to list
+            path: Path to the directory to list (absolute or relative to working directory)
             ignore: Optional list of glob patterns to ignore
 
         Returns:
             ToolResult with directory listing or error
         """
         try:
+            # Resolve path using execution context (handles relative paths)
+            path = self.resolve_path(path)
+
             # Normalize path for cross-platform compatibility
             path = os.path.normpath(path)
-
-            # Validate path is absolute
-            if not os.path.isabs(path):
-                return ToolResult(
-                    error=f"Path must be absolute, not relative: {path}"
-                )
 
             # Check if path exists
             if not os.path.exists(path):

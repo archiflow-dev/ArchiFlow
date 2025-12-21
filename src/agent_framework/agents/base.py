@@ -7,6 +7,8 @@ from typing import Optional, Callable, List, Dict, Any
 from abc import ABC, abstractmethod
 import logging
 import json
+import platform
+from datetime import datetime
 
 from ..messages.types import (
     BaseMessage, UserMessage, SystemMessage, ToolCallMessage,
@@ -23,6 +25,63 @@ from ..tools.tool_base import ToolRegistry
 from ..config.manager import AgentConfig
 
 logger = logging.getLogger(__name__)
+
+
+def get_environment_context(working_directory: str = None) -> str:
+    """
+    Get environment context string for agent system prompts.
+
+    Includes:
+    - Current date and time
+    - Operating system and version
+    - Platform architecture
+    - Python version
+    - Working directory (if provided)
+
+    Args:
+        working_directory: Optional working directory to include
+
+    Returns:
+        Formatted environment context string
+    """
+    now = datetime.now()
+
+    # Gather environment info
+    env_info = {
+        "year": now.strftime("%Y"),
+        "date": now.strftime("%Y-%m-%d"),
+        "time": now.strftime("%H:%M:%S"),
+        "day_of_week": now.strftime("%A"),
+        "os": platform.system(),
+        "os_version": platform.version(),
+        "architecture": platform.machine(),
+        "python_version": platform.python_version(),
+    }
+
+    # Build context string
+    lines = [
+        "## Environment Context",
+        f"- Current Year: {env_info['year']}",
+        f"- Date: {env_info['date']} ({env_info['day_of_week']})",
+        f"- Time: {env_info['time']}",
+        f"- OS: {env_info['os']} ({env_info['architecture']})",
+        f"- Python: {env_info['python_version']}",
+    ]
+
+    if working_directory:
+        lines.append(f"- Working Directory: {working_directory}")
+
+    # Add important notes
+    lines.append("")
+    lines.append(f"IMPORTANT: When searching the web, use {env_info['year']} as the current year (not 2024 or earlier).")
+
+    # Add platform-specific notes
+    if env_info['os'] == "Windows":
+        lines.append("Note: Use Windows-compatible commands (mkdir, rm, ren, copy, type, dir)")
+    elif env_info['os'] in ("Linux", "Darwin"):
+        lines.append("Note: Use Unix-compatible commands (mkdir -p, rm, mv, cp, cat, ls)")
+
+    return "\n".join(lines)
 
 
 class BaseAgent(ABC):
@@ -179,18 +238,14 @@ Don't keep trying the same tool repeatedly if it's clearly not working."""
 
     def get_system_message(self) -> str:
         """Get the system message for this agent."""
-        from datetime import datetime
+        # Build system message with environment context
+        message_parts = [
+            self.system_prompt,
+            "",
+            get_environment_context()
+        ]
 
-        # Get current date
-        current_date = datetime.now().strftime("%Y-%m-%d")
-        current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        # Build system message with date context
-        message_parts = [self.system_prompt]
-        message_parts.append(f"\n\nCurrent Date: {current_date}")
-        message_parts.append(f"Current DateTime: {current_datetime}")
-
-        return "".join(message_parts)
+        return "\n".join(message_parts)
         
     def get_name(self) -> str:
         if isinstance(self.config, dict):

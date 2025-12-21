@@ -17,7 +17,8 @@ from ..messages.types import (
 )
 from ..tools.tool_base import ToolRegistry
 from ..llm.provider import LLMProvider
-from .base import BaseAgent
+from ..runtime.context import ExecutionContext
+from .base import BaseAgent, get_environment_context
 
 logger = logging.getLogger(__name__)
 
@@ -135,18 +136,25 @@ User provided only an idea. Here's your complete workflow:
      * Slide type (title, content, conclusion, etc.)
    - Consider: audience, duration, key messages
 
-2. **Save and Present**
-   - Save as outline.json in session directory
-   - Present structure to user:
+2. **MANDATORY: Save Artifact First**
+   - MUST save as outline.json BEFORE asking for approval
+   - Use write tool to save the complete outline
+   - Verify the file was created successfully
+   - ⚠️ NEVER ask for approval without saving the file first
+
+3. **Present for Approval**
+   - ONLY after outline.json is saved, present structure to user:
      * Title and subtitle
      * Slide titles in order
      * Brief flow description
-   - Ask: "Does this outline capture your vision?"
+   - Ask: "Does this outline capture your vision? (saved to outline.json)"
 
-3. **Wait for Approval or Feedback**
+4. **⏸️ STOP AND WAIT - Do Not Continue**
+   - After asking for approval, STOP here and wait for user response
+   - Do NOT proceed to Phase 2 until user explicitly approves
    - If approved: proceed to Phase 2
    - If feedback: apply changes, save revision, ask again
-   - Never proceed without user confirmation
+   - If no response about approval: ask again, do not assume approval
 
 ### Phase 2: Generate Descriptions (after outline approved)
 1. **Create Detailed Slide Descriptions**
@@ -157,17 +165,25 @@ User provided only an idea. Here's your complete workflow:
      * Specify visual elements (colors, layout, icons)
      * Consider consistency with other slides
 
-2. **Save and Sample**
-   - Save all descriptions as descriptions.json
-   - Show 2-3 sample descriptions:
+2. **MANDATORY: Save Artifact First**
+   - MUST save as descriptions.json BEFORE asking for approval
+   - Use write tool to save the complete descriptions
+   - Verify the file was created successfully
+   - ⚠️ NEVER ask for approval without saving the file first
+
+3. **Present for Approval**
+   - ONLY after descriptions.json is saved, show 2-3 sample descriptions:
      * Text content
      * Image prompt
      * Visual style notes
-   - Ask: "Are these descriptions ready for image generation?"
+   - Ask: "Are these descriptions ready for image generation? (saved to descriptions.json)"
 
-3. **Wait for Approval or Revision**
+4. **⏸️ STOP AND WAIT - Do Not Continue**
+   - After asking for approval, STOP here and wait for user response
+   - Do NOT proceed to Phase 3 (image generation) until user explicitly approves
    - If approved: proceed to Phase 3
    - If revisions: regenerate descriptions as requested
+   - If no response about approval: ask again, do not assume approval
 
 ### Phase 3: Generate Images and Export
 1. **Generate Slide Images**
@@ -196,19 +212,29 @@ User provided outline. Here's your complete workflow:
    - Validate structure (has title, slides array)
    - Ensure each slide has title and content
 
-2. **Save and Confirm**
-   - Save as outline.json if not already
-   - Present quick summary:
+2. **MANDATORY: Save Artifact First**
+   - MUST save as outline.json BEFORE asking for confirmation
+   - Use write tool to save the complete outline
+   - Verify the file was created successfully
+   - ⚠️ NEVER ask for approval without saving the file first
+
+3. **Present for Confirmation**
+   - ONLY after outline.json is saved, present quick summary:
      * Slide count and titles
      * Overall flow
-   - Ask: "Should I proceed with generating detailed descriptions?"
+   - Ask: "Should I proceed with generating detailed descriptions? (saved to outline.json)"
 
-3. **Wait for Confirmation**
+4. **⏸️ STOP AND WAIT - Do Not Continue**
+   - After asking for confirmation, STOP here and wait for user response
+   - Do NOT proceed to Phase 2 until user explicitly confirms
    - If confirmed: proceed to Phase 2
    - If changes needed: apply and save revision
 
 ### Phase 2: Generate Descriptions
-[Same Phase 2 as IDEA MODE]
+1. **Create Detailed Slide Descriptions** (same as IDEA MODE Phase 2)
+2. **MANDATORY: Save descriptions.json BEFORE asking for approval**
+3. **Present for Approval** (only after file is saved)
+4. **⏸️ STOP AND WAIT** - Do NOT proceed to image generation until user explicitly approves
 
 ### Phase 3: Generate Images and Export
 [Same Phase 3 as IDEA MODE]
@@ -273,6 +299,25 @@ Exit condition: When user approves revision"""
     # Universal guidelines for all modes
     UNIVERSAL_GUIDELINES = """## UNIVERSAL GUIDELINES
 
+### ⚠️ CRITICAL: Save-Then-Wait Rule
+**After saving each artifact, you MUST STOP and WAIT for user approval:**
+
+1. **Outline Phase:**
+   - Generate outline → Save outline.json → Ask for approval → **STOP AND WAIT**
+   - Do NOT proceed to descriptions until user explicitly approves
+   - User must respond before you continue
+
+2. **Description Phase:**
+   - Generate descriptions → Save descriptions.json → Ask for approval → **STOP AND WAIT**
+   - Do NOT proceed to image generation until user explicitly approves
+   - User must respond before you continue
+
+3. **Rules:**
+   - NEVER auto-continue to the next phase
+   - NEVER assume approval - wait for explicit user confirmation
+   - Include the filename in your request: "(saved to outline.json)"
+   - If user says nothing about approval, ask again - don't proceed
+
 ### Communication Style
 - Be conversational but professional
 - Show enthusiasm for their presentation topic
@@ -293,9 +338,15 @@ Exit condition: When user approves revision"""
 - Ensure text is readable on backgrounds
 
 ### File Management
-- Always save intermediate results
-- Use consistent naming: outline.json, descriptions.json
-- Keep revision history in revisions/ subdirectory
+Always save intermediate results
+All files are organized under data/sessions/{session_id}/:
+- outline.json, descriptions.json → session root
+- Generated images → images/ subdirectory
+- Exported PPTX/PDF → ppt_exports/ subdirectory
+- Revision history → revisions/ subdirectory
+
+Always:
+- Use consistent naming conventions
 - Copy external files to session directory for consistency
 - Clean up temporary files after completion
 
@@ -326,15 +377,19 @@ Exit condition: When user approves revision"""
     TOOL_GUIDELINES = """## TOOL USAGE
 
 ### Available Tools
-- **read**: Load outline.json, descriptions.json
-- **write**: Save generated content
-- **list**: Check session directory contents
-- **bash**: Execute shell commands (rename/remove files, file management)
+- **read**: Load files (supports relative paths like "outline.json")
+- **write**: Save files (supports relative paths like "outline.json")
+- **list**: Check directory contents (supports relative paths like "." or "images")
+- **bash**: Execute shell commands (runs in session directory by default)
+  - On Windows: use `mkdir`, `rm`, `ren`, `copy` commands
+  - On Unix: use `mkdir -p`, `rm`, `mv`, `cp` commands
 - **web_search**: Search the web for information to include in presentations
 - **web_fetch**: Fetch content from URLs (images, reference material)
 - **generate_image**: Create slide images
 - **export_pptx**: Create PowerPoint presentation
 - **export_pdf**: Create PDF version
+
+NOTE: All file tools (read, write, list) resolve relative paths from the session directory.
 
 ### Tool Usage Patterns
 
@@ -642,7 +697,8 @@ Would you like me to open the presentation or make any adjustments?"""
                 content = self._load_file_content(validated_path)
                 if content:
                     # Save to session directory
-                    session_path = Path(self.project_directory) / "outline.json"
+                    # Use the execution context's working directory which is the correct session path
+                    session_path = Path(self.execution_context.working_directory) / "outline.json"
                     import json
                     with open(session_path, 'w', encoding='utf-8') as f:
                         json.dump(content, f, indent=2)
@@ -664,7 +720,8 @@ Would you like me to open the presentation or make any adjustments?"""
                 content = self._load_file_content(validated_path)
                 if content:
                     # Save to session directory
-                    session_path = Path(self.project_directory) / "descriptions.json"
+                    # Use the execution context's working directory which is the correct session path
+                    session_path = Path(self.execution_context.working_directory) / "descriptions.json"
                     import json
                     with open(session_path, 'w', encoding='utf-8') as f:
                         json.dump(content, f, indent=2)
@@ -736,9 +793,9 @@ Would you like me to open the presentation or make any adjustments?"""
             publish_callback: Callback for publishing messages to broker.
             debug_log_path: Optional path to debug log file.
         """
-        # Set project directory to session directory
-        if project_directory is None:
-            project_directory = f"data/sessions/{session_id}"
+        # PPT agent always uses session directory, not the provided project_directory
+        # The session directory is where all PPT files are stored
+        session_directory = f"data/sessions/{session_id}"
 
         # Define allowed tools
         self.allowed_tools = [
@@ -763,11 +820,31 @@ Would you like me to open the presentation or make any adjustments?"""
             self.tools = tools
         self.tool_registry = self.tools
         self.session_id = session_id
-        self.project_directory = project_directory or f"data/sessions/{session_id}"
+        # PPT agent uses session_directory for all its files
+        self.project_directory = session_directory
+        # Store the original project_directory if needed for other purposes
+        self._original_project_directory = project_directory
         self.publish_callback = publish_callback
         self.is_running = True
         self._system_added = False
         self.sequence_counter = 0
+
+        # Create project directory if it doesn't exist
+        project_path = Path(self.project_directory)
+        project_path.mkdir(parents=True, exist_ok=True)
+
+        # Create execution context with working directory
+        # This ensures tools resolve relative paths (like "outline.json")
+        # to the session directory
+        self.execution_context = ExecutionContext(
+            session_id=session_id,
+            working_directory=str(project_path.resolve())
+        )
+
+        # Set execution context on all tools
+        for tool in self.tools.list_tools():
+            if hasattr(tool, 'execution_context'):
+                tool.execution_context = self.execution_context
 
         # Call parent constructor
         super().__init__(
@@ -821,14 +898,16 @@ Would you like me to open the presentation or make any adjustments?"""
             self.COMPLETION_CRITERIA
         ])
 
+        # Add environment context (date, OS, platform-specific notes)
+        prompt_parts.append(get_environment_context(working_directory=self.project_directory))
+
         # Add session-specific context
         prompt_parts.append(
-            f"\n\nCurrent Session Context:\n"
-            f"Session ID: {self.session_id}\n"
-            f"Session Directory: {self.project_directory}\n"
-            f"Has Outline: {has_outline}\n"
-            f"Has Descriptions: {has_descriptions}\n"
-            f"Has Images: {has_images}"
+            f"\n## Session Context\n"
+            f"- Session ID: {self.session_id}\n"
+            f"- Has Outline: {has_outline}\n"
+            f"- Has Descriptions: {has_descriptions}\n"
+            f"- Has Images: {has_images}"
         )
 
         return "\n\n".join(prompt_parts)

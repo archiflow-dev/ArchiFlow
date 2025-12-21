@@ -20,7 +20,7 @@ import re
 from ..messages.types import BaseMessage, AgentFinishedMessage
 from ..llm.provider import LLMProvider
 from ..tools.tool_base import ToolRegistry
-from .project_agent import ProjectAgent
+from .project_agent import ProjectAgent, get_environment_context
 
 logger = logging.getLogger(__name__)
 
@@ -784,12 +784,12 @@ Bad comment example:
     def get_system_message(self) -> str:
         """
         Get the system message for the agent.
-        
+
         Returns:
             Formatted system prompt with environment details.
         """
         review_dir = Path(self.project_directory) / ".agent" / "review"
-        
+
         # Append context info (don't use .format() due to JSON curly braces in prompt)
         context = f"""
 
@@ -799,6 +799,8 @@ Bad comment example:
 - Review Directory: {str(review_dir)}
 - Diff File: {self.diff_file or "Not provided - will auto-generate"}
 - PR Description: {self.pr_description_file or "Not provided - will auto-locate"}
+
+{get_environment_context(working_directory=str(self.project_directory))}
 """
         return self.SYSTEM_PROMPT + context
     

@@ -11,7 +11,7 @@ from pathlib import Path
 from ..messages.types import BaseMessage, UserMessage, AgentFinishedMessage
 from ..tools.tool_base import ToolRegistry
 from ..llm.provider import LLMProvider
-from .project_agent import ProjectAgent
+from .project_agent import ProjectAgent, get_environment_context
 from ..tools.all_tools import get_tool_collection
 
 logger = logging.getLogger(__name__)
@@ -299,7 +299,13 @@ When all steps are completed and verified:
 
     def get_system_message(self) -> str:
         """Return the system prompt for the coding agent."""
-        return self.SYSTEM_PROMPT
+        # Format the system prompt with project directory
+        prompt = self.SYSTEM_PROMPT.format(project_directory=self.project_directory)
+
+        # Add environment context
+        prompt += "\n\n" + get_environment_context(working_directory=str(self.project_directory))
+
+        return prompt
 
     def _record_file_change(self, filepath: str):
         """

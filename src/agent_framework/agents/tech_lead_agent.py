@@ -12,7 +12,7 @@ from pathlib import Path
 from ..messages.types import BaseMessage
 from ..tools.tool_base import ToolRegistry
 from ..llm.provider import LLMProvider
-from .project_agent import ProjectAgent
+from .project_agent import ProjectAgent, get_environment_context
 
 logger = logging.getLogger(__name__)
 
@@ -368,6 +368,9 @@ Call `finish_task` when you have delivered:
             self.UNIVERSAL_GUIDELINES,
             self.COMPLETION_CRITERIA
         ])
+
+        # Add environment context
+        prompt_parts.append(get_environment_context(working_directory=str(self.project_directory)))
 
         return "\n\n".join(prompt_parts)
 

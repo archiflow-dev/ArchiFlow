@@ -67,7 +67,8 @@ class BashTool(BaseTool):
 
         Args:
             command: The bash command to execute
-            working_directory: Optional directory to run the command in
+            working_directory: Optional directory to run the command in.
+                              Defaults to execution context's working directory if set.
             timeout: Timeout in seconds (capped at max_timeout)
 
         Returns:
@@ -82,6 +83,13 @@ class BashTool(BaseTool):
 
             # Cap timeout at max_timeout
             timeout = min(timeout, self.max_timeout)
+
+            # Use execution context's working directory as default
+            if working_directory is None:
+                working_directory = self.get_working_directory()
+            elif working_directory:
+                # Resolve relative working directory paths
+                working_directory = self.resolve_path(working_directory)
 
             # Validate working directory if provided
             if working_directory and not os.path.isdir(working_directory):

@@ -45,7 +45,8 @@ class TestExportPPTXTool:
         """Test tool initialization."""
         assert export_tool.name == "export_pptx"
         assert "title" in export_tool.parameters["required"]
-        assert export_tool.parameters["properties"]["output_dir"]["default"] == "data/ppt_exports"
+        # output_dir default is now dynamic based on session_id
+        assert "output_dir" in export_tool.parameters["properties"]
         assert export_tool.parameters["properties"]["slide_pattern"]["default"] == "slide_*.png"
 
     def test_slide_dimensions(self, export_tool):

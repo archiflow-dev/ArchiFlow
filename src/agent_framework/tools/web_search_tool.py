@@ -161,90 +161,118 @@ class WebSearchTool(BaseTool):
         except Exception as e:
             return None, f"Error performing Google search: {type(e).__name__}: {str(e)}"
 
-    async def _search_duckduckgo(self, query: str, num_results: int) -> tuple[Optional[List[SearchResult]], Optional[str]]:
+    async def _search_duckduckgo(self, query: str, num_results: int, max_retries: int = 3) -> tuple[Optional[List[SearchResult]], Optional[str]]:
         """Search using DuckDuckGo HTML parsing.
 
         Args:
             query: The search query
             num_results: Number of results to return
+            max_retries: Maximum number of retries for failed requests
 
         Returns:
             Tuple of (results_list, error_message)
         """
+        import asyncio
+
         try:
-            # Use DuckDuckGo HTML version and parse results
-            # This is more reliable than the API which returns test data
-            url = "https://html.duckduckgo.com/html/"
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-            }
-            params = {
-                "q": query,
-                "kl": "us-en"
-            }
-
-            async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
-                response = await client.get(url, params=params, headers=headers)
-
-                if response.status_code != 200:
-                    return None, f"DuckDuckGo search error: HTTP {response.status_code}"
-
-                # Parse HTML results
-                from bs4 import BeautifulSoup
-                soup = BeautifulSoup(response.text, 'html.parser')
-
-                results = []
-
-                # Find result divs
-                result_divs = soup.find_all('div', class_='result')
-
-                for div in result_divs[:num_results]:
-                    # Extract title and link
-                    title_tag = div.find('a', class_='result__a')
-                    if not title_tag:
-                        continue
-
-                    title = title_tag.get_text(strip=True)
-                    url = title_tag.get('href', '')
-
-                    # Extract snippet
-                    snippet_tag = div.find('a', class_='result__snippet')
-                    if snippet_tag:
-                        snippet = snippet_tag.get_text(strip=True)
-                    else:
-                        # Fallback to any text content
-                        snippet_div = div.find('div', class_='result__body')
-                        if snippet_div:
-                            # Remove any script/style tags and get text
-                            for script in snippet_div(["script", "style"]):
-                                script.decompose()
-                            snippet = snippet_div.get_text(strip=True)
-                        else:
-                            snippet = ""
-
-                    # Clean up snippet
-                    snippet = ' '.join(snippet.split())[:300]  # Limit to 300 chars
-
-                    if title and url:
-                        result = SearchResult(
-                            title=title,
-                            url=url,
-                            snippet=snippet,
-                            source="DuckDuckGo"
-                        )
-                        results.append(result)
-
-                return results, None
-
+            # Check if BeautifulSoup is available
+            from bs4 import BeautifulSoup
         except ImportError:
             # Fallback to API method if bs4 is not available
             return await self._search_duckduckgo_api_fallback(query, num_results)
-        except httpx.TimeoutException:
-            return None, "Search request timed out"
-        except Exception as e:
-            return None, f"Error performing DuckDuckGo search: {type(e).__name__}: {str(e)}"
 
-    async def _search_duckduckgo_api_fallback(self, query: str, num_results: int) -> tuple[Optional[List[SearchResult]], Optional[str]]:
+        for attempt in range(max_retries):
+            try:
+                # Use DuckDuckGo HTML version and parse results
+                # This is more reliable than the API which returns test data
+                url = "https://html.duckduckgo.com/html/"
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                }
+                params = {
+                    "q": query,
+                    "kl": "us-en"
+                }
+
+                # Add delay for retries
+                if attempt > 0:
+                    await asyncio.sleep(2 ** attempt)  # Exponential backoff
+
+                async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
+                    response = await client.get(url, params=params, headers=headers)
+
+                    # Handle HTTP 202 and other non-200 responses
+                    if response.status_code == 202:
+                        if attempt < max_retries - 1:
+                            continue  # Retry on HTTP 202
+                        else:
+                            return None, f"DuckDuckGo search error: HTTP {response.status_code} (request accepted but not completed after {max_retries} attempts)"
+                    elif response.status_code != 200:
+                        return None, f"DuckDuckGo search error: HTTP {response.status_code}"
+
+                    # Parse HTML results
+                    soup = BeautifulSoup(response.text, 'html.parser')
+
+                    results = []
+
+                    # Find result divs
+                    result_divs = soup.find_all('div', class_='result')
+
+                    for div in result_divs[:num_results]:
+                        # Extract title and link
+                        title_tag = div.find('a', class_='result__a')
+                        if not title_tag:
+                            continue
+
+                        title = title_tag.get_text(strip=True)
+                        url = title_tag.get('href', '')
+
+                        # Extract snippet
+                        snippet_tag = div.find('a', class_='result__snippet')
+                        if snippet_tag:
+                            snippet = snippet_tag.get_text(strip=True)
+                        else:
+                            # Fallback to any text content
+                            snippet_div = div.find('div', class_='result__body')
+                            if snippet_div:
+                                # Remove any script/style tags and get text
+                                for script in snippet_div(["script", "style"]):
+                                    script.decompose()
+                                snippet = snippet_div.get_text(strip=True)
+                            else:
+                                snippet = ""
+
+                        # Clean up snippet
+                        snippet = ' '.join(snippet.split())[:300]  # Limit to 300 chars
+
+                        if title and url:
+                            result = SearchResult(
+                                title=title,
+                                url=url,
+                                snippet=snippet,
+                                source="DuckDuckGo"
+                            )
+                            results.append(result)
+
+                    return results, None
+
+            except httpx.TimeoutException:
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2)  # Brief delay before retry
+                    continue
+                else:
+                    return None, "Search request timed out"
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2)  # Brief delay before retry
+                    continue
+                else:
+                    return None, f"Error performing DuckDuckGo search: {type(e).__name__}: {str(e)}"
+
+        # All retries exhausted
+        return None, f"DuckDuckGo search failed after {max_retries} attempts"
+
+    async def _search_duckduckgo_api_fallback(self, query: str, num_results: int, max_retries: int = 3) -> tuple[Optional[List[SearchResult]], Optional[str]]:
         """Fallback method using DuckDuckGo API with better error handling."""
         try:
             # Use the vqd endpoint for more reliable results
@@ -312,12 +340,49 @@ class WebSearchTool(BaseTool):
             # Final fallback with a simple web search simulation
             return None, f"DuckDuckGo search failed: {str(e)}. Consider using a different search provider or installing BeautifulSoup4."
 
+    async def _search_wikipedia_fallback(self, query: str, num_results: int) -> tuple[Optional[List[SearchResult]], Optional[str]]:
+        """Fallback search using Wikipedia API when other methods fail.
+
+        Args:
+            query: The search query
+            num_results: Number of results to return
+
+        Returns:
+            Tuple of (results_list, error_message)
+        """
+        try:
+            import httpx
+
+            # Search Wikipedia
+            url = "https://en.wikipedia.org/api/rest_v1/page/summary/" + query.replace(" ", "_")
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            }
+
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(url, headers=headers)
+
+                if response.status_code == 200:
+                    data = response.json()
+                    result = SearchResult(
+                        title=data.get("title", ""),
+                        url=data.get("content_urls", {}).get("desktop", {}).get("page", ""),
+                        snippet=data.get("extract", "")[:300],
+                        source="Wikipedia"
+                    )
+                    return [result], None
+                else:
+                    return None, "Wikipedia search: No results found"
+
+        except Exception as e:
+            return None, f"Wikipedia fallback failed: {str(e)}"
+
     async def _perform_search(
         self,
         query: str,
         num_results: int
     ) -> tuple[Optional[List[SearchResult]], Optional[str]]:
-        """Perform web search using configured provider.
+        """Perform web search using configured provider with fallbacks.
 
         Args:
             query: The search query
@@ -329,12 +394,36 @@ class WebSearchTool(BaseTool):
         # Get search provider from environment
         provider = os.getenv("WEB_SEARCH_PROVIDER", "duckduckgo").lower()
 
+        # Try primary provider first
         if provider == "google":
-            return await self._search_google(query, num_results)
+            results, error = await self._search_google(query, num_results)
+            if results or not error:
+                return results, error
         elif provider == "duckduckgo":
-            return await self._search_duckduckgo(query, num_results)
+            results, error = await self._search_duckduckgo(query, num_results)
+            if results or not error:
+                return results, error
         else:
             return None, f"Unknown search provider: {provider}. Use 'google' or 'duckduckgo'"
+
+        # If primary provider failed, try DuckDuckGo if not already tried
+        if provider != "duckduckgo":
+            results, error = await self._search_duckduckgo(query, num_results)
+            if results:
+                return results, None
+
+        # Final fallback to Wikipedia
+        results, error = await self._search_wikipedia_fallback(query, num_results)
+        if results:
+            return results, None
+
+        # All methods failed, but provide a helpful message
+        return None, f"All search methods failed. Last error: {error}. Suggestions:\n" + \
+                   f"1. Try again in a few minutes (DuckDuckGo might be rate limiting)\n" + \
+                   f"2. Set up Google Search API for more reliable results:\n" + \
+                   f"   - Get API key from Google Cloud Console\n" + \
+                   f"   - Create Programmable Search Engine at https://programmablesearchengine.google.com/\n" + \
+                   f"   - Set WEB_SEARCH_PROVIDER=google and GOOGLE_SEARCH_API_KEY=your_key"
 
     def _format_results(self, results: List[SearchResult]) -> str:
         """Format search results for display.

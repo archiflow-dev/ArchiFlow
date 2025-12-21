@@ -51,12 +51,11 @@ class ExportPPTXTool(BaseTool):
             },
             "input_dir": {
                 "type": "string",
-                "description": "Input directory containing slide images (default: data/images/{session_id})"
+                "description": "Input directory containing slide images (default: data/sessions/{session_id}/images)"
             },
             "output_dir": {
                 "type": "string",
-                "description": "Output directory for the PPTX file (default: data/ppt_exports)",
-                "default": "data/ppt_exports"
+                "description": "Output directory for the PPTX file (default: data/sessions/{session_id}/ppt_exports)"
             },
             "slide_pattern": {
                 "type": "string",
@@ -86,7 +85,7 @@ class ExportPPTXTool(BaseTool):
         title: str,
         input_dir: Optional[str] = None,
         session_id: str = "default",
-        output_dir: str = "data/ppt_exports",
+        output_dir: Optional[str] = None,
         slide_pattern: str = "slide_*.png",
         **kwargs
     ) -> ToolResult:
@@ -95,9 +94,9 @@ class ExportPPTXTool(BaseTool):
 
         Args:
             title: Title for the presentation
-            input_dir: Input directory containing slide images (default: data/images/{session_id})
+            input_dir: Input directory containing slide images (default: data/sessions/{session_id}/images)
             session_id: Session ID for organizing files
-            output_dir: Output directory for the PPTX file
+            output_dir: Output directory for the PPTX file (default: data/sessions/{session_id}/ppt_exports)
             slide_pattern: Pattern to match slide files
 
         Returns:
@@ -113,8 +112,13 @@ class ExportPPTXTool(BaseTool):
 
             # Determine input directory
             if input_dir is None:
-                # Default to data/images/{session_id}
-                input_dir = os.path.join("data", "images", session_id)
+                # Default to data/sessions/{session_id}/images
+                input_dir = os.path.join("data", "sessions", session_id, "images")
+
+            # Determine output directory
+            if output_dir is None:
+                # Default to data/sessions/{session_id}/ppt_exports
+                output_dir = os.path.join("data", "sessions", session_id, "ppt_exports")
 
             # Validate input directory
             input_path = Path(input_dir)
@@ -268,14 +272,14 @@ class ExportPPTXTool(BaseTool):
 
         Args:
             pattern: Pattern to match slide files
-            input_dir: Directory to search in (if None, uses data/images/{session_id})
+            input_dir: Directory to search in (if None, uses data/sessions/{session_id}/images)
             session_id: Session ID for organizing files
 
         Returns:
             Number of slide files found
         """
         if input_dir is None:
-            input_dir = os.path.join("data", "images", session_id)
+            input_dir = os.path.join("data", "sessions", session_id, "images")
         return len(self._find_slide_files(pattern, Path(input_dir)))
 
     def __repr__(self):

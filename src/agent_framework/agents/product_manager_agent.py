@@ -10,7 +10,7 @@ from typing import Optional, Callable
 from ..messages.types import BaseMessage
 from ..tools.tool_base import ToolRegistry
 from ..llm.provider import LLMProvider
-from .project_agent import ProjectAgent
+from .project_agent import ProjectAgent, get_environment_context
 
 logger = logging.getLogger(__name__)
 
@@ -446,7 +446,13 @@ Now, code review tools can mean many things:
 
     def get_system_message(self) -> str:
         """Return the system prompt for the product manager agent."""
-        return self.SYSTEM_PROMPT
+        # Format the system prompt with project directory
+        prompt = self.SYSTEM_PROMPT.format(project_directory=self.project_directory)
+
+        # Add environment context
+        prompt += "\n\n" + get_environment_context(working_directory=str(self.project_directory))
+
+        return prompt
 
     def _setup_tools(self):
         """

@@ -1,0 +1,102 @@
+{
+  "presentation_title": "Animation & VFX Careers: Opportunities in the Digital Creative Industry",
+  "presentation_subtitle": "Navigating Career Paths, Skills, and Industry Trends for Success",
+  "slides": [
+    {
+      "slide_number": 1,
+      "title": "Animation & VFX Careers",
+      "content": [
+        "Exploring Opportunities in the Digital Creative Industry",
+        "Growing $394 Billion Global Animation Market",
+        "Diverse Career Paths Across Multiple Sectors",
+        "Essential Skills for Success in 2024 and Beyond"
+      ],
+      "slide_type": "title",
+      "visual_notes": "Dynamic visual showcasing different animation/VFX disciplines with modern technology integration"
+    },
+    {
+      "slide_number": 2,
+      "title": "Industry Overview & Market Size",
+      "content": [
+        "$394 Billion Global Animation Industry Value",
+        "8% Annual Growth Rate Projected Through 2028",
+        "Media & Entertainment: Largest Sector at 45%",
+        "Emerging Markets: Gaming, AR/VR, and Corporate Training"
+      ],
+      "slide_type": "content",
+      "visual_notes": "Infographic-style layout showing market statistics and growth projections with animated charts"
+    },
+    {
+      "slide_number": 3,
+      "title": "Core Career Paths in Animation",
+      "content": [
+        "3D Animator: Character Performance and Movement",
+        "2D Animator: Traditional and Digital Animation",
+        "Motion Graphics Designer: Title Sequences and Commercials",
+        "Character Designer: Concept Art and Development"
+      ],
+      "slide_type": "content",
+      "visual_notes": "Side-by-side comparison of different animation disciplines with sample work examples"
+    },
+    {
+      "slide_number": 4,
+      "title": "VFX Specializations & Roles",
+      "content": [
+        "Compositing Artist: Integrating Visual Elements",
+        "3D Modeler: Creating Digital Assets and Environments",
+        "Lighting Artist: Setting Mood and Atmosphere",
+        "Technical Director: Pipeline Development and Problem-Solving"
+      ],
+      "slide_type": "content",
+      "visual_notes": "Technical breakdown showing VFX pipeline stages with before/after examples"
+    },
+    {
+      "slide_number": 5,
+      "title": "Essential Technical Skills",
+      "content": [
+        "Software Proficiency: Maya, Blender, Houdini, After Effects",
+        "Programming: Python for Pipeline and Automation",
+        "Real-time Engines: Unreal Engine, Unity for Game VFX",
+        "AI Integration: Machine Learning Tools for Production Efficiency"
+      ],
+      "slide_type": "content",
+      "visual_notes": "Software logos and interface highlights showing industry-standard tools"
+    },
+    {
+      "slide_number": 6,
+      "title": "Creative & Soft Skills Requirements",
+      "content": [
+        "Strong Visual Communication and Storytelling",
+        "Collaboration and Team-based Project Management",
+        "Problem-Solving Under Deadline Pressure",
+        "Continuous Learning and Adaptability to New Technologies"
+      ],
+      "slide_type": "content",
+      "visual_notes": "Illustrations showing collaboration scenarios and creative problem-solving processes"
+    },
+    {
+      "slide_number": 7,
+      "title": "Salary Insights & Job Outlook",
+      "content": [
+        "Entry Level: $45,000 - $65,000 annually",
+        "Mid-Career: $70,000 - $120,000 annually",
+        "Senior/Lead: $130,000 - $200,000+ annually",
+        "2% Job Growth Expected 2024-2034 (BLS Data)"
+      ],
+      "slide_type": "content",
+      "visual_notes": "Career progression chart with salary ranges and growth projections"
+    },
+    {
+      "slide_number": 8,
+      "title": "Building Your Career Path",
+      "content": [
+        "Education: Formal Degrees vs. Self-Taught Routes",
+        "Portfolio Development: Quality Over Quantity",
+        "Networking: Industry Events and Online Communities",
+        "Specialization vs. Generalization: Finding Your Niche"
+      ],
+      "slide_type": "conclusion",
+      "visual_notes": "Career roadmap visualization with key milestones and decision points"
+    }
+  ]
+}

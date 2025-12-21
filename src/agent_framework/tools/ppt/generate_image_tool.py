@@ -71,7 +71,7 @@ class GenerateImageTool(BaseTool):
             },
             "output_dir": {
                 "type": "string",
-                "description": "Output directory for images (default: data/images/{session_id})"
+                "description": "Output directory for images (default: data/sessions/{session_id}/images)"
             },
             "aspect_ratio": {
                 "type": "string",
@@ -268,8 +268,8 @@ class GenerateImageTool(BaseTool):
 
             # Determine output directory
             if output_dir is None:
-                # Default to data/images/{session_id}
-                output_dir = os.path.join("data", "images", session_id)
+                # Default to data/sessions/{session_id}/images
+                output_dir = os.path.join("data", "sessions", session_id, "images")
 
             # Create output directory if it doesn't exist
             os.makedirs(output_dir, exist_ok=True)

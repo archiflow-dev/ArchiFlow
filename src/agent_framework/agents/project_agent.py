@@ -18,7 +18,7 @@ from ..messages.types import (
 )
 from ..tools.tool_base import ToolRegistry
 from ..llm.provider import LLMProvider
-from .base import BaseAgent
+from .base import BaseAgent, get_environment_context
 from ..runtime.context import ExecutionContext
 
 logger = logging.getLogger(__name__)
