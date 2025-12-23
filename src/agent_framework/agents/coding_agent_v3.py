@@ -8,6 +8,7 @@ coding tasks and user approval at each phase.
 import logging
 import json
 import os
+import hashlib
 from typing import Optional, Callable, Dict, Any, List, Tuple
 from pathlib import Path
 
@@ -79,12 +80,12 @@ Look for specific keywords and patterns:
 
 ### Step 2: Check Session Directory
 Use `list` and `read` to check for existing files:
-- specs.json - Requirements and specifications
-- implementation_plan.json - Progress tracking
+- specs.md - Requirements and specifications
+- implementation_plan.md - Progress tracking
 - src/ directory - Existing source code
 - tests/ directory - Existing tests
-- debug_report.json - Previous debug sessions
-- refactor_plan.json - Refactoring strategy
+- debug_report.md - Previous debug sessions
+- refactor_plan.md - Refactoring strategy
 
 ### Step 3: Determine Your Mode
 
@@ -93,21 +94,21 @@ Use `list` and `read` to check for existing files:
 - Create comprehensive specifications
 - Design system architecture
 - Plan implementation steps
-- Save specs.json for review and approval
+- Save specs.md for review and approval
 
 **IF** user reports errors OR code is not working:
 → ENTER DEBUG MODE
 - Analyze error messages and stack traces
 - Identify root cause
 - Propose and implement fixes
-- Save debug_report.json
+- Save debug_report.md
 
 **IF** user asks to improve existing code:
 → ENTER REFACTOR MODE
 - Analyze code quality and structure
 - Identify improvement opportunities
 - Plan incremental refactoring
-- Save refactor_plan.json
+- Save refactor_plan.md
 
 **IF** user wants to add new functionality:
 → ENTER FEATURE MODE
@@ -121,14 +122,14 @@ Use `list` and `read` to check for existing files:
 - Comprehensive code analysis
 - Check for bugs and issues
 - Provide actionable feedback
-- Save code_review.json
+- Save code_review.md
 
 **IF** user wants or needs tests:
 → ENTER TEST MODE
 - Analyze code for test scenarios
 - Create comprehensive test suite
 - Measure coverage
-- Save test_plan.json
+- Save test_plan.md
 
 **IF** specs exist and ready to implement:
 → ENTER IMPLEMENTATION MODE
@@ -170,7 +171,7 @@ User provided an idea. Here's your complete workflow:
    - Identify dependencies and prerequisites
 
 ### Phase 2: Save Specifications
-1. **MANDATORY: Save specs.json**
+1. **MANDATORY: Save specs.md**
    - Complete specification with all requirements
    - Architecture diagram or description
    - Implementation roadmap
@@ -180,7 +181,7 @@ User provided an idea. Here's your complete workflow:
    - Show requirements summary
    - Explain architecture decisions
    - Present implementation plan
-   - Ask: "Does this specification meet your needs? (saved to specs.json)"
+   - Ask: "Does this specification meet your needs? (saved to specs.md)"
 
 3. **⏸️ STOP AND WAIT**
    - Do not proceed without explicit approval
@@ -219,7 +220,7 @@ User reported errors or issues. Here's your workflow:
    - Test the fix works
 
 2. **Save Debug Report**
-   - MANDATORY: Save debug_report.json
+   - MANDATORY: Save debug_report.md
    - Document the error analysis
    - Record the solution implemented
    - Note any related improvements
@@ -227,7 +228,7 @@ User reported errors or issues. Here's your workflow:
 3. **Present Results**
    - Explain what was fixed
    - Show before/after behavior
-   - Ask: "Is the issue resolved? (saved to debug_report.json)"
+   - Ask: "Is the issue resolved? (saved to debug_report.md)"
 
 4. **⏸️ STOP AND WAIT**
    - Wait for confirmation the fix works
@@ -266,7 +267,7 @@ User wants to improve existing code. Here's your workflow:
    - Update documentation
 
 2. **Save Refactoring Plan**
-   - MANDATORY: Save refactor_plan.json
+   - MANDATORY: Save refactor_plan.md
    - Document all planned improvements
    - Track completed changes
    - Note any unexpected issues
@@ -274,7 +275,7 @@ User wants to improve existing code. Here's your workflow:
 3. **Report Progress**
    - Show what was improved
    - Explain benefits achieved
-   - Ask: "Are these improvements satisfactory? (saved to refactor_plan.json)"
+   - Ask: "Are these improvements satisfactory? (saved to refactor_plan.md)"
 
 4. **⏸️ STOP AND WAIT**
    - Wait for review and approval
@@ -319,7 +320,7 @@ User wants to add new functionality. Here's your workflow:
    - Verify performance impact
 
 3. **Save Feature Documentation**
-   - MANDATORY: Save feature_plan.json
+   - MANDATORY: Save feature_plan.md
    - Document feature design
    - Record implementation details
    - Note any modifications made
@@ -327,7 +328,7 @@ User wants to add new functionality. Here's your workflow:
 4. **Present Feature**
    - Demonstrate new functionality
    - Explain how it works
-   - Ask: "Does this meet your requirements? (saved to feature_plan.json)"
+   - Ask: "Does this meet your requirements? (saved to feature_plan.md)"
 
 5. **⏸️ STOP AND WAIT**
    - Wait for feature review and approval
@@ -366,7 +367,7 @@ User requested code review. Here's your workflow:
    - Suggest specific improvements
 
 2. **Save Review Report**
-   - MANDATORY: Save code_review.json
+   - MANDATORY: Save code_review.md
    - Document all findings
    - Include code examples for issues
    - Provide improvement suggestions
@@ -375,7 +376,7 @@ User requested code review. Here's your workflow:
    - Summarize key findings
    - Highlight critical issues
    - Explain recommendations
-   - Ask: "Shall I help implement these improvements? (saved to code_review.json)"
+   - Ask: "Shall I help implement these improvements? (saved to code_review.md)"
 
 4. **⏸️ STOP AND WAIT**
    - Wait for feedback and next steps
@@ -414,7 +415,7 @@ User needs tests for the code. Here's your workflow:
    - Analyze test results
 
 2. **Save Test Plan**
-   - MANDATORY: Save test_plan.json
+   - MANDATORY: Save test_plan.md
    - Document test strategy
    - Record test cases
    - Note coverage metrics
@@ -423,7 +424,7 @@ User needs tests for the code. Here's your workflow:
    - Show test coverage percentage
    - Report any failing tests
    - Explain test results
-   - Ask: "Are the tests sufficient? (saved to test_plan.json)"
+   - Ask: "Are the tests sufficient? (saved to test_plan.md)"
 
 4. **⏸️ STOP AND WAIT**
    - Wait for test review and approval
@@ -437,7 +438,7 @@ Ready to implement from approved specifications. Here's your workflow:
 
 ### Phase 1: Code Generation
 1. **Follow Implementation Plan**
-   - Reference specs.json requirements
+   - Reference specs.md requirements
    - Implement components systematically
    - Follow planned architecture
    - Maintain consistent patterns
@@ -450,7 +451,7 @@ Ready to implement from approved specifications. Here's your workflow:
 
 3. **Progressive Saving**
    - Save each file as completed
-   - Update implementation_plan.json
+   - Update implementation_plan.md
    - Track progress against plan
    - Show incremental progress
 
@@ -485,7 +486,7 @@ Exit condition: When implementation is complete and meeting specifications"""
 After saving each major artifact, you MUST STOP and WAIT:
 
 1. **Specifications Phase:**
-   - Create specs → Save specs.json → Ask for approval → STOP
+   - Create specs → Save specs.md → Ask for approval → STOP
    - Do not proceed without explicit approval
 
 2. **Implementation Phase:**
@@ -493,7 +494,7 @@ After saving each major artifact, you MUST STOP and WAIT:
    - Wait for review before next major component
 
 3. **Debug Phase:**
-   - Analyze → Save debug_report.json → Propose fix → STOP
+   - Analyze → Save debug_report.md → Propose fix → STOP
    - Wait for approval to implement
 
 ### Code Quality Standards
@@ -549,7 +550,7 @@ After saving each major artifact, you MUST STOP and WAIT:
 ### Tool Usage Patterns by Mode
 
 **Ideation Mode:**
-- `read`, `list`, `web_search`, `web_fetch`, `write` (for specs.json)
+- `read`, `list`, `web_search`, `web_fetch`, `write` (for specs.md)
 
 **Implementation Mode:**
 - All tools, especially `write`, `edit`, `multi_edit`, `bash`
@@ -625,7 +626,7 @@ Would you like me to make any adjustments or help with next steps?" """
             publish_callback: Callback for publishing messages to broker.
             debug_log_path: Optional path to debug log file.
         """
-        
+
         # Define allowed tools
         self.allowed_tools = [
             "read", "write", "edit", "multi_edit",  # File operations
@@ -649,8 +650,11 @@ Would you like me to make any adjustments or help with next steps?" """
         self.project_directory = project_directory
         self.publish_callback = publish_callback
         self.is_running = True
-        self._system_added = False
         self.sequence_counter = 0
+
+        # System prompt caching
+        self._session_state_hash: Optional[str] = None
+        self._last_system_prompt: Optional[str] = None
 
         # Create project directory if it doesn't exist
         project_path = Path(self.project_directory)
@@ -695,19 +699,15 @@ Would you like me to make any adjustments or help with next steps?" """
         # 1. Update Memory
         self._update_memory(message)
 
-        # 2. Add system message if not already added
-        if not self._system_added:
-            system_msg = SystemMessage(
-                session_id=self.session_id,
-                sequence=self._next_sequence(),
-                content=self.get_system_message()
-            )
-            self.history.add(system_msg)
-            self._system_added = True
+        # 2. Build system prompt (rebuilt each time, but cached when state unchanged)
+        system_prompt = self._build_system_prompt()
 
         # 3. Generate response
         # Convert history to LLM format
-        messages = self.history.to_llm_format()
+        history_messages = self.history.to_llm_format()
+
+        # Prepend system message to messages array (not stored in history)
+        messages = [{"role": "system", "content": system_prompt}] + history_messages
 
         # Get tools schema
         tools_schema = self._get_tools_schema()
@@ -773,13 +773,62 @@ Would you like me to make any adjustments or help with next steps?" """
         self.sequence_counter += 1
         return seq
 
+    def _get_session_state_hash(self) -> str:
+        """
+        Generate hash of session state to detect when system prompt needs rebuilding.
+
+        Returns:
+            SHA256 hash string of current session state
+        """
+        session_path = Path(self.project_directory)
+
+        # Collect state indicators
+        state_indicators = []
+
+        # Check for artifact files
+        artifacts = [
+            "specs.md", "implementation_plan.md", "debug_report.md",
+            "refactor_plan.md", "feature_plan.md", "code_review.md", "test_plan.md"
+        ]
+        for artifact in artifacts:
+            state_indicators.append(str((session_path / artifact).exists()))
+
+        # Count files in key directories
+        state_indicators.append(str(len(list(session_path.glob("src/*.*")))))
+        state_indicators.append(str(len(list(session_path.glob("tests/*.*")))))
+        state_indicators.append(str(len(list(session_path.glob("docs/*.*")))))
+
+        # Hash the combined state
+        state_string = "|".join(state_indicators)
+        return hashlib.sha256(state_string.encode()).hexdigest()
+
     def get_system_message(self) -> str:
         """
-        Dynamically build system prompt based on current context.
+        Public method to get the system message for external use.
 
         Returns:
             Complete system message with appropriate mode instructions
         """
+        return self._build_system_prompt()
+
+    def _build_system_prompt(self) -> str:
+        """
+        Dynamically build system prompt based on current context with caching.
+
+        The system prompt is rebuilt when the session state changes (new files created,
+        artifacts saved, etc.). Otherwise, the cached version is returned.
+
+        Returns:
+            Complete system message with appropriate mode instructions
+        """
+        # Check if we can use cached system prompt
+        current_hash = self._get_session_state_hash()
+        if current_hash == self._session_state_hash and self._last_system_prompt:
+            logger.debug("Using cached system prompt (session state unchanged)")
+            return self._last_system_prompt
+
+        logger.debug("Rebuilding system prompt (session state changed)")
+
         # Build the prompt parts
         prompt_parts = [
             self.CORE_IDENTITY.format(session_directory=self.project_directory),
@@ -790,15 +839,15 @@ Would you like me to make any adjustments or help with next steps?" """
         session_path = Path(self.project_directory)
 
         # Check for artifacts that indicate current mode
-        has_specs = (session_path / "specs.json").exists()
+        has_specs = (session_path / "specs.md").exists()
         has_code = len(list(session_path.glob("src/*.*"))) > 0
         has_tests = len(list(session_path.glob("tests/*.*"))) > 0
-        has_debug_report = (session_path / "debug_report.json").exists()
-        has_refactor_plan = (session_path / "refactor_plan.json").exists()
-        has_feature_plan = (session_path / "feature_plan.json").exists()
-        has_code_review = (session_path / "code_review.json").exists()
-        has_test_plan = (session_path / "test_plan.json").exists()
-        has_impl_plan = (session_path / "implementation_plan.json").exists()
+        has_debug_report = (session_path / "debug_report.md").exists()
+        has_refactor_plan = (session_path / "refactor_plan.md").exists()
+        has_feature_plan = (session_path / "feature_plan.md").exists()
+        has_code_review = (session_path / "code_review.md").exists()
+        has_test_plan = (session_path / "test_plan.md").exists()
+        has_impl_plan = (session_path / "implementation_plan.md").exists()
 
         # Determine current mode based on what exists and last message
         # For now, we'll default to checking most recent activity
@@ -846,7 +895,12 @@ Would you like me to make any adjustments or help with next steps?" """
             f"- Has Implementation Plan: {has_impl_plan}"
         )
 
-        return "\n\n".join(prompt_parts)
+        # Build and cache the system prompt
+        system_prompt = "\n\n".join(prompt_parts)
+        self._session_state_hash = current_hash
+        self._last_system_prompt = system_prompt
+
+        return system_prompt
 
     def _get_tools_schema(self) -> list[dict]:
         """

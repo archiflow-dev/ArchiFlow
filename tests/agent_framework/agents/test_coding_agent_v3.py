@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch, MagicMock
 
 from agent_framework.agents.coding_agent_v3 import CodingAgentV3
 from agent_framework.llm.provider import LLMProvider
+from agent_framework.llm.model_config import ModelConfig
 from agent_framework.messages.types import UserMessage, LLMRespondMessage, ToolCallMessage
 from agent_framework.tools.tool_base import ToolRegistry
 
@@ -19,11 +20,21 @@ class TestCodingAgentV3:
     @pytest.fixture
     def mock_llm_provider(self):
         """Create a mock LLM provider for testing."""
-        mock_provider = Mock(spec=LLMProvider)
+        mock_provider = MagicMock()
         mock_response = Mock()
         mock_response.content = "I'm entering IDEATION MODE - Creating specifications..."
         mock_response.tool_calls = []
         mock_provider.generate.return_value = mock_response
+
+        # Add required attributes that BaseAgent expects
+        mock_provider.model_config = ModelConfig(
+            model_name="test-model",
+            context_window=8000,
+            max_output_tokens=2000
+        )
+        mock_provider.get_model_context_size.return_value = 8000
+        mock_provider.count_tokens.return_value = 100  # Mock token counting
+
         return mock_provider
 
     @pytest.fixture
@@ -48,11 +59,13 @@ class TestCodingAgentV3:
 
             assert agent.session_id == "test_session"
             assert agent.project_directory == tmpdir
-            assert Path(tmpdir / "src").exists()
-            assert Path(tmpdir / "tests").exists()
-            assert Path(tmpdir / "docs").exists()
+            assert (Path(tmpdir) / "src").exists()
+            assert (Path(tmpdir) / "tests").exists()
+            assert (Path(tmpdir) / "docs").exists()
             assert agent.is_running is True
-            assert agent._system_added is False
+            # System prompt caching initialized
+            assert agent._session_state_hash is None
+            assert agent._last_system_prompt is None
 
     def test_get_system_message_ideation_mode(self, agent):
         """Test system message generation for ideation mode."""
@@ -117,9 +130,11 @@ class TestCodingAgentV3:
         mock_update_memory.assert_called()
 
     @patch('agent_framework.agents.coding_agent_v3.CodingAgentV3._update_memory')
-    def test_step_adds_system_message_on_first_call(self, mock_update_memory, agent, mock_llm_provider):
-        """Test that system message is added on first step."""
-        assert not agent._system_added
+    def test_step_rebuilds_system_prompt_with_caching(self, mock_update_memory, agent, mock_llm_provider):
+        """Test that system prompt is rebuilt each step but cached when state unchanged."""
+        # System prompt should be None initially
+        assert agent._session_state_hash is None
+        assert agent._last_system_prompt is None
 
         message = UserMessage(
             session_id="test_session",
@@ -127,13 +142,32 @@ class TestCodingAgentV3:
             content="Test"
         )
 
+        # First step should build and cache system prompt
         agent.step(message)
 
-        assert agent._system_added is True
-        # Check that system message was added to history
+        # After first step, system prompt should be cached
+        assert agent._session_state_hash is not None
+        assert agent._last_system_prompt is not None
+        first_hash = agent._session_state_hash
+        first_prompt = agent._last_system_prompt
+
+        # Second step with unchanged state should use cached prompt
+        message2 = UserMessage(
+            session_id="test_session",
+            sequence=1,
+            content="Another test"
+        )
+        agent.step(message2)
+
+        # Hash and prompt should be the same (cached)
+        assert agent._session_state_hash == first_hash
+        assert agent._last_system_prompt == first_prompt
+
+        # Note: System message is NOT stored in history (only prepended to LLM call)
+        # So history should not contain system messages
         system_msgs = [msg for msg in agent.history.get_messages()
-                      if hasattr(msg, 'content') and 'CORE_IDENTITY' in msg.content]
-        assert len(system_msgs) > 0
+                      if hasattr(msg, '__class__') and msg.__class__.__name__ == 'SystemMessage']
+        assert len(system_msgs) == 0
 
     def test_sequence_counter(self, agent, mock_llm_provider):
         """Test that sequence counter increments correctly."""
