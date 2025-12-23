@@ -79,6 +79,12 @@ try:
 except ImportError:
     pass
 
+try:
+    from .process_manager_tool import ProcessManagerTool
+    _optional_tools.append(('ProcessManagerTool', ProcessManagerTool))
+except ImportError:
+    pass
+
 # PPT Tools
 try:
     from .ppt.generate_image_tool import GenerateImageTool

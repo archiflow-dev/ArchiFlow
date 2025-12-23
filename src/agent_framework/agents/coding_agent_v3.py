@@ -543,9 +543,49 @@ After saving each major artifact, you MUST STOP and WAIT:
 - **glob**: Find files with patterns
 - **grep**: Search within files
 - **bash**: Execute commands (compile, test, run)
+  - **CRITICAL**: For servers/watchers, use `background=True` parameter
+  - Examples: `bash(command="python -m http.server 8000", background=True)`
+- **process_manager**: Control background processes
+  - `list`: Show all running background processes
+  - `status`: Check if specific process (PID) is running
+  - `stop`: Gracefully stop a background process
+  - `kill`: Force kill a background process
 - **web_search**: Research documentation and solutions
 - **web_fetch**: Get content from URLs
 - **finish_task**: Mark work complete
+
+### ⚠️ CRITICAL: Long-Running Commands
+
+**ALWAYS use background=True for:**
+- Development servers: `python -m http.server`, `flask run`, `uvicorn`, `npm start`
+- Watchers: `npm run dev`, `nodemon`, `watch`
+- Containers: `docker run` (without -d flag)
+
+**Example:**
+```python
+# ❌ WRONG - This will hang/timeout!
+bash(command="python -m http.server 8000")
+
+# ✅ CORRECT - Run in background
+bash(command="python -m http.server 8000", background=True)
+# Returns immediately with PID, server runs in background
+```
+
+**Managing Background Processes:**
+```python
+# Start server in background
+result = bash(command="uvicorn app:app", background=True)
+# Returns: "Process ID (PID): 12345"
+
+# List running processes
+process_manager(operation="list")
+
+# Check if still running
+process_manager(operation="status", pid=12345)
+
+# Stop when done
+process_manager(operation="stop", pid=12345)
+```
 
 ### Tool Usage Patterns by Mode
 
@@ -554,6 +594,7 @@ After saving each major artifact, you MUST STOP and WAIT:
 
 **Implementation Mode:**
 - All tools, especially `write`, `edit`, `multi_edit`, `bash`
+- Use `bash` with `background=True` for servers during testing
 
 **Debug Mode:**
 - `read`, `grep`, `bash` (for running/debugging), `write`, `edit`
@@ -569,6 +610,7 @@ After saving each major artifact, you MUST STOP and WAIT:
 
 **Test Mode:**
 - `read`, `write`, `bash` (test runner), `glob` (test discovery)
+- `process_manager` to start/stop test servers
 
 ### File Paths
 - All paths relative to session directory
@@ -632,6 +674,7 @@ Would you like me to make any adjustments or help with next steps?" """
             "read", "write", "edit", "multi_edit",  # File operations
             "list", "glob", "grep",                # Navigation and search
             "bash",                                 # Command execution
+            "process_manager",                      # Background process management
             "web_search", "web_fetch",             # Research capabilities
             "todo_read", "todo_write",             # Task management
             "finish_task"                          # Completion signal
