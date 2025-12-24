@@ -85,6 +85,12 @@ try:
 except ImportError:
     pass
 
+try:
+    from .prompt_refiner_tool import PromptRefinerTool
+    _optional_tools.append(('PromptRefinerTool', PromptRefinerTool))
+except ImportError:
+    pass
+
 # PPT Tools
 try:
     from .ppt.generate_image_tool import GenerateImageTool
