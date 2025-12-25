@@ -38,6 +38,13 @@ from .merger import (
     get_effective_value,
 )
 
+# Configuration hierarchy
+from .hierarchy import (
+    ConfigSnapshot,
+    ConfigHierarchy,
+    create_global_config,
+)
+
 __all__ = [
     # Path resolution
     "get_global_archiflow_dir",
@@ -68,4 +75,8 @@ __all__ = [
     "merge_lists_unique",
     "deep_merge_with_list_strategy",
     "get_effective_value",
+    # Configuration hierarchy
+    "ConfigSnapshot",
+    "ConfigHierarchy",
+    "create_global_config",
 ]
