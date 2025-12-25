@@ -11,6 +11,11 @@ from .messages.types import (
     WaitForUserInput, AgentFinishedMessage
 )
 from .context import TopicContext
+from .runtime.prompt_preprocessor import (
+    PromptPreprocessor,
+    create_refinement_notification,
+    _set_last_refinement_action,
+)
 
 logger = logging.getLogger("agent_controller")
 
@@ -30,17 +35,22 @@ class AgentController:
         self.broker = broker
         self.context = context
 
+        # Initialize prompt pre-processor for auto-refinement (Option 3)
+        # This runs BEFORE the agent sees any UserMessage, ensuring
+        # zero contamination of system prompt and conversation history
+        self.prompt_preprocessor = PromptPreprocessor(llm=agent.llm)
+
     def on_event(self, message: Any):
         """Callback for new messages from the broker (User input)."""
         try:
             payload = message.payload
-            
+
             if not isinstance(payload, dict):
                 logger.warning("Received non-dict payload")
                 return
 
             msg_type = payload.get('type')
-            
+
             # Map legacy/simple types to class names if needed, or rely on sender to be correct
             # For robustness, let's handle the mapping here or ensure senders are correct.
             # Let's assume senders will be updated to send class names, but we can have a fallback map.
@@ -50,14 +60,26 @@ class AgentController:
                 "BatchToolResultObservation": "BatchToolResultObservation",
                 "AGENT_FINISHED": "AgentFinishedMessage"
             }
-            
+
             if msg_type in type_map:
                 payload['type'] = type_map[msg_type]
-            
+
             # Deserialize
             from .messages.types import deserialize_message
             try:
                 base_message = deserialize_message(payload)
+
+                # Pre-process UserMessages for auto-refinement (Option 3)
+                # This runs BEFORE the agent sees the message, ensuring
+                # zero contamination of system prompt and conversation history
+                if isinstance(base_message, UserMessage):
+                    original_content = base_message.content
+                    import asyncio
+                    base_message = asyncio.run(self.prompt_preprocessor.process(base_message))
+
+                    # If refinement was applied, publish notification
+                    if base_message.content != original_content:
+                        self._publish_refinement_notification(original_content, base_message.content)
 
                 # Step the agent
                 response = self.agent.step(base_message)
@@ -68,9 +90,30 @@ class AgentController:
                 logger.error(f"Payload keys: {list(payload.keys())}")
                 import json
                 logger.error(f"Payload (first 500 chars): {json.dumps(payload)[:500]}")
-                
+
         except Exception as e:
             logger.error(f"Error in on_event: {e}", exc_info=True)
+
+    def _publish_refinement_notification(self, original: str, refined: str):
+        """Publish a notification about applied refinement to the client."""
+        # Get refinement details from the stored action
+        from .runtime.prompt_preprocessor import get_last_refinement_action
+        action = get_last_refinement_action()
+
+        if action:
+            notification = create_refinement_notification(
+                original=original,
+                refined=refined,
+                quality=action.get("quality", 0.0),
+                task_type=action.get("task_type", "unknown"),
+                refinement_level=action.get("refinement_level", "unknown")
+            )
+
+            # Publish as a special notification message
+            self.broker.publish(self.context.client_topic, {
+                "type": "RefinementNotification",
+                "content": notification,
+            })
 
     def _handle_agent_response(self, message: BaseMessage):
         """Handle the message returned by the agent."""

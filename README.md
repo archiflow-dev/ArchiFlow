@@ -49,9 +49,10 @@ ArchiFlow is a **production-ready, event-driven AI agent framework** designed fo
 
 ### AI & Agent System
 - **Multiple AI Providers**: OpenAI, Anthropic, GLM (Zhipu AI), and Mock providers
-- **7 Agent Types**: coding, simple, analyzer, reviewer, product, architect, and PPT
+- **8 Agent Types**: coding, simple, analyzer, reviewer, product, architect, PPT, and prompt refiner
 - **Intelligent Memory Management**: Token-aware conversation history with selective retention
 - **Security Sandbox**: Isolated tool execution with configurable policies
+- **Prompt Refinement**: Interactive prompt engineering with quality analysis and auto-suggestions
 
 ### Developer Experience
 - **Rich CLI Interface**: Interactive REPL with auto-completion and syntax highlighting
@@ -801,6 +802,46 @@ Creates professional presentations with AI-generated images. Automatically detec
 ```
 
 For detailed documentation, see [PPT Agent README](PPT_AGENT.md)
+
+#### ✨ Prompt Refiner Agent
+*The Prompt Engineer*
+
+The Prompt Refiner Agent helps you create high-quality, effective prompts through conversational analysis and iterative refinement. It analyzes your prompts across five quality dimensions and guides you to optimal clarity.
+
+**Quality Dimensions**:
+- **Clarity**: Is the goal clear and unambiguous?
+- **Specificity**: Are details and constraints specified?
+- **Actionability**: Can an agent act on it immediately?
+- **Completeness**: Is all necessary context included?
+- **Structure**: Is it well-organized and coherent?
+
+**Key Capabilities**:
+- Analyzes prompt quality with scores (0-10) across 5 dimensions
+- Asks natural follow-up questions to gather missing context
+- Iteratively refines until quality score >= 8.5
+- Saves refined prompts to `.archiflow/artifacts/refined_prompts/`
+- Auto-copies refined prompts to clipboard
+- Supports interactive and auto-refinement modes
+
+**Usage**:
+```bash
+/refine-prompt                          # Interactive session
+/refine-prompt "Build a web app"       # Start with initial prompt
+```
+
+**Auto-Refinement Mode**:
+Enable in `.env` to automatically refine low-quality prompts:
+```bash
+AUTO_REFINE_PROMPTS=true
+```
+
+When enabled, all agents will analyze incoming prompts and automatically apply refined versions if quality < 7.0. You'll see a notification showing the original and refined versions, and the agent will use the improved prompt.
+
+**Best for**:
+- Improving vague or unclear requests
+- Learning effective prompt engineering
+- Ensuring agents have sufficient context
+- Iterative prompt development
 
 ## 🔄 Complete Development Lifecycle Workflow
 

@@ -10,6 +10,7 @@ from rich.panel import Panel
 
 from agent_cli import __version__
 from agent_cli.commands.router import CommandRouter
+from agent_cli.session.manager import SessionManager
 
 console = Console()
 logger = logging.getLogger(__name__)
@@ -101,8 +102,6 @@ async def clear_history_command(**context: object) -> None:
     Args:
         **context: Context passed from router (expects 'session_manager')
     """
-    from agent_cli.session.manager import SessionManager
-
     session_manager = context.get("session_manager")
     if not isinstance(session_manager, SessionManager):
         console.print("[red]Error: Session manager not available[/red]")
@@ -141,6 +140,135 @@ async def clear_history_command(**context: object) -> None:
     except Exception as e:
         console.print(f"[red]Error clearing history: {e}[/red]")
         logger.exception("Failed to clear agent history")
+
+
+async def refine_prompt_command(*args: str, **context: object) -> None:
+    """
+    Create a PromptRefinerAgent session for interactive prompt refinement.
+
+    This is a convenience command that creates a prompt refiner agent session
+    to help improve your prompts through conversational analysis and refinement.
+
+    Usage:
+        /refine-prompt [initial-prompt]
+
+    Args:
+        *args: Command arguments (optional initial prompt to refine)
+        **context: Context (expects 'session_manager' and 'repl_engine')
+
+    Examples:
+        /refine-prompt                           # Start refinement session, will ask for prompt
+        /refine-prompt "Build a web app"         # Start with specific prompt to refine
+
+    The prompt refiner agent will:
+    - Analyze prompt quality across 5 dimensions (clarity, specificity, actionability, completeness, structure)
+    - Ask natural follow-up questions to gather missing context
+    - Iteratively refine until quality score >= 8.5
+    - Save refined prompt to .archiflow/artifacts/refined_prompts/
+    - Copy refined prompt to clipboard for easy use
+    """
+    # Get session manager from context
+    session_manager = context.get("session_manager")
+    if not isinstance(session_manager, SessionManager):
+        console.print("[red]Error: Session manager not available[/red]")
+        return
+
+    # Get REPL engine from context (needed for subscribing to output)
+    repl_engine = context.get("repl_engine")
+    if repl_engine is None:
+        console.print("[red]Error: REPL engine not available[/red]")
+        return
+
+    # Parse initial prompt (optional - join all args)
+    initial_prompt = " ".join(args) if args else None
+
+    # Create prompt refiner agent
+    try:
+        console.print("[bold magenta]✨ Starting Prompt Refinement Session[/bold magenta]\n")
+
+        if initial_prompt:
+            console.print(f"[dim]Initial prompt:[/dim] {initial_prompt[:80]}{'...' if len(initial_prompt) > 80 else ''}")
+        else:
+            console.print("[dim]Mode:[/dim] Interactive (will ask for your prompt)")
+
+        console.print("[dim]Agent type:[/dim] PromptRefinerAgent")
+        console.print()
+
+        # Import factory function
+        from agent_cli.agents.factory import create_agent
+
+        # Create agent using factory
+        agent = create_agent(agent_type="prompt_refiner", initial_prompt=initial_prompt)
+
+        # Create session
+        session = session_manager.create_session(agent=agent)
+
+        # Subscribe to output (similar to main REPL loop)
+        repl_engine.subscribe_to_output(session.session_id)
+
+        # Display welcome message
+        console.print(
+            f"[green]✓[/green] Prompt Refiner agent session created\n"
+            f"[dim]Session ID:[/dim] {session.session_id}\n"
+        )
+
+        console.print(
+            "\n[bold magenta]🎯 What I'll do:[/bold magenta]\n"
+            "The agent will help you refine your prompt through:\n"
+            "  1. [dim]Analysis[/dim] - Quality scoring across 5 dimensions\n"
+            "  2. [dim]Conversation[/dim] - Natural follow-up questions for missing context\n"
+            "  3. [dim]Refinement[/dim] - Iterative improvement until quality >= 8.5\n"
+            "  4. [dim]Storage[/dim] - Save to artifacts with full context\n"
+            "  5. [dim]Clipboard[/dim] - Auto-copy for immediate use\n"
+        )
+
+        console.print(
+            "\n[bold green]📊 Quality Dimensions:[/bold green]\n"
+            "  • [yellow]Clarity[/yellow] - Is the goal clear and unambiguous?\n"
+            "  • [yellow]Specificity[/yellow] - Are details and constraints specified?\n"
+            "  • [yellow]Actionability[/yellow] - Can an agent act on it immediately?\n"
+            "  • [yellow]Completeness[/yellow] - Is all necessary context included?\n"
+            "  • [yellow]Structure[/yellow] - Is it well-organized and coherent?\n"
+        )
+
+        console.print(
+            "\n[bold cyan]💾 Artifact Storage:[/bold cyan]\n"
+            "  Refined prompts are saved to:\n"
+            "  [yellow].archiflow/artifacts/refined_prompts/[/yellow]\n"
+            "  Including metadata, analysis, conversation history, and clipboard copy.\n"
+        )
+
+        if initial_prompt:
+            # Auto-start refinement with the provided prompt
+            console.print("\n[dim]→ Starting prompt analysis...[/dim]\n")
+
+            # Send initial prompt to agent
+            success = session_manager.send_message(initial_prompt)
+
+            # Clear agent_idle event to show spinner
+            if success:
+                repl_engine.agent_idle.clear()
+        else:
+            # Wait for user to provide their prompt
+            console.print(
+                "\n[cyan]Ready to refine! Please provide the prompt you'd like to improve.[/cyan]\n"
+                "Examples:\n"
+                "  • 'Help me build a website'\n"
+                "  • 'Fix the bug in the login'\n"
+                "  • 'Create a REST API'\n"
+            )
+
+    except Exception as e:
+        from agent_cli.agents.factory import AgentFactoryError
+        if isinstance(e, AgentFactoryError):
+            console.print(f"[red]Error creating prompt refiner agent:[/red] {e}")
+            console.print(
+                "\n[yellow]Hint:[/yellow] Make sure you have set the OPENAI_API_KEY "
+                "environment variable."
+            )
+        else:
+            console.print(f"[red]Unexpected error:[/red] {e}")
+            logger.exception("Failed to create prompt refiner agent")
 
 
 def register_utility_commands(router: CommandRouter) -> None:
@@ -190,4 +318,11 @@ def register_utility_commands(router: CommandRouter) -> None:
         name="clear-history",
         handler=clear_history_command,
         description="Clear the current active session's agent history for a fresh start",
+    )
+
+    router.register(
+        name="refine-prompt",
+        handler=refine_prompt_command,
+        description="Start interactive prompt refinement session (analyze and improve prompts)",
+        usage="refine-prompt [initial-prompt]",
     )

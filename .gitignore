@@ -168,7 +168,7 @@ CLAUDE.md
 
 # Documentation directory
 .docs/
-
+.archiflow
 # Examples directory
 examples/
 docs/

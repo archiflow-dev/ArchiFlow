@@ -1,0 +1,365 @@
+"""
+Prompt Preprocessor for Auto-Refinement.
+
+This module provides a pre-processing hook that refines user prompts
+before they reach the agent, ensuring zero contamination of the agent's
+system prompt and conversation history.
+
+Architecture (Option 3 - Pre-Processing Hook):
+    User sends message
+        ↓
+    PromptPreprocessor.process() runs (if AUTO_REFINE_PROMPTS=true)
+        ↓
+    PromptRefinerTool analyzes quality
+        ↓
+    If quality < threshold: Replace with refined version
+    If quality >= threshold: Pass through unchanged
+        ↓
+    Agent receives clean prompt (no refinement meta-conversation)
+"""
+import asyncio
+import json
+import logging
+import os
+from dataclasses import replace
+from typing import Optional
+
+from ..messages.types import UserMessage
+from ..llm.provider import LLMProvider
+from ..tools.prompt_refiner_tool import PromptRefinerTool
+
+logger = logging.getLogger(__name__)
+
+
+class PromptPreprocessor:
+    """
+    Pre-processor for automatic prompt refinement.
+
+    This class provides a clean separation between prompt refinement
+    and task execution by running refinement BEFORE the agent sees
+    the message.
+
+    Benefits:
+    - Zero contamination of agent's system prompt
+    - Zero contamination of agent's memory/history
+    - Single hook point for all UserMessages
+    - Easy to enable/disable via environment variable
+
+    Usage:
+        preprocessor = PromptPreprocessor(llm=agent.llm)
+        processed_message = await preprocessor.process(user_message)
+        # Then pass to agent.step()
+    """
+
+    # Default configuration
+    DEFAULT_THRESHOLD = 8.0
+    DEFAULT_MIN_LENGTH = 10
+    DEFAULT_MAX_ITERATIONS = 1  # Single pass for Option 3
+
+    def __init__(
+        self,
+        llm: LLMProvider,
+        threshold: Optional[float] = None,
+        min_length: Optional[int] = None,
+        enabled: Optional[bool] = None,
+    ):
+        """
+        Initialize the prompt preprocessor.
+
+        Args:
+            llm: LLM provider for PromptRefinerTool
+            threshold: Quality threshold (0-10). Prompts >= threshold pass through.
+                      Defaults to AUTO_REFINE_THRESHOLD env var or 9.0.
+            min_length: Minimum message length to consider for refinement.
+                       Shorter messages are always passed through.
+                       Defaults to AUTO_REFINE_MIN_LENGTH env var or 10.
+            enabled: Whether refinement is enabled. If None, checks AUTO_REFINE_PROMPTS
+                     env variable (defaults to False).
+        """
+        self.llm = llm
+
+        # Configuration: Use parameter, then env var, then default
+        self.threshold = threshold or float(
+            os.getenv("AUTO_REFINE_THRESHOLD", str(self.DEFAULT_THRESHOLD))
+        )
+        self.min_length = min_length or int(
+            os.getenv("AUTO_REFINE_MIN_LENGTH", str(self.DEFAULT_MIN_LENGTH))
+        )
+
+        # Check if enabled (parameter, then env var, then default False)
+        if enabled is None:
+            self.enabled = os.getenv("AUTO_REFINE_PROMPTS", "false").lower() == "true"
+        else:
+            self.enabled = enabled
+
+        # Create refiner tool (lazy initialization on first use)
+        self._refiner: Optional[PromptRefinerTool] = None
+
+        logger.info(
+            f"PromptPreprocessor initialized: "
+            f"enabled={self.enabled}, threshold={self.threshold}, "
+            f"min_length={self.min_length}"
+        )
+
+    @property
+    def refiner(self) -> PromptRefinerTool:
+        """Lazy initialization of PromptRefinerTool."""
+        if self._refiner is None:
+            self._refiner = PromptRefinerTool(llm=self.llm)
+        return self._refiner
+
+    async def process(self, message: UserMessage) -> UserMessage:
+        """
+        Process a UserMessage and potentially refine its content.
+
+        This method:
+        1. Checks if refinement is enabled
+        2. Validates message length
+        3. Calls PromptRefinerTool to analyze quality
+        4. If quality < threshold, replaces content with refined version
+        5. Otherwise, returns original message unchanged
+
+        Args:
+            message: Incoming UserMessage from the user
+
+        Returns:
+            UserMessage with potentially refined content
+
+        Example:
+            preprocessor = PromptPreprocessor(llm=agent.llm)
+            processed = await preprocessor.process(user_message)
+            refined_content = processed.content
+        """
+        # Fast path: disabled or empty message
+        if not self.enabled:
+            return message
+
+        if not message.content or len(message.content.strip()) < self.min_length:
+            return message
+
+        # Skip commands (they start with /)
+        content = message.content.strip()
+        if content.startswith("/"):
+            logger.debug(f"Skipping command: {content[:50]}...")
+            return message
+
+        # Perform refinement analysis
+        try:
+            result = await self.refiner.execute(prompt=content)
+
+            if result.error:
+                logger.warning(f"PromptRefinerTool failed: {result.error}")
+                return message
+
+            # Parse analysis
+            analysis = self._parse_analysis(result.output)
+            if analysis is None:
+                return message
+
+            quality_score = analysis.get("quality_score", 10.0)
+            refined_prompt = analysis.get("refined_prompt", content)
+            task_type = analysis.get("task_type", "unknown")
+            refinement_level = analysis.get("refinement_level", "unknown")
+
+            logger.info(
+                f"Prompt analysis: quality={quality_score}/10, "
+                f"task_type={task_type}, level={refinement_level}"
+            )
+
+            # Check if refinement is needed
+            if quality_score >= self.threshold:
+                logger.info(
+                    f"Prompt quality {quality_score} >= threshold {self.threshold}, "
+                    "passing through unchanged"
+                )
+                return message
+
+            # Apply refinement
+            if refined_prompt and refined_prompt != content:
+                logger.info(
+                    f"Applying refinement: quality {quality_score} -> "
+                    f"using refined version (threshold is {self.threshold})"
+                )
+
+                # Store refinement action for notification
+                _set_last_refinement_action(
+                    original=content,
+                    refined=refined_prompt,
+                    quality=quality_score,
+                    task_type=task_type,
+                    refinement_level=refinement_level
+                )
+
+                # Return message with refined content
+                # Note: We publish a notification, but don't add to history
+                self._publish_refinement_notification(
+                    original=content,
+                    refined=refined_prompt,
+                    quality=quality_score,
+                    task_type=task_type,
+                    refinement_level=refinement_level,
+                    message=message
+                )
+
+                return replace(message, content=refined_prompt)
+
+            # No meaningful refinement possible
+            logger.info("Refinement produced no meaningful change, using original")
+            return message
+
+        except Exception as e:
+            logger.error(f"PromptPreprocessor.process() failed: {e}", exc_info=True)
+            return message
+
+    def _parse_analysis(self, output: str) -> Optional[dict]:
+        """
+        Parse the JSON analysis from PromptRefinerTool.
+
+        Args:
+            output: Raw output from PromptRefinerTool (JSON or markdown-wrapped JSON)
+
+        Returns:
+            Parsed analysis dict, or None if parsing fails
+        """
+        if not output:
+            return None
+
+        # Try parsing as-is first
+        try:
+            return json.loads(output)
+        except json.JSONDecodeError:
+            pass
+
+        # Try extracting JSON from markdown code blocks
+        if "```json" in output:
+            try:
+                start = output.index("```json") + 7
+                end = output.index("```", start)
+                return json.loads(output[start:end].strip())
+            except (ValueError, json.JSONDecodeError):
+                pass
+
+        if "```" in output:
+            try:
+                start = output.index("```") + 3
+                end = output.index("```", start)
+                return json.loads(output[start:end].strip())
+            except (ValueError, json.JSONDecodeError):
+                pass
+
+        logger.warning(f"Failed to parse PromptRefinerTool output: {output[:200]}...")
+        return None
+
+    def _publish_refinement_notification(
+        self,
+        original: str,
+        refined: str,
+        quality: float,
+        task_type: str,
+        refinement_level: str,
+        message: UserMessage
+    ):
+        """
+        Publish a notification about applied refinement.
+
+        Note: This publishes a lightweight notification message
+        that is NOT added to the agent's conversation history.
+
+        Args:
+            original: Original prompt content
+            refined: Refined prompt content
+            quality: Quality score of refined prompt
+            task_type: Detected task type
+            refinement_level: Level of refinement applied
+            message: Original UserMessage (for sequence/session info)
+        """
+        # In the current architecture, we don't have a direct way to publish
+        # notifications from here. The notification would be published by
+        # the AgentController or REPL layer.
+        #
+        # For now, we'll just log the information. The REPL or UI layer
+        # could query the preprocessor for the last refinement action.
+
+        logger.info(
+            f"Refinement applied:\n"
+            f"  Original: {original[:100]}...\n"
+            f"  Refined: {refined[:100]}...\n"
+            f"  Quality: {quality}/10\n"
+            f"  Task Type: {task_type}\n"
+            f"  Level: {refinement_level}"
+        )
+
+
+def create_refinement_notification(
+    original: str,
+    refined: str,
+    quality: float,
+    task_type: str,
+    refinement_level: str
+) -> str:
+    """
+    Create a user-facing notification about applied refinement.
+
+    This function is provided for the UI/REPL layer to format
+    refinement notifications for the user.
+
+    Args:
+        original: Original prompt content
+        refined: Refined prompt content
+        quality: Quality score of refined prompt
+        task_type: Detected task type
+        refinement_level: Level of refinement applied
+
+    Returns:
+        Formatted notification string
+
+    Example:
+        notification = create_refinement_notification(
+            original="Fix the bug",
+            refined="Fix the authentication timeout bug...",
+            quality=8.5,
+            task_type="coding",
+            refinement_level="light_enhancement"
+        )
+        print(notification)
+    """
+    return (
+        f"\n📝 **Auto-Refinement Applied**\n\n"
+        f"**Quality:** {quality:.1f}/10 | **Task Type:** {task_type} | **Level:** {refinement_level}\n\n"
+        f"**Original Prompt:**\n{original}\n\n"
+        f"**Refined Prompt (being used):**\n{refined}\n\n"
+        f"_Set AUTO_REFINE_PROMPTS=false to disable._\n"
+    )
+
+
+# Store last refinement action for UI/REPL layer to query
+_last_refinement_action: Optional[dict] = None
+
+
+def get_last_refinement_action() -> Optional[dict]:
+    """
+    Get the last refinement action for notification purposes.
+
+    Returns:
+        Dict with keys: original, refined, quality, task_type, refinement_level
+        or None if no refinement has occurred
+    """
+    return _last_refinement_action
+
+
+def _set_last_refinement_action(
+    original: str,
+    refined: str,
+    quality: float,
+    task_type: str,
+    refinement_level: str
+):
+    """Store the last refinement action (internal use)."""
+    global _last_refinement_action
+    _last_refinement_action = {
+        "original": original,
+        "refined": refined,
+        "quality": quality,
+        "task_type": task_type,
+        "refinement_level": refinement_level,
+    }

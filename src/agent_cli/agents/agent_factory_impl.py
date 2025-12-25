@@ -21,6 +21,7 @@ from agent_framework.agents.tech_lead_agent import TechLeadAgent
 from agent_framework.agents.ppt_agent import PPTAgent
 from agent_framework.agents.research_agent import ResearchAgent
 from agent_framework.agents.coding_agent_v3 import CodingAgentV3
+from agent_framework.agents.prompt_refiner_agent import PromptRefinerAgent
 from agent_framework.llm.provider import LLMProvider
 
 from .exceptions import AgentFactoryError
@@ -165,6 +166,16 @@ class AgentFactory:
             requires_project_dir=True,
             default_debug_log_name="coding_agent_v3.log",
             creator_func=self._create_coding_agent_v3
+        )
+
+        # Register PromptRefinerAgent
+        self.register_agent(
+            name="prompt_refiner",
+            agent_class=PromptRefinerAgent,
+            session_prefix="refiner",
+            requires_project_dir=False,
+            default_debug_log_name="prompt_refiner_agent.log",
+            creator_func=self._create_prompt_refiner_agent
         )
 
     def register_agent(
@@ -530,6 +541,20 @@ Don't keep trying the same tool repeatedly if it's clearly not working."""
             llm=llm_provider,
             tools=tools_registry,
             **kwargs
+        )
+
+        return agent
+
+    def _create_prompt_refiner_agent(self, session_id, llm_provider, **kwargs) -> PromptRefinerAgent:
+        """Create a PromptRefinerAgent with proper configuration."""
+        # Extract initial_prompt from kwargs if provided
+        initial_prompt = kwargs.get("initial_prompt")
+
+        agent = PromptRefinerAgent(
+            session_id=session_id,
+            llm=llm_provider,
+            publish_callback=None,  # Will be set by SessionManager
+            initial_prompt=initial_prompt
         )
 
         return agent

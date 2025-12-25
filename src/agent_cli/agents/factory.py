@@ -32,7 +32,7 @@ from .llm_provider_factory import create_llm_provider, get_supported_providers
 from .agent_factory_impl import create_agent as _create_agent, get_supported_agent_types
 from .exceptions import AgentFactoryError
 
-AgentType = Literal["coding", "codingv2", "codingv3", "simple", "simplev2", "analyzer", "reviewer", "product", "architect", "ppt", "research"]
+AgentType = Literal["coding", "codingv2", "codingv3", "simple", "simplev2", "analyzer", "reviewer", "product", "architect", "ppt", "research", "prompt_refiner"]
 
 
 def create_agent(
@@ -370,5 +370,35 @@ def create_research_agent(
         session_id=session_id,
         llm_provider=llm_provider,
         project_directory=project_directory,
+        **kwargs
+    )
+
+
+def create_prompt_refiner_agent(
+    session_id: str | None = None,
+    llm_provider: LLMProvider | None = None,
+    initial_prompt: str | None = None,
+    **kwargs: object,
+) -> BaseAgent:
+    """
+    Create a PromptRefinerAgent instance.
+
+    Args:
+        session_id: Optional session ID
+        llm_provider: Optional LLM provider
+        initial_prompt: Optional initial prompt to start refinement
+        **kwargs: Additional arguments
+
+    Returns:
+        PromptRefinerAgent instance
+
+    Raises:
+        AgentFactoryError: If creation fails
+    """
+    return _create_agent(
+        agent_type="prompt_refiner",
+        session_id=session_id,
+        llm_provider=llm_provider,
+        initial_prompt=initial_prompt,
         **kwargs
     )

@@ -4,9 +4,13 @@ Project Agent Base Class.
 Provides common functionality for agents that operate on project directories.
 This abstract base class eliminates code duplication between CodingAgent and
 CodebaseAnalyzerAgent by centralizing shared logic.
+
+Note: Auto-refinement has been moved to PromptPreprocessor in
+agent_framework/runtime/prompt_preprocessor.py (Option 3: Pre-Processing Hook).
+This ensures zero contamination of the agent's system prompt and conversation history.
 """
-import logging
 import json
+import logging
 from pathlib import Path
 from typing import Optional, Callable, List, Dict, Any
 from abc import abstractmethod
@@ -14,7 +18,7 @@ from abc import abstractmethod
 from ..messages.types import (
     BaseMessage, SystemMessage, ToolCallMessage,
     ToolResultObservation, LLMRespondMessage, AgentFinishedMessage,
-    ToolCall
+    ToolCall, UserMessage
 )
 from ..tools.tool_base import ToolRegistry
 from ..llm.provider import LLMProvider
