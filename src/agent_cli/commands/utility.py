@@ -2,7 +2,9 @@
 Utility commands for the CLI.
 """
 
+import json
 import logging
+from pathlib import Path
 
 from rich.console import Console
 from rich.markdown import Markdown
@@ -208,7 +210,7 @@ async def refine_prompt_command(*args: str, **context: object) -> None:
 
         # Display welcome message
         console.print(
-            f"[green]✓[/green] Prompt Refiner agent session created\n"
+            f"[green]OK[/green] Prompt Refiner agent session created\n"
             f"[dim]Session ID:[/dim] {session.session_id}\n"
         )
 
@@ -271,6 +273,173 @@ async def refine_prompt_command(*args: str, **context: object) -> None:
             logger.exception("Failed to create prompt refiner agent")
 
 
+async def init_command(**context: object) -> None:
+    """
+    Initialize .archiflow directory structure.
+
+    Creates:
+    - .archiflow/ directory
+    - .archiflow/tools/ subdirectory
+    - .archiflow/.gitignore (with *.local.* pattern)
+    - .archiflow/settings.json (with default settings)
+    - .archiflow/ARCHIFLOW.md (with template)
+
+    Args:
+        **context: Context passed from router (unused)
+    """
+    working_dir = Path.cwd()
+    archiflow_dir = working_dir / ".archiflow"
+
+    if archiflow_dir.exists():
+        console.print(
+            f"[yellow].archiflow directory already exists at {archiflow_dir}[/yellow]"
+        )
+        console.print("[dim]Use /config to view or edit settings[/dim]")
+        return
+
+    try:
+        # Create directory
+        archiflow_dir.mkdir()
+
+        # Create subdirectories
+        (archiflow_dir / "tools").mkdir()
+
+        # Create .gitignore
+        (archiflow_dir / ".gitignore").write_text("*.local.*\n")
+
+        # Create example settings.json
+        settings = {
+            "agent": {
+                "defaultModel": "claude-sonnet-4-5-20250929"
+            },
+            "autoRefinement": {
+                "enabled": False,
+                "threshold": 8.0,
+                "minLength": 10
+            }
+        }
+        settings_path = archiflow_dir / "settings.json"
+        settings_path.write_text(json.dumps(settings, indent=2))
+
+        # Create ARCHIFLOW.md template
+        archiflow_md = f"""# ArchiFlow Configuration for {working_dir.name}
+
+## Project Overview
+[Brief description of this project]
+
+## Tech Stack
+- Languages:
+- Frameworks:
+- Databases:
+
+## Coding Standards
+- Style guide:
+- Linting:
+- Testing:
+
+## Agent Preferences
+[Specific behaviors for agents]
+"""
+        (archiflow_dir / "ARCHIFLOW.md").write_text(archiflow_md)
+
+        console.print(f"[green]OK[/green] Initialized .archiflow at {archiflow_dir}")
+        console.print("  [dim]Created files:[/dim]")
+        console.print("    [cyan]-[/cyan] settings.json: Project configuration")
+        console.print("    [cyan]-[/cyan] ARCHIFLOW.md: Project context and instructions")
+        console.print("    [cyan]-[/cyan] tools/: Tool-specific configurations")
+        console.print("    [cyan]-[/cyan] .gitignore: Excludes *.local.* files")
+        console.print()
+        console.print("[dim]Next steps:[/dim]")
+        console.print("  • Use [bold]/config[/bold] to view or edit settings")
+        console.print("  • Edit [bold]ARCHIFLOW.md[/bold] to add project-specific context")
+        console.print("  • Add tool configs under [bold]tools/[/bold] directory")
+
+    except Exception as e:
+        console.print(f"[red]Error initializing .archiflow:[/red] {e}")
+        logger.exception("Failed to initialize .archiflow directory")
+
+
+async def config_command(key: str = None, value: str = None, global_flag: bool = False, **context: object) -> None:
+    """
+    View or edit configuration settings.
+
+    Usage:
+        /config                    # Show all settings
+        /config agent               # Show specific key
+        /config agent.model         # Show nested key
+        /config autoRefinement.enabled true    # Set value
+        /config -g autoRefinement.enabled true    # Set global config
+
+    Args:
+        **context: Context passed from router (unused)
+    """
+    if global_flag:
+        config_path = Path.home() / ".archiflow" / "settings.json"
+        config_type = "global"
+    else:
+        config_path = Path.cwd() / ".archiflow" / "settings.json"
+        config_type = "project"
+
+    if not config_path.exists():
+        console.print(f"[yellow]No {config_type} configuration found at {config_path}[/yellow]")
+        console.print("[dim]Run /init to create configuration[/dim]")
+        return
+
+    try:
+        # Load config
+        settings = json.loads(config_path.read_text())
+
+        if key is None:
+            # Show all settings
+            console.print(f"[bold]{config_type.title()} Configuration:[/bold] {config_path}")
+            console.print()
+            console.print_json(settings)
+
+        elif value is None:
+            # Show specific key
+            keys = key.split(".")
+            result = settings
+            for k in keys:
+                if isinstance(result, dict):
+                    result = result.get(k, {})
+                else:
+                    result = {}
+                    console.print(f"[red]Key '{key}' not found in configuration[/red]")
+                    return
+
+            console.print(f"[bold]{config_type.title()} Configuration[/bold] -> [cyan]{key}[/cyan]:")
+            console.print()
+            console.print_json(result)
+
+        else:
+            # Set key
+            keys = key.split(".")
+            target = settings
+            for k in keys[:-1]:
+                if k not in target:
+                    target[k] = {}
+                target = target[k]
+
+            # Try to parse value as JSON first, then use as string
+            try:
+                parsed_value = json.loads(value)
+            except json.JSONDecodeError:
+                parsed_value = value
+
+            target[keys[-1]] = parsed_value
+
+            # Write back
+            config_path.write_text(json.dumps(settings, indent=2))
+            console.print(f"[green]OK[/green] Set {config_type}.{key} = {parsed_value}")
+
+    except json.JSONDecodeError as e:
+        console.print(f"[red]Error parsing configuration:[/red] {e}")
+        console.print(f"[dim]File: {config_path}[/dim]")
+    except Exception as e:
+        console.print(f"[red]Error accessing configuration:[/red] {e}")
+        logger.exception("Failed to access configuration")
+
+
 def register_utility_commands(router: CommandRouter) -> None:
     """
     Register all utility commands with the router.
@@ -325,4 +494,17 @@ def register_utility_commands(router: CommandRouter) -> None:
         handler=refine_prompt_command,
         description="Start interactive prompt refinement session (analyze and improve prompts)",
         usage="refine-prompt [initial-prompt]",
+    )
+
+    router.register(
+        name="init",
+        handler=init_command,
+        description="Initialize .archiflow directory structure",
+    )
+
+    router.register(
+        name="config",
+        handler=config_command,
+        description="View or edit configuration settings",
+        usage="config [key] [value] [-g]",
     )
