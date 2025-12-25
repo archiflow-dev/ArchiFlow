@@ -22,11 +22,15 @@ import json
 import logging
 import os
 from dataclasses import replace
-from typing import Optional
+from pathlib import Path
+from typing import Optional, TYPE_CHECKING
 
 from ..messages.types import UserMessage
 from ..llm.provider import LLMProvider
 from ..tools.prompt_refiner_tool import PromptRefinerTool
+
+if TYPE_CHECKING:
+    from ..config.hierarchy import ConfigSnapshot
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +66,7 @@ class PromptPreprocessor:
         threshold: Optional[float] = None,
         min_length: Optional[int] = None,
         enabled: Optional[bool] = None,
+        config_snapshot: Optional['ConfigSnapshot'] = None,
     ):
         """
         Initialize the prompt preprocessor.
@@ -69,28 +74,84 @@ class PromptPreprocessor:
         Args:
             llm: LLM provider for PromptRefinerTool
             threshold: Quality threshold (0-10). Prompts >= threshold pass through.
-                      Defaults to AUTO_REFINE_THRESHOLD env var or 9.0.
+                      If not provided, reads from ConfigHierarchy or AUTO_REFINE_THRESHOLD
+                      env var or defaults to 9.0.
             min_length: Minimum message length to consider for refinement.
                        Shorter messages are always passed through.
-                       Defaults to AUTO_REFINE_MIN_LENGTH env var or 10.
-            enabled: Whether refinement is enabled. If None, checks AUTO_REFINE_PROMPTS
-                     env variable (defaults to False).
+                       If not provided, reads from ConfigHierarchy or AUTO_REFINE_MIN_LENGTH
+                       env var or defaults to 10.
+            enabled: Whether refinement is enabled. If None, checks ConfigHierarchy or
+                     AUTO_REFINE_PROMPTS env variable (defaults to False).
+            config_snapshot: Optional ConfigSnapshot from ConfigHierarchy. If provided,
+                            settings are read from the merged configuration hierarchy.
         """
         self.llm = llm
+        self._config_snapshot = config_snapshot
 
-        # Configuration: Use parameter, then env var, then default
-        self.threshold = threshold or float(
-            os.getenv("AUTO_REFINE_THRESHOLD", str(self.DEFAULT_THRESHOLD))
-        )
-        self.min_length = min_length or int(
-            os.getenv("AUTO_REFINE_MIN_LENGTH", str(self.DEFAULT_MIN_LENGTH))
-        )
+        # Configuration precedence:
+        # 1. Direct parameter (highest)
+        # 2. ConfigHierarchy (if key exists)
+        # 3. Environment variable (backward compatibility)
+        # 4. Default (lowest)
 
-        # Check if enabled (parameter, then env var, then default False)
-        if enabled is None:
-            self.enabled = os.getenv("AUTO_REFINE_PROMPTS", "false").lower() == "true"
+        # Helper to get value from snapshot with proper fallback
+        def get_from_snapshot_or_fallback(key: str, env_var: str, default, converter=None):
+            """Get value from config_snapshot or fall back to env var or default."""
+            if config_snapshot is not None:
+                # Check if the key exists in the snapshot
+                auto_refine = config_snapshot.settings.get("autoRefinement", {})
+                if key in auto_refine:
+                    value = auto_refine[key]
+                    return converter(value) if converter else value
+                # Key doesn't exist in snapshot, fall through to env var
+
+            # Fall back to environment variable
+            env_value = os.getenv(env_var)
+            if env_value is not None:
+                return converter(env_value) if converter else env_value
+
+            # Fall back to default
+            return default
+
+        # Get threshold
+        if threshold is not None:
+            self.threshold = threshold
         else:
+            self.threshold = get_from_snapshot_or_fallback(
+                "threshold",
+                "AUTO_REFINE_THRESHOLD",
+                self.DEFAULT_THRESHOLD,
+                float
+            )
+
+        # Get min_length
+        if min_length is not None:
+            self.min_length = min_length
+        else:
+            self.min_length = get_from_snapshot_or_fallback(
+                "minLength",
+                "AUTO_REFINE_MIN_LENGTH",
+                self.DEFAULT_MIN_LENGTH,
+                int
+            )
+
+        # Get enabled flag
+        if enabled is not None:
             self.enabled = enabled
+        else:
+            # For enabled, we need special handling since env var is "true"/"false" string
+            if config_snapshot is not None:
+                auto_refine = config_snapshot.settings.get("autoRefinement", {})
+                if "enabled" in auto_refine:
+                    self.enabled = auto_refine["enabled"]
+                else:
+                    # Fall back to env var
+                    env_val = os.getenv("AUTO_REFINE_PROMPTS", "false")
+                    self.enabled = env_val.lower() == "true"
+            else:
+                # No config snapshot, use env var
+                env_val = os.getenv("AUTO_REFINE_PROMPTS", "false")
+                self.enabled = env_val.lower() == "true"
 
         # Create refiner tool (lazy initialization on first use)
         self._refiner: Optional[PromptRefinerTool] = None
@@ -98,7 +159,8 @@ class PromptPreprocessor:
         logger.info(
             f"PromptPreprocessor initialized: "
             f"enabled={self.enabled}, threshold={self.threshold}, "
-            f"min_length={self.min_length}"
+            f"min_length={self.min_length}, "
+            f"config_source={'hierarchy' if config_snapshot else 'env'}"
         )
 
     @property

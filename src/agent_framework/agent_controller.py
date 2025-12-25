@@ -1,5 +1,7 @@
 import json
 import logging
+import os
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 from .agents.base import BaseAgent
@@ -16,6 +18,7 @@ from .runtime.prompt_preprocessor import (
     create_refinement_notification,
     _set_last_refinement_action,
 )
+from .config.hierarchy import ConfigHierarchy
 
 logger = logging.getLogger("agent_controller")
 
@@ -30,15 +33,61 @@ class AgentController:
     - Publishes final responses back to the Broker.
     """
     
-    def __init__(self, agent: BaseAgent, broker: MessageBroker, context: TopicContext):
+    def __init__(
+        self,
+        agent: BaseAgent,
+        broker: MessageBroker,
+        context: TopicContext,
+        working_dir: Optional[Path] = None,
+    ):
+        """
+        Initialize the agent controller.
+
+        Args:
+            agent: The agent to control
+            broker: Message broker for communication
+            context: Topic context for message routing
+            working_dir: Working directory for project-specific config.
+                        Defaults to current working directory.
+        """
         self.agent = agent
         self.broker = broker
         self.context = context
+        self.working_dir = working_dir or Path(os.getcwd())
+
+        # Initialize ConfigHierarchy for configuration management
+        # This loads settings from all hierarchy levels with proper precedence
+        self.config_hierarchy = ConfigHierarchy(working_dir=self.working_dir)
+        self._config_snapshot = None  # Cached snapshot
 
         # Initialize prompt pre-processor for auto-refinement (Option 3)
         # This runs BEFORE the agent sees any UserMessage, ensuring
         # zero contamination of system prompt and conversation history
-        self.prompt_preprocessor = PromptPreprocessor(llm=agent.llm)
+        self.prompt_preprocessor = PromptPreprocessor(
+            llm=agent.llm,
+            config_snapshot=self._get_config_snapshot()
+        )
+
+        logger.info(
+            f"AgentController initialized: working_dir={self.working_dir}, "
+            f"config_enabled=True"
+        )
+
+    def _get_config_snapshot(self):
+        """Get or load the configuration snapshot."""
+        if self._config_snapshot is None:
+            self._config_snapshot = self.config_hierarchy.load()
+        return self._config_snapshot
+
+    def reload_config(self):
+        """Force reload the configuration hierarchy."""
+        self._config_snapshot = self.config_hierarchy.reload()
+        # Reinitialize prompt preprocessor with new config
+        self.prompt_preprocessor = PromptPreprocessor(
+            llm=self.agent.llm,
+            config_snapshot=self._config_snapshot
+        )
+        logger.info("Configuration reloaded")
 
     def on_event(self, message: Any):
         """Callback for new messages from the broker (User input)."""

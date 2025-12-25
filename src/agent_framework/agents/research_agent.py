@@ -452,7 +452,8 @@ Would you like me to make any adjustments or help you use this research further?
         project_directory: Optional[str] = None,
         tools: Optional[ToolRegistry] = None,
         publish_callback: Optional[Callable[[BaseMessage], None]] = None,
-        debug_log_path: Optional[str] = None
+        debug_log_path: Optional[str] = None,
+        include_project_context: bool = True,  # Enable project context by default
     ):
         """
         Initialize the Research Agent.
@@ -465,6 +466,7 @@ Would you like me to make any adjustments or help you use this research further?
             tools: Optional custom tools. If None, uses global registry.
             publish_callback: Callback for publishing messages to broker.
             debug_log_path: Optional path to debug log file.
+            include_project_context: Whether to load ARCHIFLOW.md context.
         """
         # Set project directory to current working directory if not specified
         if project_directory is None:
@@ -527,7 +529,10 @@ Would you like me to make any adjustments or help you use this research further?
                 "name": "ResearchAgent",
                 "version": "1.0.0",
                 "session_id": session_id
-            }
+            },
+            tools=self.tools,
+            working_dir=project_path,  # Pass project directory for context loading
+            include_project_context=include_project_context  # Enable/disable project context
         )
 
         logger.info(
@@ -540,10 +545,8 @@ Would you like me to make any adjustments or help you use this research further?
         if not self.is_running:
             return None
 
-        # 1. Update Memory
-        self._update_memory(message)
-
-        # 2. Add system message if not already added
+        # 1. Add system message if not already added (BEFORE _update_memory)
+        # This ensures context injection knows the correct pattern (static vs dynamic)
         if not self._system_added:
             system_msg = SystemMessage(
                 session_id=self.session_id,
@@ -552,6 +555,9 @@ Would you like me to make any adjustments or help you use this research further?
             )
             self.history.add(system_msg)
             self._system_added = True
+
+        # 2. Update Memory (this will inject context at correct position)
+        self._update_memory(message)
 
         # 3. Generate response
         # Convert history to LLM format
@@ -603,7 +609,8 @@ Would you like me to make any adjustments or help you use this research further?
 
     def _update_memory(self, message: BaseMessage) -> None:
         """Update memory components based on the message."""
-        self.history.add(message)
+        # Call parent to handle history and context injection
+        super()._update_memory(message)
 
         # Update tracker if it's a tool result
         if isinstance(message, ToolResultObservation):

@@ -528,7 +528,8 @@ Would you like me to open the presentation or make any adjustments?"""
 
     def _update_memory(self, message: BaseMessage) -> None:
         """Update memory components based on the message."""
-        self.history.add(message)
+        # Call parent to handle history and context injection
+        super()._update_memory(message)
 
         # Update tracker if it's a tool result
         if isinstance(message, ToolResultObservation):

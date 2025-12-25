@@ -726,7 +726,10 @@ Would you like me to make any adjustments or help with next steps?" """
                 "name": "CodingAgentV3",
                 "version": "3.0.0",
                 "session_id": session_id
-            }
+            },
+            tools=self.tools,
+            working_dir=project_path,  # Pass project directory for context loading
+            include_project_context=True  # Enable project context by default
         )
 
         logger.info(
@@ -798,7 +801,8 @@ Would you like me to make any adjustments or help with next steps?" """
 
     def _update_memory(self, message: BaseMessage) -> None:
         """Update memory components based on the message."""
-        self.history.add(message)
+        # Call parent to handle history and context injection
+        super()._update_memory(message)
 
         # Update tracker if it's a tool result
         if isinstance(message, ToolResultObservation):

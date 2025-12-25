@@ -3,17 +3,19 @@ Base Agent Implementation.
 
 Simplified base class and a concrete SimpleAgent.
 """
+import os
 from typing import Optional, Callable, List, Dict, Any
 from abc import ABC, abstractmethod
 import logging
 import json
 import platform
 from datetime import datetime
+from pathlib import Path
 
 from ..messages.types import (
     BaseMessage, UserMessage, SystemMessage, ToolCallMessage,
     ToolResultObservation, ErrorObservation, LLMRespondMessage,
-    StopMessage, ToolCall
+    StopMessage, ToolCall, ProjectContextMessage
 )
 from ..memory.history import HistoryManager
 from ..memory.summarizer import LLMSummarizer
@@ -23,6 +25,7 @@ from ..memory.context import ContextInjector
 from ..llm.provider import LLMProvider, LLMResponse
 from ..tools.tool_base import ToolRegistry
 from ..config.manager import AgentConfig
+from ..config.hierarchy import ConfigHierarchy
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +92,14 @@ class BaseAgent(ABC):
     Abstract base agent with integrated memory system.
     """
 
-    def __init__(self, llm: LLMProvider, config: AgentConfig, tools: Optional[ToolRegistry] = None):
+    def __init__(
+        self,
+        llm: LLMProvider,
+        config: AgentConfig,
+        tools: Optional[ToolRegistry] = None,
+        working_dir: Optional[Path] = None,
+        include_project_context: bool = False,
+    ):
         """
         Initialize the agent.
 
@@ -97,9 +107,23 @@ class BaseAgent(ABC):
             llm: LLM provider
             config: Agent configuration
             tools: Optional tool registry (for token counting)
+            working_dir: Working directory for this agent (for environment context).
+                        Defaults to current working directory.
+            include_project_context: Whether to load ARCHIFLOW.md context from hierarchy.
         """
         self.llm = llm
         self.config = config
+        self.working_dir = working_dir or Path(os.getcwd())
+        self.include_project_context = include_project_context
+
+        # Project context support (cached)
+        self._config_hierarchy: Optional[ConfigHierarchy] = None
+        self._project_context_msg: Optional[ProjectContextMessage] = None
+        self._context_injected = False
+
+        # Load project context if enabled
+        if include_project_context:
+            self._load_project_context()
 
         # Get session_id from config (handle both dict and Pydantic model)
         if isinstance(config, dict):
@@ -158,11 +182,15 @@ class BaseAgent(ABC):
     def step(self, message: BaseMessage) -> BaseMessage:
         """Process a single message."""
         pass
-        
+
     def _update_memory(self, message: BaseMessage) -> None:
         """Update memory components based on the message."""
         self.history.add(message)
-        
+
+        # Inject project context on first call (if enabled)
+        if self.include_project_context and not self._context_injected:
+            self._inject_context_if_needed()
+
         # Update tracker if it's a tool result
         if isinstance(message, ToolResultObservation):
             # We need the tool name and args to update the tracker properly.
@@ -177,6 +205,88 @@ class BaseAgent(ABC):
                             self.tracker.update(tc.tool_name, tc.arguments, message.content)
                             return
 
+    def _load_project_context(self) -> None:
+        """Load ARCHIFLOW.md context from ConfigHierarchy."""
+        if self._config_hierarchy is None:
+            self._config_hierarchy = ConfigHierarchy(working_dir=self.working_dir)
+
+        snapshot = self._config_hierarchy.load()
+
+        if snapshot.context:
+            # Get session_id from config
+            if isinstance(self.config, dict):
+                session_id = self.config.get("session_id", "default")
+            else:
+                session_id = getattr(self.config, "session_id", "default")
+
+            # Use sequence 1 for context (inserted at position 1, after system prompt at sequence 0)
+            self._project_context_msg = ProjectContextMessage(
+                session_id=session_id,
+                sequence=1,
+                context=snapshot.context,
+                sources=[str(p) for p in snapshot.sources]
+            )
+            logger.info(
+                f"Loaded project context from {len(snapshot.sources)} source(s), "
+                f"{len(snapshot.context)} characters"
+            )
+        else:
+            logger.info("No project context found (ARCHIFLOW.md)")
+
+    def reload_project_context(self) -> None:
+        """Reload ARCHIFLOW.md context from files."""
+        if not self.include_project_context:
+            logger.warning("Project context not enabled, call reload_project_context() has no effect")
+            return
+
+        if self._config_hierarchy is not None:
+            self._config_hierarchy.reload()
+            self._load_project_context()
+            self._context_injected = False  # Reset injection flag
+            logger.info("Project context reloaded")
+        else:
+            logger.warning("Cannot reload: ConfigHierarchy not initialized")
+
+    def _inject_context_if_needed(self) -> None:
+        """
+        Inject project context into history if not already injected.
+
+        Handles two agent patterns:
+        1. Static system message (in history): SimpleAgent, ResearchAgent, PromptRefinerAgent
+           - History: [SystemMessage, UserMessage, ...]
+           - Inject context at position 1 (after SystemMessage)
+        2. Dynamic system message (prepended at step): ProjectAgent, CodingAgentV3
+           - History: [UserMessage, ...] (system message prepended when calling LLM)
+           - Inject context at position 0 (so it appears right after prepended system message)
+
+        Final LLM message order should be:
+        [SystemMessage, ProjectContextMessage, UserMessage, ...]
+        """
+        if (self._project_context_msg is not None and
+            not self._context_injected and
+            not any(isinstance(m, ProjectContextMessage) for m in self.history.get_messages())):
+
+            messages = self.history.get_messages()
+
+            # Detect pattern by checking if SystemMessage is at position 0
+            if len(messages) > 0 and isinstance(messages[0], SystemMessage):
+                # Static pattern: system message is in history at position 0
+                # Insert context at position 1 (right after system message)
+                insert_position = 1
+                logger.debug("Detected static system message pattern (SystemMessage at position 0)")
+            else:
+                # Dynamic pattern: system message prepended at step() time
+                # Insert context at position 0 (will appear right after prepended system message)
+                insert_position = 0
+                logger.debug("Detected dynamic system message pattern (no SystemMessage in history)")
+
+            self.history._messages.insert(insert_position, self._project_context_msg)
+            self._context_injected = True
+            logger.info(
+                f"Project context injected at position {insert_position} "
+                f"({'after' if insert_position == 1 else 'before'} history messages)"
+            )
+
 
 class SimpleAgent(BaseAgent):
     """
@@ -189,7 +299,9 @@ class SimpleAgent(BaseAgent):
         llm: LLMProvider,
         tools: Optional[ToolRegistry] = None,
         system_prompt: str = "You are a helpful assistant.",
-        publish_callback: Optional[Callable[[BaseMessage], None]] = None
+        publish_callback: Optional[Callable[[BaseMessage], None]] = None,
+        working_dir: Optional[Path] = None,
+        include_project_context: bool = False,
     ):
         # Set system_prompt BEFORE calling super().__init__ since BaseAgent init calls get_system_message()
         self.session_id = session_id
@@ -225,7 +337,12 @@ Don't keep trying the same tool repeatedly if it's clearly not working."""
             "version": "1.0.0",
             "session_id": session_id
         }
-        super().__init__(llm, config)
+        super().__init__(
+            llm,
+            config,
+            working_dir=working_dir,
+            include_project_context=include_project_context
+        )
 
         # Always add system message (it now includes finish_task instructions)
         # The enhanced prompt is used even for the default case
@@ -242,7 +359,7 @@ Don't keep trying the same tool repeatedly if it's clearly not working."""
         message_parts = [
             self.system_prompt,
             "",
-            get_environment_context()
+            get_environment_context(working_directory=str(self.working_dir))
         ]
 
         return "\n".join(message_parts)

@@ -12,6 +12,7 @@ from ..messages.types import (
     BatchToolResultObservation,
     EnvironmentMessage,
     LLMRespondMessage,
+    ProjectContextMessage,
     SystemMessage,
     ToolCallMessage,
     ToolResultObservation,
@@ -409,6 +410,10 @@ class HistoryManager:
                          "content": result.content
                      })
                  continue # Skip the main append
+            elif isinstance(msg, ProjectContextMessage):
+                # Project context - include as system message
+                role = "system"
+                content = msg.context
             else:
                 role = "assistant"
                 content = msg.content

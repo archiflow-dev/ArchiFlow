@@ -102,18 +102,26 @@ class ToolCallMessage(BaseMessage):
     thought: str = ""
     tool_calls: List[ToolCall] = field(default_factory=list)
     actionable: bool = True
-    
+
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
         data['tool_calls'] = [tc.to_dict() for tc in self.tool_calls]
         return data
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]):
         tool_calls_data = data.pop('tool_calls', [])
         msg = super().from_dict(data)
         msg.tool_calls = [ToolCall.from_dict(tc) for tc in tool_calls_data]
         return msg
+
+
+@dataclass
+class ProjectContextMessage(BaseMessage):
+    """Message containing ARCHIFLOW.md project context."""
+    context: str = ""
+    sources: List[str] = field(default_factory=list)
+    source: str = "archiflow"
 
 
 # Observation Messages
@@ -177,6 +185,7 @@ MESSAGE_TYPES = {
     'LLMThinkMessage': LLMThinkMessage,
     'LLMRespondMessage': LLMRespondMessage,
     'ToolCallMessage': ToolCallMessage,
+    'ProjectContextMessage': ProjectContextMessage,
     'ToolResultObservation': ToolResultObservation,
     'BatchToolResultObservation': BatchToolResultObservation,
     'ErrorObservation': ErrorObservation,

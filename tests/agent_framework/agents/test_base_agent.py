@@ -239,10 +239,14 @@ class TestBaseAgent(unittest.TestCase):
 
         self.agent.step(user_msg)
 
-        # History should have user message and LLM response
-        self.assertEqual(len(self.agent.history.messages), 2)
-        self.assertEqual(self.agent.history.messages[0].content, "Hi")
-        self.assertEqual(self.agent.history.messages[1].content, "Hello!")
+        # History should have: system message, user message, and LLM response
+        self.assertEqual(len(self.agent.history.messages), 3)
+        # Index 0 is SystemMessage
+        self.assertEqual(self.agent.history.messages[0].type, "SystemMessage")
+        # Index 1 is UserMessage
+        self.assertEqual(self.agent.history.messages[1].content, "Hi")
+        # Index 2 is LLMRespondMessage
+        self.assertEqual(self.agent.history.messages[2].content, "Hello!")
 
     def test_llm_format_conversion(self):
         """Test that history is correctly converted to LLM format."""

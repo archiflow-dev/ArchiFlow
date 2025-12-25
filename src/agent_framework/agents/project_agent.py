@@ -81,6 +81,7 @@ class ProjectAgent(BaseAgent):
         debug_log_path: Optional[str] = None,
         agent_name: str = "ProjectAgent",
         agent_version: str = "1.0.0",
+        include_project_context: bool = True,
         **kwargs
     ):
         """
@@ -95,6 +96,7 @@ class ProjectAgent(BaseAgent):
             debug_log_path: Optional path to debug log file for LLM interactions
             agent_name: Name of the agent (for config)
             agent_version: Version of the agent (for config)
+            include_project_context: Whether to load ARCHIFLOW.md context (default True)
             **kwargs: Additional agent-specific parameters (stored but not used by base)
 
         Raises:
@@ -131,7 +133,13 @@ class ProjectAgent(BaseAgent):
             "version": agent_version,
             "session_id": session_id
         }
-        super().__init__(llm, config, tools=self.tools)
+        super().__init__(
+            llm,
+            config,
+            tools=self.tools,
+            working_dir=self.project_directory,
+            include_project_context=include_project_context
+        )
 
         # Store system prompt template (don't add to history)
         # System message will be formatted dynamically on each step
