@@ -91,14 +91,14 @@ Use the setup script for automated installation:
 
 **Linux/macOS:**
 ```bash
-git clone https://github.com/yourusername/archiflow.git
+git clone https://github.com/archiflow-dev/ArchiFlow.git
 cd archiflow
 ./setup.sh
 ```
 
 **Windows:**
 ```cmd
-git clone https://github.com/yourusername/archiflow.git
+git clone https://github.com/archiflow-dev/ArchiFlow.git
 cd archiflow
 setup.bat
 ```
@@ -107,7 +107,7 @@ setup.bat
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/archiflow.git
+git clone https://github.com/archiflow-dev/ArchiFlow.git
 cd archiflow
 
 # Create a virtual environment
@@ -1177,7 +1177,7 @@ tail -f logs/archiflow.log
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/archiflow.git
+git clone https://github.com/archiflow-dev/ArchiFlow.git
 cd archiflow
 
 # Create virtual environment
@@ -1417,8 +1417,7 @@ The software is provided "as is" without warranty of any kind.
 
 ## 📞 Support
 
-- Create an issue on [GitHub](https://github.com/yourusername/archiflow/issues)
-- Check the [documentation](https://github.com/yourusername/archiflow/docs)
+- Create an issue on [GitHub](https://github.com/archiflow-dev/ArchiFlow/issues)
 
 ---
 
