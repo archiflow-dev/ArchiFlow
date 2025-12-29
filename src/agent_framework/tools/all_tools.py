@@ -111,6 +111,19 @@ try:
 except ImportError:
     pass
 
+# Comic Tools
+try:
+    from .comic.generate_comic_panel_tool import GenerateComicPanelTool
+    _optional_tools.append(('GenerateComicPanelTool', GenerateComicPanelTool))
+except ImportError:
+    pass
+
+try:
+    from .comic.export_comic_pdf_tool import ExportComicPDFTool
+    _optional_tools.append(('ExportComicPDFTool', ExportComicPDFTool))
+except ImportError:
+    pass
+
 
 def register_all_tools():
     """Register all available tools with the global registry."""

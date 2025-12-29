@@ -22,6 +22,7 @@ from agent_framework.agents.ppt_agent import PPTAgent
 from agent_framework.agents.research_agent import ResearchAgent
 from agent_framework.agents.coding_agent_v3 import CodingAgentV3
 from agent_framework.agents.prompt_refiner_agent import PromptRefinerAgent
+from agent_framework.agents.comic_agent import ComicAgent
 from agent_framework.llm.provider import LLMProvider
 
 from .exceptions import AgentFactoryError
@@ -176,6 +177,16 @@ class AgentFactory:
             requires_project_dir=False,
             default_debug_log_name="prompt_refiner_agent.log",
             creator_func=self._create_prompt_refiner_agent
+        )
+
+        # Register ComicAgent
+        self.register_agent(
+            name="comic",
+            agent_class=ComicAgent,
+            session_prefix="comic",
+            requires_project_dir=False,  # Creates its own session directory
+            default_debug_log_name="comic_agent.log",
+            creator_func=self._create_comic_agent
         )
 
     def register_agent(
@@ -556,6 +567,37 @@ Don't keep trying the same tool repeatedly if it's clearly not working."""
             publish_callback=None,  # Will be set by SessionManager
             initial_prompt=initial_prompt
         )
+
+        return agent
+
+    def _create_comic_agent(self, session_id, llm_provider, **kwargs) -> ComicAgent:
+        """Create a ComicAgent with proper configuration."""
+        import os
+
+        # Get Google API key from kwargs or environment
+        google_api_key = kwargs.pop("google_api_key", None) or os.getenv("GOOGLE_API_KEY")
+        if not google_api_key:
+            raise AgentFactoryError(
+                "GOOGLE_API_KEY is required for Comic Agent. "
+                "Please set it as an environment variable or pass it as google_api_key parameter."
+            )
+
+        # Set project directory if not provided (for session storage)
+        if "project_directory" not in kwargs:
+            kwargs["project_directory"] = os.getcwd()
+
+        agent = ComicAgent(
+            session_id=session_id,
+            llm=llm_provider,
+            google_api_key=google_api_key,
+            publish_callback=None,  # Will be set by SessionManager
+            **kwargs
+        )
+
+        # Set execution context on all tools if available
+        if hasattr(agent, 'execution_context'):
+            for tool in agent.tools.list_tools():
+                tool.execution_context = agent.execution_context
 
         return agent
 

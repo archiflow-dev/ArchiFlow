@@ -10,6 +10,7 @@ Supports creating:
 - TechLeadAgent for system architecture and technical planning
 - PPTAgent for presentation creation
 - ResearchAgent for comprehensive research and reporting
+- ComicAgent for comic book creation
 """
 
 import os
@@ -32,7 +33,7 @@ from .llm_provider_factory import create_llm_provider, get_supported_providers
 from .agent_factory_impl import create_agent as _create_agent, get_supported_agent_types
 from .exceptions import AgentFactoryError
 
-AgentType = Literal["coding", "codingv2", "codingv3", "simple", "simplev2", "analyzer", "reviewer", "product", "architect", "ppt", "research", "prompt_refiner"]
+AgentType = Literal["coding", "codingv2", "codingv3", "simple", "simplev2", "analyzer", "reviewer", "product", "architect", "ppt", "research", "prompt_refiner", "comic"]
 
 
 def create_agent(
@@ -45,7 +46,7 @@ def create_agent(
     Create an agent instance.
 
     Args:
-        agent_type: Type of agent to create ("coding", "codingv2", "codingv3", "simple", "analyzer", "reviewer", "product", "architect", "ppt", or "research")
+        agent_type: Type of agent to create ("coding", "codingv2", "codingv3", "simple", "analyzer", "reviewer", "product", "architect", "ppt", "research", "prompt_refiner", or "comic")
         session_id: Optional session ID
         llm_provider: Optional LLM provider (creates default if not provided)
         **kwargs: Additional arguments for agent creation
@@ -400,5 +401,38 @@ def create_prompt_refiner_agent(
         session_id=session_id,
         llm_provider=llm_provider,
         initial_prompt=initial_prompt,
+        **kwargs
+    )
+
+
+def create_comic_agent(
+    session_id: str | None = None,
+    llm_provider: LLMProvider | None = None,
+    google_api_key: str | None = None,
+    project_directory: str | None = None,
+    **kwargs: object,
+) -> BaseAgent:
+    """
+    Create a ComicAgent instance for comic book generation.
+
+    Args:
+        session_id: Optional session ID
+        llm_provider: Optional LLM provider
+        google_api_key: Google API key for image generation (or set GOOGLE_API_KEY env var)
+        project_directory: Optional project directory for session storage
+        **kwargs: Additional arguments
+
+    Returns:
+        ComicAgent instance
+
+    Raises:
+        AgentFactoryError: If creation fails or GOOGLE_API_KEY is missing
+    """
+    return _create_agent(
+        agent_type="comic",
+        session_id=session_id,
+        llm_provider=llm_provider,
+        google_api_key=google_api_key,
+        project_directory=project_directory,
         **kwargs
     )

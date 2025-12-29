@@ -716,6 +716,135 @@ async def ppt_command(*args: str, **context: object) -> None:
         console.print(f"[red]Unexpected error:[/red] {e}")
 
 
+async def comic_command(*args: str, **context: object) -> None:
+    """
+    Create a ComicAgent session and start comic book creation.
+
+    This is a convenience command that creates a Comic agent session
+    automatically. The agent will guide you through creating a complete
+    comic book with AI-generated panel images and PDF export.
+
+    Usage:
+        /comic [initial-idea]
+
+    Args:
+        *args: Command arguments (optional initial comic idea)
+        **context: Context (expects 'session_manager' and 'repl_engine')
+
+    Examples:
+        /comic                                    # Start comic creation
+        /comic "Robot learns to paint"            # Start with an idea
+        /comic A superhero discovers their power  # Start with idea (no quotes needed)
+
+    The Comic agent will:
+    - Ask clarifying questions about your comic vision
+    - Generate a 5-7 page comic script
+    - Create detailed visual specifications
+    - Generate character reference sheets
+    - Generate all panel images (~30-42 panels)
+    - Export to professional PDF with cover and credits
+
+    Requirements:
+    - GOOGLE_API_KEY environment variable for image generation
+    - Internet connection for AI image generation
+    """
+    import os
+
+    # Get session manager from context
+    session_manager = context.get("session_manager")
+    if not isinstance(session_manager, SessionManager):
+        console.print("[red]Error: Session manager not available[/red]")
+        return
+
+    # Get REPL engine from context (needed for agent_idle event)
+    repl_engine = context.get("repl_engine")
+    if repl_engine is None:
+        console.print("[red]Error: REPL engine not available[/red]")
+        return
+
+    # Check for Google API key
+    google_api_key = os.getenv("GOOGLE_API_KEY")
+    if not google_api_key:
+        console.print("[red]Error: GOOGLE_API_KEY environment variable is required[/red]")
+        console.print("[yellow]Please set your Google API key to use image generation features[/yellow]")
+        return
+
+    # Parse initial idea (optional)
+    initial_idea = " ".join(args) if args else None
+
+    # Create Comic agent
+    try:
+        console.print("[bold magenta]📚 Starting Comic Book Creation Session[/bold magenta]\n")
+
+        if initial_idea:
+            console.print(f"[dim]Initial idea:[/dim] {initial_idea[:80]}{'...' if len(initial_idea) > 80 else ''}")
+
+        console.print("[dim]Agent type:[/dim] ComicAgent")
+        console.print("[dim]Image generation:[/dim] Google API (configured)")
+        console.print()
+
+        # Create agent using factory
+        agent = create_agent(agent_type="comic")
+
+        # Create session
+        session = session_manager.create_session(agent=agent)
+
+        # Subscribe to output (similar to main REPL loop)
+        repl_engine.subscribe_to_output(session.session_id)
+
+        # Display welcome message
+        console.print(
+            f"[green]✓[/green] Comic Agent session created\n"
+            f"[dim]Session ID:[/dim] {session.session_id}\n"
+        )
+
+        console.print(
+            "\n[bold magenta]🎯 The Comic Creation Workflow:[/bold magenta]\n"
+            "The Comic Agent will guide you through these phases:\n"
+            "  1. [dim]SCRIPT MODE[/dim] - Generate comic script (5-7 pages, 30-42 panels)\n"
+            "  2. [dim]SPEC MODE[/dim] - Create detailed visual specifications\n"
+            "  3. [dim]GENERATION MODE[/dim] - Generate all panel images with AI\n"
+            "  4. [dim]EXPORT MODE[/dim] - Export to professional PDF\n"
+        )
+
+        console.print(
+            "\n[bold green]📝 Features:[/bold green]\n"
+            "  • [yellow]Guided Workflow[/yellow] - Agent asks questions and adapts to your input\n"
+            "  • [yellow]Editable Files[/yellow] - Edit script.md and comic_spec.md directly\n"
+            "  • [yellow]Character Consistency[/yellow] - Character reference sheets ensure consistency\n"
+            "  • [yellow]Professional Output[/yellow] - High-quality PDF with cover and credits\n"
+        )
+
+        # If initial idea provided, send it
+        if initial_idea:
+            console.print(
+                f"\n[cyan]Starting with your idea:[/cyan] {initial_idea}\n"
+            )
+            # Send the initial idea as first message
+            session_manager.send_message(initial_idea)
+            repl_engine.agent_idle.clear()
+        else:
+            console.print(
+                "\n[cyan]Let's create an amazing comic![/cyan]\n"
+                "Start by telling me your comic book idea. I'll ask questions to understand your vision.\n"
+            )
+            console.print("[dim]→ Comic Agent is ready! Enter your comic idea to get started.[/dim]\n")
+
+    except AgentFactoryError as e:
+        console.print(f"[red]Error creating Comic agent:[/red] {e}")
+        if "GOOGLE_API_KEY" in str(e):
+            console.print(
+                "\n[yellow]To get your Google API key:[/yellow]\n"
+                "1. Visit https://console.cloud.google.com/\n"
+                "2. Create a new project or select existing one\n"
+                "3. Enable 'Generative AI API'\n"
+                "4. Create credentials (API Key)\n"
+                "5. Set environment variable: export GOOGLE_API_KEY='your-key'"
+            )
+    except Exception as e:
+        console.print(f"[red]Unexpected error:[/red] {e}")
+
+
 async def analyzer_command(*args: str, **context: object) -> None:
     """
     Create a CodebaseAnalyzerAgent session and start analysis.
@@ -890,4 +1019,11 @@ def register_session_commands(router: CommandRouter) -> None:
         handler=ppt_command,
         description="Start presentation creation (creates PPT agent with AI-generated images)",
         usage="ppt [project-directory]",
+    )
+
+    router.register(
+        name="comic",
+        handler=comic_command,
+        description="Start comic book creation (creates Comic agent with AI-generated panel images)",
+        usage="comic [initial-idea]",
     )
