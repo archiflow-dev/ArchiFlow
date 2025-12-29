@@ -284,38 +284,291 @@ Examples:
 [Repeat for each panel on this page]
 ```
 
-3. **Layout Design Philosophy**
+3. **Advanced Layout Techniques (Professional Comic Design)**
 
-   **Panel count and layout should serve the story, not vice versa!**
+   **Panel count and layout must serve the narrative!**
 
-   Choose layouts based on storytelling needs:
+   ---
 
-   **Cover Pages / Splash Pages:**
-   - **1 panel** (full page) - Establish tone, introduce setting, dramatic reveal
+   ## **CRITICAL: Scott McCloud's Panel Transition Types**
 
-   **Slow Pacing / Emotional Moments:**
-   - **2-3 panels** (large, cinematic) - Let moments breathe, emphasize emotion
-   - **1x2** or **2x1** - Two large panels (vertical or horizontal)
+   Understanding how time flows between panels is essential for professional layouts:
 
-   **Standard Storytelling:**
-   - **4-6 panels** (balanced) - Good for dialogue, character interaction
-   - **2x2**, **2x3**, **3x2** - Traditional grid layouts
+   **The 6 Panel Transition Types:**
 
-   **Fast Pacing / Action:**
-   - **7-9 panels** (dense) - Quick cuts, rapid action, time compression
-   - **3x3**, **4x2** - Energetic, dynamic flow
+   1. **Moment-to-Moment** - Single subject, subtle action changes
+      - Use: Quick actions, subtle expressions
+      - Panel count: 6-9, uniform size
+      - Gutter: Narrow (continuous flow)
+      - Example: "6 equal panels - character's expression changes from neutral to angry"
 
-   **Creative / Experimental:**
-   - **Diagonal arrangements** - Dynamic action, falling, chaos
-   - **Irregular sizes** - Some panels large, some small (emphasis)
-   - **Overlapping panels** - Simultaneous action, time layers
+   2. **Action-to-Action** - Single subject, different actions
+      - Use: Fight scenes, chases, physical action
+      - Panel count: 4-7, varied for emphasis
+      - Gutter: Narrow to medium
+      - Example: "5 panels: small setup → large punch thrown → medium impact → small aftermath"
 
-   **Layout Description Format:**
-   Write clear descriptions like:
-   - "3 horizontal panels stacked vertically"
-   - "Large panel on left, 4 small panels stacked on right"
-   - "Top row: 2 panels, Bottom row: 3 panels (irregular)"
-   - "Diagonal staircase: 5 panels descending left to right"
+   3. **Subject-to-Subject** - Different subjects, same scene
+      - Use: Conversations, multiple characters
+      - Panel count: 4-6 panels
+      - Gutter: Medium
+      - Example: "4 panels - dialogue exchange between hero and villain"
+
+   4. **Scene-to-Scene** - Different scenes, different times/locations
+      - Use: Travel, montage, time jumps
+      - Panel count: 2-4 panels
+      - Gutter: WIDE (emphasize transition)
+      - Example: "4 panels with wide gutters: home → airport → plane → new city"
+
+   5. **Aspect-to-Aspect** - Different aspects of same scene/idea
+      - Use: Establishing mood, exploring environment
+      - Panel count: 3-6 panels
+      - Gutter: Wide or none (for effect)
+      - Example: "4 panels: wide cityscape → specific building → room inside → character's face"
+
+   6. **Non-Sequitur** - No logical relationship
+      - Use: Dreams, surrealism, confusion
+      - Panel count: Variable
+      - Gutter: Variable
+      - Example: "Normal conversation panel → Giant floating fish panel (nightmare)"
+
+   **Key Insight:** Gutter width should match transition type. Scene-to-scene needs wide gutters; moment-to-moment needs narrow gutters.
+
+   ---
+
+   ## **Layout Systems**
+
+   **Row-based (most common):** Horizontal tiers, natural left-to-right reading
+   - Regular rows: "3 rows, each with 2 panels" (uniform)
+   - Irregular rows: "Row 1: 3 panels, Row 2: 1 wide panel, Row 3: 2 panels" (varied emphasis)
+
+   **Column-based:** Vertical columns for parallel action or comparison
+   - "2 columns with 3 panels each (simultaneous action)"
+
+   **Diagonal:** Non-linear flow for dynamic movement
+   - "Diagonal descent: 5 panels from top-left to bottom-right (falling scene)"
+   - "Zigzag pattern: 6 panels alternating sides (chaotic battle)"
+
+   **Z-Path Optimized:** Follows natural eye movement (top-left → top-right → bottom-left → bottom-right)
+   - Classic Z: "4 panels in Z-formation for clear storytelling"
+   - Z with emphasis: "Z-layout with top-right panel enlarged for dramatic reveal"
+
+   **Combination:** Mix systems for complex storytelling
+
+   ---
+
+   ## **Special Panel Techniques**
+
+   **Splash Pages (1 panel):** Full-page dramatic image
+   - Use for: Cover pages, chapter opens, reveals, climactic moments
+   - Example: "Full-page splash - hero's first transformation"
+
+   **Inset Panels:** Small panels overlaid on larger panels
+   - Use for: Detail shots, reactions, simultaneous action
+   - Example: "Large establishing shot with 3 inset close-ups of character faces"
+
+   **Overlapping Panels:** Panels that interpenetrate or layer
+   - Use for: Memories overlapping reality, simultaneous events, time layers
+   - Example: "5 overlapping panels - flashback bleeding into present"
+
+   **Broken Frames:** Panel borders intentionally broken
+   - Use for: Action bursting out, chaos, intensity
+   - Example: "3 panels with broken borders - explosion breaking containment"
+
+   **Borderless Panels:** No panel border, image bleeds
+   - Use for: Timelessness, infinite space, intense immersion
+   - Example: "4 borderless panels - dream sequence with no boundaries"
+
+   **Widescreen Panels:** Horizontal letterbox format
+   - Use for: Cinematic scope, landscapes, epic moments
+   - Example: "3 widescreen panels stacked - vast desert journey"
+
+   ---
+
+   ## **Cinematography-Based Layouts**
+
+   **Progressive Zoom:** Each panel zooms in progressively
+   - Use for: Building tension, focusing attention
+   - Example: "4 panels: city → building → room → eye in window (ELS → LS → MS → CU)"
+
+   **Pull-Back Reveal:** Starts tight, pulls back to show context
+   - Use for: Revealing environment, showing scale
+   - Example: "4 panels: character's eye → face → body → standing on cliff edge"
+
+   **Dutch Angle Sequence:** All panels tilted for unease
+   - Use for: Chaos, disorientation, intense action
+   - Example: "5 panels, all tilted 15-30 degrees - chaotic battle scene"
+
+   **Perspective Shift:** Camera angle changes for power dynamics
+   - Use for: Character relationships, revelations
+   - Example: "3 panels: low angle (villain looming) → eye level (hero stands) → high angle (villain defeated)"
+
+   ---
+
+   ## **Gutter Control (Pacing)**
+
+   **Gutter width controls time perception and reading speed:**
+
+   - **Standard gutters (normal spacing):** Smooth flow, regular pacing
+     - Use for: Normal narrative progression
+     - Example: "2x3 grid with standard gutters"
+
+   - **Wide gutters (extra spacing):** Time passing, contemplative
+     - Use for: Scene-to-scene transitions, showing time elapsed
+     - Example: "4 panels with wide gutters - sunrise to sunset passage"
+
+   - **No gutters (borderless):** Simultaneity, continuous action
+     - Use for: Moment-to-moment transitions, single continuous moment
+     - Example: "6 borderless panels - continuous punch sequence"
+
+   - **Variable gutters:** Control rhythm dynamically
+     - Use for: Shifting pacing within page
+     - Example: "Row 1: narrow gutters (fast), Row 2: wide gutters (slow moment), Row 3: no gutters (intense climax)"
+
+   ---
+
+   ## **Visual Hierarchy (Emphasis)**
+
+   **Control reader attention through:**
+
+   **Panel Size:**
+   - Large panels = important moments, slow pacing
+   - Small panels = quick beats, supporting details
+   - Example: "1 large panel (60% of page) + 4 small panels (reactions)"
+
+   **Panel Position:**
+   - Top-left = entry point, first read
+   - Center = focal point, emphasis
+   - Bottom-right = exit, resolution
+   - **Z-Path placement** = Position key elements along natural Z-flow
+   - Example: "Center panel enlarged for pivotal decision"
+
+   **Frame Properties:**
+   - Thick borders = emphasis, importance
+   - Thin/no borders = ambient, secondary
+   - Wavy borders = flashback, memory, dream
+   - Broken borders = chaos, disruption
+   - Example: "5 panels - center panel has thick border for dramatic reveal"
+
+   **Panel Shape:**
+   - Square = stable, normal
+   - Tall/vertical = height, power, vulnerability
+   - Wide/horizontal = scope, time, landscape
+   - Irregular = unique, chaotic, special
+   - Example: "2 tall panels (towering threat) + 3 wide panels (fleeing hero)"
+
+   ---
+
+   ## **Within-Panel Composition**
+
+   **Rule of Thirds:**
+   - Divide panel into 9 equal parts
+   - Place key visual elements at the 4 intersections
+   - Creates instant visual appeal
+
+   **Golden Ratio (1:1.618):**
+   - More sophisticated composition than rule of thirds
+   - Creates spiral flow guiding eye naturally
+   - Use for: Key dramatic panels
+
+   **Negative Space:**
+   - Empty areas create breathing room and emphasis
+   - Use for: Isolation, vastness, contemplation
+
+   **Visual Flow Within Panel:**
+   - Character eyelines guide reader to next panel
+   - Leading lines (roads, buildings) direct attention
+   - Contrast and lighting establish focal points
+
+   ---
+
+   ## **Layout Pattern Strategy**
+
+   **Strict Pattern (rare):** Identical layout repeated across pages
+   - Use for: Deliberate monotony, routine
+   - Example: "Pages 1-3: All use identical 2x3 grid for routine daily life"
+
+   **Flexible Pattern (recommended):** Underlying structure with variations
+   - Use for: Consistency with creative flexibility (most common)
+   - Example: "Pages generally use 4-6 panels, but vary grid structure per scene"
+
+   **Irregular Pattern:** No repetition, maximum flexibility
+   - Use for: Experimental storytelling, chaotic narratives
+   - Example: "Each page has unique layout responding to story moment"
+
+   ---
+
+   ## **Pacing Control Layouts**
+
+   **Slow-Burn Page:** 1-3 large panels with wide gutters
+   - Use for: Emotional moments, dramatic reveals
+   - Example: "3 large vertical panels with wide gutters - character realizing betrayal"
+
+   **Rapid-Fire Page:** 8-9 small panels with narrow gutters
+   - Use for: Fast action, quick dialogue, comedy
+   - Example: "9 small panels in 3x3 grid - rapid comedy exchange"
+
+   **Build-and-Release:** Many small → one large → small
+   - Use for: Climax preparation, tension building
+   - Example: "6 small panels (tension builds) → 1 large panel (climax) → 2 small panels (aftermath)"
+
+   ---
+
+   ## **Format Considerations (2025)**
+
+   **Print Comics:** Fixed page size, standard gutters, single/double-page spreads
+
+   **Digital Comics:** Variable screen sizes, zoom capability, touch/swipe timing
+
+   **Webtoon / Vertical Scroll:**
+   - Continuous vertical canvas
+   - Long vertical panels for dramatic buildup
+   - Scroll reveals for dramatic timing
+   - No fixed panel count
+
+   **Hybrid:** Design for print first, optimize for digital
+
+   ---
+
+   ## **Layout Selection Guide**
+
+   Match layout to narrative purpose AND transition type:
+
+   **Story Type → Recommended Layout + Transition:**
+
+   | Story Type | Layout | Transition Type | Gutter |
+   |------------|--------|-----------------|--------|
+   | Cover/Opening | 1 panel (splash) | N/A | N/A |
+   | Establishing Scene | 2-3 large panels | Aspect-to-Aspect | Wide |
+   | Dialogue/Conversation | 4-6 panels, 2x2/2x3 grid | Subject-to-Subject | Standard/Medium |
+   | Action Sequence | 7-9 panels, 3x3/4x2 grid | Action-to-Action | Narrow |
+   | Emotional Moment | 1-3 large panels | Moment-to-Moment | Wide |
+   | Flashback | Overlapping/inset panels | Aspect-to-Aspect | None/Wide |
+   | Simultaneous Events | Column-based | Subject-to-Subject | Medium |
+   | Falling/Descent | Diagonal descending | Action-to-Action | Narrow |
+   | Rising/Triumph | Diagonal ascending | Action-to-Action | Narrow |
+   | Chaos/Battle | Zigzag, irregular | Non-Sequitur (partial) | Variable |
+   | Time Passage | Row layout | Scene-to-Scene | WIDE |
+   | Climactic Reveal | Splash or large + small | Moment-to-Moment | Wide |
+   | Dream/Memory | Borderless, overlapping | Aspect-to-Aspect | None |
+
+   ---
+
+   ## **Example Layout Descriptions**
+
+   When writing specs, describe layouts with transition awareness:
+
+   **Good Examples:**
+   - "Full-page splash panel - hero silhouetted against burning city"
+   - "3 horizontal widescreen panels stacked - cinematic chase sequence"
+   - "Large panel (left 60%) showing battle + 4 small inset panels (right) showing reactions"
+   - "Diagonal descent: 5 panels from top-left to bottom-right - character falling through memories (action-to-action)"
+   - "Row 1: 3 narrow panels (quick cuts), Row 2: 1 wide panel (pause), Row 3: 2 panels (resolution)"
+   - "2 columns layout - left: hero's choice (3 panels), right: consequence (3 panels) - subject-to-subject"
+   - "6 borderless overlapping panels - past and present bleeding together (moment-to-moment, no gutters)"
+   - "3 panels with broken borders and wide gutters - explosion aftermath, time suspended (scene-to-scene)"
+   - "4 aspect-to-aspect panels with wide gutters: wide cityscape → building → room → face (establishing atmosphere)"
+   - "Moment-to-moment sequence: 6 equal panels showing character's subtle expression change (narrow gutters)"
 
 4. **MANDATORY: Save Artifact First**
    - MUST save as comic_spec.md BEFORE asking for approval
@@ -373,12 +626,47 @@ User approved the spec. Generate images in TWO phases:
 
 1. **Load comic_spec.md**
    - Use read("comic_spec.md")
-   - Extract layout information from each page:
+   - Extract comprehensive layout information from each page:
      * **Panel Count:** (e.g., 1, 4, 6, 9)
      * **Layout Description:** (e.g., "2x3 grid", "3 horizontal panels", "full page splash")
+     * **Layout System:** (row-based, column-based, diagonal, Z-path, combination)
+     * **Transition Type:** (moment-to-moment, action-to-action, subject-to-subject, scene-to-scene, aspect-to-aspect, non-sequitur)
+     * **Special Techniques:** (insets, overlapping, broken frames, borderless, widescreen)
+     * **Gutter Type:** (standard, wide, none, variable)
+     * **Emphasis Panels:** (which panels are larger/emphasized)
    - Group all panels by page number
 
-2. **Generate Complete Pages (DEFAULT)**
+2. **Parse Layout Description**
+   - **Grid Detection:** If description includes "2x3 grid", "3x3 grid", etc. → use layout="2x3", "3x3"
+   - **Splash Detection:** If "full-page splash" or "splash page" → layout="1x1"
+   - **Transition Extraction:** Extract transition type if mentioned (e.g., "action-to-action", "scene-to-scene")
+   - **Gutter Extraction:** Extract gutter information (e.g., "wide gutters", "no gutters", "variable gutters")
+   - **Technique Extraction:** Extract special techniques (e.g., "overlapping panels", "inset panels", "broken borders")
+   - **Emphasis Extraction:** Extract emphasis information (e.g., "center panel enlarged", "thick borders on panel 3")
+
+3. **Build Generation Prompt**
+   Incorporate all layout details into the generation prompt:
+
+   **Basic grid:**
+   "Create a comic page with 6 panels in 2x3 grid layout..."
+
+   **With transition awareness:**
+   "Create an action-to-action page with 6 panels in 3x2 grid,
+    narrow gutters for fast pacing, showing rapid combat sequence..."
+
+   **With special techniques:**
+   "Create a page with 5 overlapping panels arranged diagonally,
+    showing memories bleeding into present (aspect-to-aspect transition)..."
+
+   **With gutter control:**
+   "Create a scene-to-scene page with 4 panels and wide gutters,
+    emphasizing time passing from dawn to dusk..."
+
+   **With emphasis:**
+   "Create a page with 1 large center panel (60% of page) for dramatic reveal,
+    plus 4 small panels showing reactions..."
+
+4. **Generate Complete Pages (DEFAULT)**
    - For EACH page in comic_spec.md:
      * Group all panels for that page
      * Extract panel count and layout description from spec
@@ -401,18 +689,19 @@ User approved the spec. Generate images in TWO phases:
        - page_size: "2048x2730" (standard comic book portrait)
        - margin: 20
 
-3. **Show Progress**
-   - Report after each page with actual panel count:
-     * "[Page 1/6] Generating cover page (1 panel)..."
-     * "[Page 2/6] Generating page (4 panels in 2x2 grid)..."
-     * "[Page 3/6] Generating action sequence (9 panels in 3x3 grid)..."
+5. **Show Progress**
+   - Report after each page with full layout context:
+     * "[Page 1/6] Generating splash page (1 panel, full-page)..."
+     * "[Page 2/6] Generating dialogue scene (4 panels, 2x2 grid, subject-to-subject)..."
+     * "[Page 3/6] Generating action sequence (6 panels, diagonal layout, action-to-action, narrow gutters)..."
+     * "[Page 4/6] Generating emotional moment (2 panels, widescreen, moment-to-moment, wide gutters)..."
    - Keep user informed of progress
 
-4. **Verify All Pages Generated**
+6. **Verify All Pages Generated**
    - Use list("pages") to count generated pages
    - Report: "All [X] pages generated successfully!"
 
-5. **⏸️ STOP AND WAIT**
+7. **⏸️ STOP AND WAIT**
    - After all pages generated, STOP
    - Wait for user to proceed to export
 
@@ -588,6 +877,81 @@ Always:
      page_size="2048x2730",
      margin=20
    )
+
+### Layout-Aware Page Generation (NEW)
+
+When using **generate_comic_page**, extract and apply layout information from spec:
+
+#### Grid Layouts (Direct Mapping)
+- Spec: "2x3 grid" → layout="2x3"
+- Spec: "3x3 grid" → layout="3x3"
+- Spec: "2x2 grid" → layout="2x2"
+- Spec: "1x2" → layout="1x2" (vertical arrangement)
+- Spec: "2x1" → layout="2x1" (horizontal arrangement)
+
+#### Special Layouts (Custom Prompt Enhancement)
+
+**Splash Page:**
+- Spec: "Full-page splash" or "splash page"
+- layout="1x1"
+- Prompt enhancement: "full-page dramatic splash panel"
+
+**Row-Based Irregular:**
+- Spec: "Row 1: 3 panels, Row 2: 1 wide panel, Row 3: 2 panels"
+- layout="3x2" (closest grid for 6 panels)
+- Prompt enhancement: "arranged as three rows - top row: 3 panels, middle row: 1 wide panel, bottom row: 2 panels"
+
+**Diagonal:**
+- Spec: "Diagonal descent: 5 panels" or "Diagonal staircase"
+- layout="3x2" (closest grid)
+- Prompt enhancement: "panels arranged diagonally descending from top-left to bottom-right"
+
+**Column-Based:**
+- Spec: "2 columns, 3 panels each" or "parallel action columns"
+- layout="2x3"
+- Prompt enhancement: "organized as 2 vertical columns for parallel action"
+
+**Overlapping:**
+- Spec: "5 overlapping panels" or "overlapping panels"
+- layout="3x2" (closest grid)
+- Prompt enhancement: "panels overlap and interpenetrate to show layered time"
+
+**Widescreen:**
+- Spec: "3 widescreen panels stacked" or "horizontal letterbox panels"
+- layout="1x3"
+- Prompt enhancement: "horizontal letterbox panels stacked vertically for cinematic effect"
+
+**Inset:**
+- Spec: "Large establishing shot with 3 inset panels" or "with inset panels"
+- layout="2x2" (4 panels total)
+- Prompt enhancement: "one large background panel with 3 small inset panels overlaid"
+
+**Borderless:**
+- Spec: "6 borderless panels" or "no gutters"
+- layout="3x2" or "2x3"
+- Prompt enhancement: "panels have no borders, continuous action, no gutters"
+
+#### Gutter Information Extraction
+
+Extract and include in prompt:
+- "standard gutters" → (default, don't mention in prompt)
+- "wide gutters" → "with wider spacing between panels to show time passing"
+- "no gutters" / "borderless" → "panels have no borders, continuous action"
+- "variable gutters" → "with varying spacing - narrow for fast action, wide for pauses"
+
+**CRITICAL: Align gutter with transition type:**
+- Scene-to-scene → wide gutters (emphasize transition)
+- Moment-to-moment → narrow/no gutters (continuous flow)
+- Action-to-action → narrow gutters (fast pacing)
+- Subject-to-subject → medium gutters (standard pacing)
+
+#### Emphasis Information Extraction
+
+Extract and include in prompt:
+- "center panel enlarged" → "with the center panel larger than others for emphasis"
+- "bottom panel full-width" → "with the bottom panel spanning full page width"
+- "thick borders" → "with thick borders on specified panels for dramatic emphasis"
+- "panel at 60% of page" → "with one panel occupying 60% of page space for emphasis"
 
 **Examples by panel count:**
 - Page 1 (cover): 1 panel → layout="1x1"

@@ -243,17 +243,17 @@ class TestComicAgentPrompts(unittest.TestCase):
         generation_mode = self.agent.GENERATION_MODE
 
         # Should show progress
-        self.assertIn("progress", generation_mode.lower()) or \
-        self.assertIn("Page", generation_mode) and self.assertIn("Panel", generation_mode)
+        self.assertTrue("progress" in generation_mode.lower() or
+                        ("Page" in generation_mode and "Panel" in generation_mode))
 
     def test_generation_mode_has_two_phases(self):
         """Test that generation mode has character refs and panels phases."""
         generation_mode = self.agent.GENERATION_MODE
 
         # Should have phase structure
-        self.assertIn("Phase 1", generation_mode) or self.assertIn("Character", generation_mode)
-        self.assertIn("Phase 2", generation_mode) or self.assertIn("Story Panel", generation_mode) or \
-        self.assertIn("panel", generation_mode.lower())
+        self.assertTrue("Phase 1" in generation_mode or "Character" in generation_mode)
+        self.assertTrue("Phase 2" in generation_mode or "Story Pages" in generation_mode or
+                        "panel" in generation_mode.lower())
 
     # ===== Export Mode Tests =====
 
@@ -262,7 +262,7 @@ class TestComicAgentPrompts(unittest.TestCase):
         export_mode = self.agent.EXPORT_MODE
 
         # Should confirm completion
-        self.assertIn("ready", export_mode.lower()) or self.assertIn("complete", export_mode.lower())
+        self.assertTrue("ready" in export_mode.lower() or "complete" in export_mode.lower())
 
     def test_export_mode_provides_file_locations(self):
         """Test that export mode provides file locations."""
