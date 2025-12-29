@@ -301,15 +301,71 @@ class GenerateComicPageTool(BaseTool):
 
                 combined_prompt = self._build_direct_page_prompt(panels, layout, page_number)
                 aspect_ratio = self._get_closest_aspect_ratio(page_width, page_height)
+                
+                # Collect character references
+                ref_images = []
+                unique_chars = set()
+                for panel in panels:
+                    if 'characters' in panel and panel['characters']:
+                        for char in panel['characters']:
+                            unique_chars.add(char)
+                
+                if unique_chars:
+                    logger.info(f"Collecting references for characters: {unique_chars}")
+                    # Try to find reference images
+                    # Default location
+                    if self.execution_context and self.execution_context.working_directory:
+                        base_dir = self.execution_context.working_directory
+                    else:
+                        base_dir = os.path.join("data", "sessions", session_id)
+                        
+                    ref_dir = os.path.join(base_dir, "character_refs")
+                    
+                    for char_name in unique_chars:
+                        # Try case variations
+                        names_to_check = [
+                            char_name.upper(),
+                            char_name.lower(),
+                            char_name.title(),
+                            char_name
+                        ]
+                        
+                        found = False
+                        for name in names_to_check:
+                            path = os.path.join(ref_dir, f"{name}.png")
+                            if os.path.exists(path):
+                                try:
+                                    img = Image.open(path)
+                                    ref_images.append(img)
+                                    logger.info(f"Loaded reference for {char_name}")
+                                    found = True
+                                    break
+                                except Exception as e:
+                                    logger.warning(f"Failed to load ref for {char_name}: {e}")
+                        
+                        if not found:
+                            logger.info(f"No reference image found for {char_name}")
 
-                logger.info(f"Generating complete page {page_number} directly with aspect ratio {aspect_ratio}")
+                        if not found:
+                            logger.info(f"No reference image found for {char_name}")
+
+                # Enhance prompt with reference instructions
+                if ref_images:
+                    combined_prompt += "\n\nCRITICAL INSTRUCTION: references provided. " \
+                                     "The attached images are character reference sheets for the characters in this page. " \
+                                     "You MUST maintain strict visual consistency with these references " \
+                                     "for all panels. Match their facial features, clothing, and style exactly " \
+                                     "wherever they appear on the page."
+
+                logger.info(f"Generating complete page {page_number} directly with aspect ratio {aspect_ratio} and {len(ref_images)} refs")
                 logger.debug(f"Combined prompt: {combined_prompt[:200]}...")
 
                 # Generate the full page image
                 image = self.image_provider.generate_image(
                     prompt=combined_prompt,
                     aspect_ratio=aspect_ratio,
-                    resolution="2K"
+                    resolution="2K",
+                    ref_images=ref_images if ref_images else None
                 )
 
                 # Handle PIL image

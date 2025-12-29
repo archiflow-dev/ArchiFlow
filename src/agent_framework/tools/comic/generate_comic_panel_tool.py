@@ -266,9 +266,58 @@ class GenerateComicPanelTool(BaseTool):
 
             # Load character reference if specified
             ref_images = []
-            if character_reference and character_reference in self.character_references:
-                ref_images.append(self.character_references[character_reference])
-                logger.info(f"Using character reference: {character_reference}")
+            
+            # Logic to find reference images
+            # 1. Check if specific reference requested
+            if character_reference:
+                # Check in-memory first
+                if character_reference in self.character_references:
+                    ref_images.append(self.character_references[character_reference])
+                    logger.info(f"Using in-memory character reference: {character_reference}")
+                else:
+                    # Check on disk
+                    ref_path = self._find_reference_on_disk(session_id, character_reference)
+                    if ref_path:
+                        try:
+                            img = Image.open(ref_path)
+                            ref_images.append(img)
+                            # Cache it
+                            self.character_references[character_reference] = img
+                            logger.info(f"Loaded character reference from disk: {character_reference}")
+                        except Exception as e:
+                            logger.warning(f"Failed to load reference image for {character_reference}: {e}")
+
+            # 2. Check if any characters in 'character_names' have references
+            if not ref_images and character_names:
+                for char_name in character_names:
+                    # Check in-memory
+                    if char_name in self.character_references:
+                        ref_images.append(self.character_references[char_name])
+                        logger.info(f"Using auto-detected in-memory reference: {char_name}")
+                        continue
+                        
+                    # Check on disk
+                    ref_path = self._find_reference_on_disk(session_id, char_name)
+                    if ref_path:
+                        try:
+                            img = Image.open(ref_path)
+                            ref_images.append(img)
+                            # Cache it
+                            self.character_references[char_name] = img
+                            logger.info(f"Loaded auto-detected reference from disk: {char_name}")
+                        except Exception as e:
+                            logger.warning(f"Failed to load reference image for {char_name}: {e}")
+
+                            logger.warning(f"Failed to load reference image for {char_name}: {e}")
+
+            # Enhance prompt with reference instructions if we have references
+            if ref_images:
+                enhanced_prompt += "\n\nCRITICAL INSTRUCTION: references provided. " \
+                                 "The attached images are character reference sheets. " \
+                                 "You MUST maintain strict visual consistency with these references " \
+                                 "for the characters involved. Match their facial features, " \
+                                 "clothing, and style exactly."
+                logger.debug("Added reference instructions to prompt")
 
             # Generate image
             image = self.image_provider.generate_image(
@@ -375,6 +424,51 @@ class GenerateComicPanelTool(BaseTool):
             Character reference image if exists, None otherwise
         """
         return self.character_references.get(character_name)
+
+    def _find_reference_on_disk(self, session_id: str, character_name: str) -> Optional[str]:
+        """
+        Look for character reference file on disk.
+        
+        Args:
+            session_id: The session ID
+            character_name: Name of the character
+            
+        Returns:
+            Path to file if found, None otherwise
+        """
+        if not session_id or not character_name:
+            return None
+            
+        try:
+            # Construct path: data/sessions/{session_id}/character_refs/{NAME}.png
+            # Try multiple case variations just in case
+            
+            # Default location
+            if self.execution_context and self.execution_context.working_directory:
+                base_dir = self.execution_context.working_directory
+            else:
+                base_dir = os.path.join("data", "sessions", session_id)
+                
+            ref_dir = os.path.join(base_dir, "character_refs")
+            
+            # Variations to check
+            names_to_check = [
+                character_name.upper(),
+                character_name.lower(),
+                character_name.title(),
+                character_name
+            ]
+            
+            for name in names_to_check:
+                path = os.path.join(ref_dir, f"{name}.png")
+                if os.path.exists(path):
+                    return path
+                    
+            return None
+            
+        except Exception as e:
+            logger.warning(f"Error checking disk for reference {character_name}: {e}")
+            return None
 
     def clear_references(self):
         """Clear all stored character references."""

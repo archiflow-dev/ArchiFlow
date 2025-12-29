@@ -121,17 +121,24 @@ class GoogleImageProvider(ImageProvider):
         """
 
         try:
-            # For now, we don't use reference images with Google GenAI
-            # as the API expects a specific format that's complex to handle
-            # Instead, we enhance the prompt to describe the desired style
+            # Construct content payload with text prompt and images
             contents = [prompt]
 
-            # If reference images are provided, enhance the prompt with style guidance
+            # Process reference images if provided
             if ref_images:
-                # For now, just log that we have reference images
-                # In the future, we could use Image embeddings or other approaches
-                logger.debug(f"Reference images provided but not used due to API limitations")
-                prompt += "\n\nCreate this with a consistent, professional presentation style suitable for business slides."
+                logger.debug(f"Processing {len(ref_images)} reference images for generation")
+                for i, img in enumerate(ref_images):
+                    if img:
+                        # Convert to PIL if it isn't already (though type hint says it is)
+                        if not isinstance(img, Image.Image):
+                            logger.warning(f"Reference image {i} is not a PIL Image, skipping")
+                            continue
+                        
+                        contents.append(img)
+                
+                # Add instruction to use the reference images
+                if len(contents) > 1:
+                     logger.info(f"Using {len(contents)-1} reference images for generation")
 
             logger.debug(f"Calling GenAI API for image generation with {len(ref_images) if ref_images else 0} reference images...")
             logger.debug(f"Config - aspect_ratio: {aspect_ratio}, resolution: {resolution}")
@@ -149,6 +156,13 @@ class GoogleImageProvider(ImageProvider):
             )
 
             logger.debug("GenAI API call completed")
+
+            # Check if response has parts
+            if response.parts is None:
+                error_msg = "API response has no parts (response.parts is None). "
+                error_msg += "This may indicate an API error, rate limiting, or invalid request."
+                logger.error(error_msg)
+                raise ValueError(error_msg)
 
             # Extract image from response
             for i, part in enumerate(response.parts):
