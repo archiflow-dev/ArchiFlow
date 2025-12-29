@@ -3,6 +3,7 @@ History Summarizer for compacting conversation history.
 """
 from abc import ABC, abstractmethod
 from typing import List, Optional
+import asyncio
 import logging
 
 from ..messages.types import BaseMessage, UserMessage, ToolCallMessage, ToolResultObservation
@@ -26,6 +27,22 @@ class HistorySummarizer(ABC):
             Summarized text representation
         """
         pass
+
+    async def summarize_async(self, messages: List[BaseMessage]) -> str:
+        """
+        Async summarization (NEW, preferred for non-blocking operation).
+
+        Default implementation runs sync version in thread pool.
+        Subclasses can override for true async behavior.
+
+        Args:
+            messages: List of messages to summarize
+
+        Returns:
+            Summarized text representation
+        """
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.summarize, messages)
 
 
 class SimpleSummarizer(HistorySummarizer):
@@ -76,6 +93,21 @@ class SimpleSummarizer(HistorySummarizer):
             summary_parts.append(f"{tool_calls} tool call(s): {tools_str}")
 
         return " | ".join(summary_parts)
+
+    async def summarize_async(self, messages: List[BaseMessage]) -> str:
+        """
+        Async version of summarization (just calls sync, it's already fast).
+
+        SimpleSummarizer is CPU-bound and very fast (microseconds),
+        so no need for thread pool - just call sync version directly.
+
+        Args:
+            messages: List of messages to summarize
+
+        Returns:
+            Summarized text representation
+        """
+        return self.summarize(messages)
 
 
 class LLMSummarizer(HistorySummarizer):
@@ -177,6 +209,51 @@ Provide a brief summary (2-4 sentences or bullet points):"""
 
         except Exception as e:
             logger.error(f"Failed to generate LLM summary: {e}, falling back to simple summary")
+            # Fallback to simple summarizer
+            return SimpleSummarizer().summarize(messages)
+
+    async def summarize_async(self, messages: List[BaseMessage]) -> str:
+        """
+        Async version of LLM summarization (non-blocking).
+
+        Uses async LLM generation to avoid blocking the event loop.
+
+        Args:
+            messages: List of messages to summarize
+
+        Returns:
+            LLM-generated summary
+        """
+        if not messages:
+            return "[No messages to summarize]"
+
+        try:
+            # Format messages into readable text
+            history_text = self._format_messages_for_summary(messages)
+
+            # Create prompt
+            prompt = self.SUMMARY_PROMPT.format(history=history_text)
+
+            # Call LLM asynchronously (non-blocking!)
+            llm_messages = [
+                {"role": "user", "content": prompt}
+            ]
+
+            response = await self.llm.generate_async(
+                llm_messages,
+                max_tokens=self.max_summary_tokens
+            )
+
+            if response.content:
+                summary = response.content.strip()
+                logger.info(f"Generated async LLM summary: {summary[:100]}...")
+                return f"[Summary of {len(messages)} messages] {summary}"
+            else:
+                logger.warning("LLM returned empty summary, falling back to simple summary")
+                return SimpleSummarizer().summarize(messages)
+
+        except Exception as e:
+            logger.error(f"Failed to generate async LLM summary: {e}, falling back to simple summary")
             # Fallback to simple summarizer
             return SimpleSummarizer().summarize(messages)
 

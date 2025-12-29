@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Iterator
 from enum import Enum
+import asyncio
 import json
 import logging
 
@@ -115,6 +116,31 @@ class LLMProvider(ABC):
             LLMResponseChunk objects
         """
         pass
+
+    async def generate_async(
+        self,
+        messages: List[Dict[str, Any]],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        **kwargs
+    ) -> LLMResponse:
+        """
+        Async version of generate (non-blocking).
+
+        Default implementation runs sync generate() in thread pool.
+        Providers can override with true async implementation.
+
+        Args:
+            messages: List of messages in OpenAI format
+            tools: Optional list of tool definitions
+            **kwargs: Additional provider-specific arguments
+
+        Returns:
+            LLMResponse with content or tool calls
+        """
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None, lambda: self.generate(messages, tools, **kwargs)
+        )
 
     def count_tokens(self, messages: List[Dict[str, Any]]) -> int:
         """

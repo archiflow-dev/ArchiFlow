@@ -10,6 +10,7 @@ from typing import Any
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
+from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.styles import Style
 from rich.console import Console
 from rich.markdown import Markdown
@@ -126,6 +127,36 @@ class REPLEngine:
             }
         )
 
+    def _create_key_bindings(self) -> KeyBindings:
+        """Create custom key bindings for the REPL."""
+        kb = KeyBindings()
+
+        @kb.add('f9')  # F9 key
+        def toggle_auto_refine(event):
+            """Toggle auto-refinement for the current session."""
+            # Get active session
+            active_session = self.session_manager.get_active_session()
+            if not active_session:
+                console.print("\n[yellow]No active session. Create a session first with /new[/yellow]\n")
+                return
+
+            # Toggle the setting
+            new_state = active_session.config.toggle_auto_refine()
+
+            # Show feedback
+            if new_state:
+                console.print(
+                    "\n✅ [bold green]Auto-refinement enabled[/bold green] (F9)\n"
+                    "[yellow]⚠️  Doubling cost and latency on every interaction.[/yellow]\n"
+                )
+            else:
+                console.print(
+                    "\n❌ [bold]Auto-refinement disabled[/bold] (F9)\n"
+                    "[dim]Prompts will be sent without refinement.[/dim]\n"
+                )
+
+        return kb
+
     def _get_prompt(self) -> str:
         """
         Get the current prompt string with directory indicator.
@@ -152,6 +183,9 @@ class REPLEngine:
         """
         console.print(f"[bold orange1]{banner}[/bold orange1]")
 
+        # Check font configuration
+        font_status = self._get_font_status()
+
         welcome_text = f"""
 **Version:** {__version__}
 
@@ -162,14 +196,49 @@ You can:
 - Use system commands directly (cd, ls, pwd, git, clear, etc.)
 - Use `/shell-commands` to see all available shell commands
 - Use `/help` to see available CLI commands
+- Use `/auto-refine` or press **F9** to toggle prompt auto-refinement
+- Use `/setup-font` to configure monospaced developer font
 - Use `/exit` or press Ctrl+D to quit
 
 The prompt shows your current directory: `[path] >>> `
+
+{font_status}
 
 Type your message and press Enter to begin.
         """
         console.print(Panel(Markdown(welcome_text.strip()), border_style="orange1"))
         console.print()
+
+    def _get_font_status(self) -> str:
+        """Get font configuration status for welcome message."""
+        try:
+            from agent_cli.config.terminal_config import load_terminal_config
+            from agent_cli.utils.font_detection import FontDetector
+
+            working_dir = Path.cwd()
+            config = load_terminal_config(working_dir)
+
+            # Check if preferred font is installed
+            is_installed = FontDetector.is_font_installed(config.preferred_font)
+
+            if is_installed:
+                return f"**Font:** {config.preferred_font} ✓"
+            else:
+                # Check for installed fallback
+                fallback_found = None
+                for fallback in config.fallback_fonts:
+                    if FontDetector.is_font_installed(fallback):
+                        fallback_found = fallback
+                        break
+
+                if fallback_found:
+                    return f"**Font:** {fallback_found} (fallback) - Run `/setup-font` for {config.preferred_font}"
+                else:
+                    return f"**Font:** Default - Run `/setup-font` to configure developer font"
+
+        except Exception:
+            # Silently fail - font status is optional
+            return ""
 
     def subscribe_to_output(self, session_id: str | None = None) -> None:
         """
@@ -372,6 +441,7 @@ Type your message and press Enter to begin.
             self.session = PromptSession(
                 history=self.history,
                 style=self._create_style(),
+                key_bindings=self._create_key_bindings(),
             )
 
         # Start message processing task

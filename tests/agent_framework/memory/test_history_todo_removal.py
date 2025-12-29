@@ -45,12 +45,15 @@ class TestTodoRemoval:
         assert len(history.messages) == 4  # System, User, TodoCall, TodoResult
 
         # Add some other messages to move TODO outside retention window
+        # With new MessageCleaner, TODOs are removed as soon as they're fully outside retention
         for i in range(6):
             history.add(UserMessage(content=f"Message {i}", session_id="test", sequence=4 + i))
 
-        assert len(history.messages) == 10
+        # After adding 6 messages, the old TODO should have been removed automatically
+        # (both call and result were outside retention window of 5)
+        assert len(history.messages) == 8  # System, User, 6 messages (TODO removed)
 
-        # Add second TODO - should remove first TODO (outside retention window)
+        # Add second TODO
         todo_call_2 = ToolCallMessage(
             tool_calls=[ToolCall(
                 id="call_2",

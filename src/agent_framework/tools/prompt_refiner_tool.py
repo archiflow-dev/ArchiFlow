@@ -73,51 +73,29 @@ class PromptRefinerTool(BaseTool):
         """Initialize the PromptRefinerTool.
 
         Args:
-            llm: Optional LLM provider for meta-prompting.
-                 If None, will auto-create from environment configuration.
+            llm: LLM provider for meta-prompting (REQUIRED).
+                 Must be explicitly provided - no auto-creation from environment.
+                 Example:
+                     from agent_cli.agents.llm_provider_factory import create_llm_provider
+                     llm = create_llm_provider()
+                     tool = PromptRefinerTool(llm=llm)
             **data: Additional fields for BaseTool
+
+        Raises:
+            TypeError: If llm is not provided or is None
         """
-        # Auto-create LLM provider from environment if not provided
         if llm is None:
-            llm = self._create_llm_from_env()
+            raise TypeError(
+                "PromptRefinerTool requires an explicit LLM provider. "
+                "Pass llm=create_llm_provider() when creating the tool. "
+                "Example:\n"
+                "    from agent_cli.agents.llm_provider_factory import create_llm_provider\n"
+                "    llm = create_llm_provider()\n"
+                "    tool = PromptRefinerTool(llm=llm)"
+            )
 
-        if llm is not None:
-            data['llm'] = llm
+        data['llm'] = llm
         super().__init__(**data)
-
-    def _create_llm_from_env(self) -> Optional[LLMProvider]:
-        """Create LLM provider from environment configuration.
-
-        Uses environment variables to configure provider:
-        - DEFAULT_LLM_PROVIDER: Provider name (openai, anthropic, glm, mock)
-        - DEFAULT_{PROVIDER}_MODEL: Model for the provider
-        - PROMPT_REFINER_MODEL: Override model specifically for prompt refinement
-
-        Returns:
-            LLMProvider instance or None if creation fails
-        """
-        try:
-            # Import here to avoid circular imports
-            from agent_cli.agents.llm_provider_factory import create_llm_provider
-
-            # Check for prompt-refiner specific model override
-            refiner_model = os.getenv("PROMPT_REFINER_MODEL")
-
-            # Create provider using factory (will use env defaults)
-            provider = create_llm_provider(model=refiner_model)
-
-            logger.info(
-                f"Auto-created LLM provider for PromptRefinerTool: "
-                f"{provider.__class__.__name__} with model={provider.model}"
-            )
-            return provider
-
-        except Exception as e:
-            logger.warning(
-                f"Failed to auto-create LLM provider from environment: {e}. "
-                f"Tool will require explicit LLM provider to be set."
-            )
-            return None
 
     async def execute(
         self,

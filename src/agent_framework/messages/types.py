@@ -177,6 +177,29 @@ class AgentFinishedMessage(BaseMessage):
     """Signal to terminate the agent loop."""
     reason: str = "Agent finished"
 
+
+# Notification Messages (Task 2.5: Compaction Notifications)
+
+@dataclass
+class CompactionStartedMessage(BaseMessage):
+    """Notification that history compaction has started."""
+    messages_count: int = 0
+    tokens_before: int = 0
+    utilization: float = 0.0  # Token utilization (0.0 - 1.0)
+
+
+@dataclass
+class CompactionCompleteMessage(BaseMessage):
+    """Notification that history compaction has completed."""
+    messages_before: int = 0
+    messages_after: int = 0
+    tokens_before: int = 0
+    tokens_after: int = 0
+    time_elapsed: float = 0.0  # Seconds
+    messages_compacted: int = 0  # messages_before - messages_after
+    tokens_saved: int = 0  # tokens_before - tokens_after
+
+
 # Message type registry for deserialization
 MESSAGE_TYPES = {
     'UserMessage': UserMessage,
@@ -192,6 +215,8 @@ MESSAGE_TYPES = {
     'StopMessage': StopMessage,
     'AgentFinishedMessage': AgentFinishedMessage,
     'WaitForUserInput': WaitForUserInput,
+    'CompactionStartedMessage': CompactionStartedMessage,
+    'CompactionCompleteMessage': CompactionCompleteMessage,
 }
 
 

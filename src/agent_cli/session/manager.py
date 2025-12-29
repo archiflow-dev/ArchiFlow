@@ -8,6 +8,7 @@ Manages CLI sessions with full broker infrastructure including:
 - RuntimeExecutor initialization
 """
 
+import os
 import time
 from dataclasses import dataclass, field
 
@@ -23,6 +24,23 @@ from message_queue.storage.memory import InMemoryBackend
 
 
 @dataclass
+class SessionConfig:
+    """
+    Configuration for a CLI session.
+
+    This stores session-level settings that can be modified during
+    the session (e.g., via slash commands or keyboard shortcuts).
+    """
+
+    auto_refine_prompts: bool = field(default_factory=lambda: os.getenv("AUTO_REFINE_PROMPTS", "false").lower() == "true")
+
+    def toggle_auto_refine(self) -> bool:
+        """Toggle auto-refine setting and return new state."""
+        self.auto_refine_prompts = not self.auto_refine_prompts
+        return self.auto_refine_prompts
+
+
+@dataclass
 class CLISession:
     """
     Represents a CLI session with an agent.
@@ -34,6 +52,7 @@ class CLISession:
     - Topic context for pub/sub
     - Agent controller
     - Runtime executor
+    - Session configuration (modifiable during session)
     """
 
     session_id: str
@@ -43,6 +62,7 @@ class CLISession:
     controller: AgentController
     executor: RuntimeExecutor
     runtime_manager: RuntimeManager
+    config: SessionConfig = field(default_factory=SessionConfig)
     created_at: float = field(default_factory=time.time)
     active: bool = True
 
@@ -117,12 +137,16 @@ class SessionManager:
         local_runtime = LocalRuntime(enable_resource_monitoring=True)
         runtime_manager.register_runtime("local", local_runtime)
 
+        # Create session config (before controller to provide enabled_callback)
+        session_config = SessionConfig()
+
         # Create agent controller
         # AgentController manages the agent and subscribes to agent_topic
         controller = AgentController(
             agent=agent,
             broker=broker,
             context=context,
+            auto_refine_enabled_callback=lambda: session_config.auto_refine_prompts,
         )
 
         # Create runtime executor
@@ -152,6 +176,7 @@ class SessionManager:
             controller=controller,
             executor=executor,
             runtime_manager=runtime_manager,
+            config=session_config,  # Use the same config instance referenced by callback
         )
 
         # Store session

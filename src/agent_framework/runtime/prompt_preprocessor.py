@@ -67,6 +67,7 @@ class PromptPreprocessor:
         min_length: Optional[int] = None,
         enabled: Optional[bool] = None,
         config_snapshot: Optional['ConfigSnapshot'] = None,
+        enabled_callback: Optional[callable] = None,
     ):
         """
         Initialize the prompt preprocessor.
@@ -82,11 +83,16 @@ class PromptPreprocessor:
                        env var or defaults to 10.
             enabled: Whether refinement is enabled. If None, checks ConfigHierarchy or
                      AUTO_REFINE_PROMPTS env variable (defaults to False).
+                     If enabled_callback is provided, this is ignored.
             config_snapshot: Optional ConfigSnapshot from ConfigHierarchy. If provided,
                             settings are read from the merged configuration hierarchy.
+            enabled_callback: Optional callable that returns bool (current enabled state).
+                             If provided, this is called on each process() to check if
+                             refinement is enabled (allows runtime toggling via session config).
         """
         self.llm = llm
         self._config_snapshot = config_snapshot
+        self._enabled_callback = enabled_callback
 
         # Configuration precedence:
         # 1. Direct parameter (highest)
@@ -135,33 +141,54 @@ class PromptPreprocessor:
                 int
             )
 
-        # Get enabled flag
-        if enabled is not None:
-            self.enabled = enabled
-        else:
-            # For enabled, we need special handling since env var is "true"/"false" string
-            if config_snapshot is not None:
-                auto_refine = config_snapshot.settings.get("autoRefinement", {})
-                if "enabled" in auto_refine:
-                    self.enabled = auto_refine["enabled"]
-                else:
-                    # Fall back to env var
-                    env_val = os.getenv("AUTO_REFINE_PROMPTS", "false")
-                    self.enabled = env_val.lower() == "true"
+        # Get enabled flag (if not using callback)
+        if enabled_callback is None:
+            if enabled is not None:
+                self._static_enabled = enabled
             else:
-                # No config snapshot, use env var
-                env_val = os.getenv("AUTO_REFINE_PROMPTS", "false")
-                self.enabled = env_val.lower() == "true"
+                # For enabled, we need special handling since env var is "true"/"false" string
+                if config_snapshot is not None:
+                    auto_refine = config_snapshot.settings.get("autoRefinement", {})
+                    if "enabled" in auto_refine:
+                        self._static_enabled = auto_refine["enabled"]
+                    else:
+                        # Fall back to env var
+                        env_val = os.getenv("AUTO_REFINE_PROMPTS", "false")
+                        self._static_enabled = env_val.lower() == "true"
+                else:
+                    # No config snapshot, use env var
+                    env_val = os.getenv("AUTO_REFINE_PROMPTS", "false")
+                    self._static_enabled = env_val.lower() == "true"
+        else:
+            # Using callback, enabled state is dynamic
+            self._static_enabled = None
 
         # Create refiner tool (lazy initialization on first use)
         self._refiner: Optional[PromptRefinerTool] = None
 
-        logger.info(
-            f"PromptPreprocessor initialized: "
-            f"enabled={self.enabled}, threshold={self.threshold}, "
-            f"min_length={self.min_length}, "
-            f"config_source={'hierarchy' if config_snapshot else 'env'}"
-        )
+        # Log initialization
+        initial_enabled = self.is_enabled
+        if initial_enabled:
+            logger.warning(
+                "⚠️  AUTO-REFINEMENT IS ENABLED ⚠️  "
+                "This DOUBLES cost and latency of every interaction. "
+                f"(threshold={self.threshold}, min_length={self.min_length}) "
+                "Disable with AUTO_REFINE_PROMPTS=false unless this is intentional."
+            )
+        else:
+            logger.info(
+                f"PromptPreprocessor initialized: "
+                f"enabled={initial_enabled}, threshold={self.threshold}, "
+                f"min_length={self.min_length}, "
+                f"config_source={'callback' if enabled_callback else ('hierarchy' if config_snapshot else 'env')}"
+            )
+
+    @property
+    def is_enabled(self) -> bool:
+        """Get current enabled state (supports runtime toggling via callback)."""
+        if self._enabled_callback is not None:
+            return self._enabled_callback()
+        return self._static_enabled if self._static_enabled is not None else False
 
     @property
     def refiner(self) -> PromptRefinerTool:
@@ -193,7 +220,7 @@ class PromptPreprocessor:
             refined_content = processed.content
         """
         # Fast path: disabled or empty message
-        if not self.enabled:
+        if not self.is_enabled:
             return message
 
         if not message.content or len(message.content.strip()) < self.min_length:

@@ -87,7 +87,8 @@ except ImportError:
 
 try:
     from .prompt_refiner_tool import PromptRefinerTool
-    _optional_tools.append(('PromptRefinerTool', PromptRefinerTool))
+    # Note: PromptRefinerTool requires explicit LLM provider, skip auto-registration
+    # It will be instantiated when needed (e.g., by PromptRefinerAgent)
 except ImportError:
     pass
 

@@ -39,6 +39,7 @@ class AgentController:
         broker: MessageBroker,
         context: TopicContext,
         working_dir: Optional[Path] = None,
+        auto_refine_enabled_callback: Optional[callable] = None,
     ):
         """
         Initialize the agent controller.
@@ -49,6 +50,9 @@ class AgentController:
             context: Topic context for message routing
             working_dir: Working directory for project-specific config.
                         Defaults to current working directory.
+            auto_refine_enabled_callback: Optional callable that returns bool indicating
+                                         if auto-refinement is enabled. If provided,
+                                         allows runtime toggling via session config.
         """
         self.agent = agent
         self.broker = broker
@@ -65,7 +69,8 @@ class AgentController:
         # zero contamination of system prompt and conversation history
         self.prompt_preprocessor = PromptPreprocessor(
             llm=agent.llm,
-            config_snapshot=self._get_config_snapshot()
+            config_snapshot=self._get_config_snapshot(),
+            enabled_callback=auto_refine_enabled_callback
         )
 
         logger.info(

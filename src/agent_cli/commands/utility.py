@@ -440,6 +440,265 @@ async def config_command(key: str = None, value: str = None, global_flag: bool =
         logger.exception("Failed to access configuration")
 
 
+async def auto_refine_command(*args: str, **context: object) -> None:
+    """
+    Toggle automatic prompt refinement for the current session.
+
+    This command allows you to enable or disable auto-refinement during
+    an active session, overriding the .env or ARCHIFLOW.md settings.
+
+    Usage:
+        /auto-refine           # Show current status
+        /auto-refine on        # Enable auto-refinement
+        /auto-refine off       # Disable auto-refinement
+        /auto-refine toggle    # Toggle current state
+
+    Args:
+        *args: Command arguments (on|off|toggle|status)
+        **context: Context passed from router (expects 'session_manager')
+
+    Examples:
+        /auto-refine           # Check if it's enabled or disabled
+        /auto-refine on        # Enable for this session
+        /auto-refine off       # Disable for this session
+        /auto-refine toggle    # Switch between on/off
+    """
+    # Get session manager from context
+    session_manager = context.get("session_manager")
+    if not isinstance(session_manager, SessionManager):
+        console.print("[red]Error: Session manager not available[/red]")
+        return
+
+    # Get active session
+    active_session = session_manager.get_active_session()
+    if not active_session:
+        console.print("[yellow]No active session. Create a session first with /new[/yellow]")
+        return
+
+    # Parse action (default to 'status')
+    action = args[0].lower() if args else "status"
+
+    if action not in ["on", "off", "toggle", "status"]:
+        console.print(f"[red]Error: Invalid action '{action}'[/red]")
+        console.print("[dim]Usage: /auto-refine [on|off|toggle|status][/dim]")
+        return
+
+    # Get current state
+    current_state = active_session.config.auto_refine_prompts
+
+    # Execute action
+    if action == "on":
+        active_session.config.auto_refine_prompts = True
+        new_state = True
+        action_msg = "enabled"
+    elif action == "off":
+        active_session.config.auto_refine_prompts = False
+        new_state = False
+        action_msg = "disabled"
+    elif action == "toggle":
+        new_state = active_session.config.toggle_auto_refine()
+        action_msg = "enabled" if new_state else "disabled"
+    else:  # status
+        new_state = current_state
+        action_msg = None
+
+    # Display result
+    if action_msg:
+        status_emoji = "✅" if new_state else "❌"
+        console.print(f"\n{status_emoji} [bold]Auto-refinement {action_msg}[/bold] for this session")
+
+        if new_state:
+            console.print("\n[dim]Prompts will be automatically analyzed and refined before reaching the agent.[/dim]")
+            console.print("[yellow]⚠️  Warning: This DOUBLES cost and latency of every interaction.[/yellow]")
+        else:
+            console.print("\n[dim]Prompts will be sent to the agent without refinement.[/dim]")
+            console.print("[green]Use /refine-prompt to manually refine a specific prompt.[/green]")
+    else:
+        # Status query
+        status_emoji = "✅ ON" if current_state else "❌ OFF"
+        console.print(f"\n[bold]Auto-refinement status:[/bold] {status_emoji}")
+
+        if current_state:
+            console.print("[dim]Prompts are being automatically refined.[/dim]")
+            console.print("[yellow]⚠️  Doubling cost and latency on every interaction.[/yellow]")
+        else:
+            console.print("[dim]Prompts are sent without automatic refinement.[/dim]")
+
+        console.print("\n[dim]Use /auto-refine [on|off|toggle] to change.[/dim]")
+
+    console.print()
+
+
+async def setup_font_command(*args: str, **context: object) -> None:
+    """
+    Setup terminal font configuration for VS Code.
+
+    This command:
+    1. Loads font preferences from .archiflow/config/terminal.yaml
+    2. Checks if preferred font is installed
+    3. Generates .vscode/settings.json with font configuration
+    4. Provides installation instructions if font not found
+
+    Usage:
+        /setup-font                    # Use config from terminal.yaml
+        /setup-font "Cascadia Code"    # Override preferred font
+        /setup-font --check            # Check installed fonts only
+        /setup-font --list             # List all installed fonts
+
+    Args:
+        *args: Command arguments (font name or flags)
+        **context: Context passed from router (unused)
+    """
+    from agent_cli.config.terminal_config import load_terminal_config, save_terminal_config, TerminalConfig
+    from agent_cli.utils.font_detection import FontDetector
+
+    working_dir = Path.cwd()
+
+    # Parse arguments
+    if args and args[0] == "--check":
+        # Check mode: validate current configuration
+        console.print("\n[bold cyan]Checking Font Installation[/bold cyan]\n")
+
+        config = load_terminal_config(working_dir)
+        recommended = FontDetector.get_recommended_fonts()
+
+        console.print(f"[bold]Preferred Font:[/bold] {config.preferred_font}")
+        is_installed = FontDetector.is_font_installed(config.preferred_font)
+        status = "[green]✓ Installed[/green]" if is_installed else "[red]✗ Not Found[/red]"
+        console.print(f"  Status: {status}\n")
+
+        console.print("[bold]Fallback Fonts:[/bold]")
+        for font in config.fallback_fonts:
+            is_installed = FontDetector.is_font_installed(font)
+            status = "[green]✓[/green]" if is_installed else "[red]✗[/red]"
+            console.print(f"  {status} {font}")
+
+        console.print("\n[bold]Recommended Developer Fonts:[/bold]")
+        for font_name, info in recommended.items():
+            installed = "[green]✓ Installed[/green]" if info["installed"] else "[red]✗ Not Installed[/red]"
+            ligatures = "[dim](ligatures)[/dim]" if info["ligatures"] else ""
+            console.print(f"  {installed} {font_name} {ligatures}")
+            console.print(f"    [dim]{info['description']}[/dim]")
+            if not info["installed"] and info["download"] != "Pre-installed on Windows":
+                console.print(f"    [cyan]Download:[/cyan] {info['download']}")
+
+        console.print()
+        return
+
+    elif args and args[0] == "--list":
+        # List all installed fonts
+        console.print("\n[bold cyan]Scanning Installed Fonts...[/bold cyan]\n")
+        fonts = FontDetector.get_installed_fonts()
+
+        if fonts:
+            console.print(f"[green]Found {len(fonts)} fonts:[/green]\n")
+            # Show first 50, then summarize
+            for i, font in enumerate(fonts[:50]):
+                console.print(f"  • {font}")
+            if len(fonts) > 50:
+                console.print(f"\n  [dim]... and {len(fonts) - 50} more fonts[/dim]")
+        else:
+            console.print("[yellow]Could not enumerate installed fonts[/yellow]")
+            console.print("[dim]Font detection may vary by platform[/dim]")
+
+        console.print()
+        return
+
+    # Load configuration
+    config = load_terminal_config(working_dir)
+
+    # Override preferred font if provided
+    if args and not args[0].startswith("--"):
+        font_name = " ".join(args)
+        config.preferred_font = font_name
+        console.print(f"\n[cyan]Using custom font:[/cyan] {font_name}\n")
+
+    # Check if preferred font is installed
+    console.print(f"[bold]Checking font installation:[/bold] {config.preferred_font}")
+    is_installed = FontDetector.is_font_installed(config.preferred_font)
+
+    if is_installed:
+        console.print(f"  [green]✓ {config.preferred_font} is installed[/green]\n")
+    else:
+        console.print(f"  [red]✗ {config.preferred_font} not found[/red]\n")
+
+        # Show installation instructions
+        recommended = FontDetector.get_recommended_fonts()
+        if config.preferred_font in recommended:
+            info = recommended[config.preferred_font]
+            console.print(f"[bold yellow]Installation Instructions:[/bold yellow]")
+            console.print(f"  [cyan]Download:[/cyan] {info['download']}")
+            console.print(f"  [dim]{info['description']}[/dim]\n")
+
+        # Check if any fallback is installed
+        fallback_found = None
+        for fallback in config.fallback_fonts:
+            if FontDetector.is_font_installed(fallback):
+                fallback_found = fallback
+                break
+
+        if fallback_found:
+            console.print(f"[green]✓ Fallback font found:[/green] {fallback_found}")
+            console.print(f"  [dim]VS Code will use this until {config.preferred_font} is installed[/dim]\n")
+
+    # Generate VS Code settings
+    vscode_dir = working_dir / ".vscode"
+    settings_path = vscode_dir / "settings.json"
+
+    # Load existing settings or create new
+    if settings_path.exists():
+        try:
+            existing_settings = json.loads(settings_path.read_text(encoding="utf-8"))
+            console.print(f"[cyan]Found existing VS Code settings:[/cyan] {settings_path}")
+        except json.JSONDecodeError:
+            existing_settings = {}
+            console.print(f"[yellow]Could not parse existing settings, will create new[/yellow]")
+    else:
+        existing_settings = {}
+        console.print(f"[cyan]Creating new VS Code settings:[/cyan] {settings_path}")
+
+    # Merge font settings
+    font_settings = config.to_vscode_settings()
+    merged_settings = {**existing_settings, **font_settings}
+
+    # Create .vscode directory if needed
+    vscode_dir.mkdir(exist_ok=True)
+
+    # Write settings
+    try:
+        settings_path.write_text(
+            json.dumps(merged_settings, indent=2, ensure_ascii=False),
+            encoding="utf-8"
+        )
+        console.print(f"[green]✓ VS Code settings updated:[/green] {settings_path}\n")
+    except Exception as e:
+        console.print(f"[red]Error writing settings:[/red] {e}\n")
+        return
+
+    # Display what was configured
+    console.print("[bold]Font Configuration:[/bold]")
+    console.print(f"  [cyan]Font Family:[/cyan] {config.font_family}")
+    console.print(f"  [cyan]Font Size:[/cyan] {config.font_size}")
+    console.print(f"  [cyan]Ligatures:[/cyan] {'Enabled' if config.enable_ligatures else 'Disabled'}")
+    console.print(f"  [cyan]Line Height:[/cyan] {config.line_height}")
+    console.print()
+
+    # Next steps
+    console.print("[bold green]Next Steps:[/bold green]")
+    if not is_installed:
+        console.print("  1. Install the preferred font (see download link above)")
+        console.print("  2. Restart VS Code")
+        console.print("  3. Open terminal and run: python run_dev.py")
+    else:
+        console.print("  1. Restart VS Code (or reload window)")
+        console.print("  2. Open terminal and run: python run_dev.py")
+        console.print("  3. You should see monospaced developer font!")
+
+    console.print()
+    console.print("[dim]Tip: Use /setup-font --check to verify font installation anytime[/dim]")
+    console.print()
+
+
 def register_utility_commands(router: CommandRouter) -> None:
     """
     Register all utility commands with the router.
@@ -507,4 +766,18 @@ def register_utility_commands(router: CommandRouter) -> None:
         handler=config_command,
         description="View or edit configuration settings",
         usage="config [key] [value] [-g]",
+    )
+
+    router.register(
+        name="auto-refine",
+        handler=auto_refine_command,
+        description="Toggle automatic prompt refinement for current session",
+        usage="auto-refine [on|off|toggle|status]",
+    )
+
+    router.register(
+        name="setup-font",
+        handler=setup_font_command,
+        description="Setup terminal font configuration for VS Code",
+        usage="setup-font [font-name] [--check|--list]",
     )
