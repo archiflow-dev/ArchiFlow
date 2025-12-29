@@ -78,7 +78,7 @@ class GenerateComicPanelTool(BaseTool):
             },
             "session_id": {
                 "type": "string",
-                "description": "Session ID for organizing images (default: 'default')"
+                "description": "Session ID for organizing images"
             },
             "output_dir": {
                 "type": "string",
@@ -97,7 +97,7 @@ class GenerateComicPanelTool(BaseTool):
                 "default": "2K"
             }
         },
-        "required": ["prompt", "panel_type"]
+        "required": ["prompt", "panel_type", "session_id"]
     }
 
     image_provider: Optional[ImageProvider] = Field(default=None, exclude=True)
@@ -209,7 +209,7 @@ class GenerateComicPanelTool(BaseTool):
         self,
         prompt: str,
         panel_type: str,
-        session_id: str = "default",
+        session_id: str,
         page_number: Optional[int] = None,
         panel_number: Optional[int] = None,
         character_names: Optional[List[str]] = None,
@@ -283,10 +283,18 @@ class GenerateComicPanelTool(BaseTool):
 
             # Determine output directory based on panel type
             if output_dir is None:
-                if panel_type == "character_reference":
-                    output_dir = os.path.join("data", "sessions", session_id, "character_refs")
+                # Use execution context working directory as base
+                base_dir = None
+                if self.execution_context and self.execution_context.working_directory:
+                    base_dir = self.execution_context.working_directory
                 else:
-                    output_dir = os.path.join("data", "sessions", session_id, "panels")
+                    # Fallback to default sessions directory
+                    base_dir = os.path.join("data", "sessions", session_id)
+
+                if panel_type == "character_reference":
+                    output_dir = os.path.join(base_dir, "character_refs")
+                else:
+                    output_dir = os.path.join(base_dir, "panels")
 
             # Create output directory
             os.makedirs(output_dir, exist_ok=True)

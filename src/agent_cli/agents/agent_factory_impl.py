@@ -573,6 +573,7 @@ Don't keep trying the same tool repeatedly if it's clearly not working."""
     def _create_comic_agent(self, session_id, llm_provider, **kwargs) -> ComicAgent:
         """Create a ComicAgent with proper configuration."""
         import os
+        from pathlib import Path
 
         # Get Google API key from kwargs or environment
         google_api_key = kwargs.pop("google_api_key", None) or os.getenv("GOOGLE_API_KEY")
@@ -582,9 +583,16 @@ Don't keep trying the same tool repeatedly if it's clearly not working."""
                 "Please set it as an environment variable or pass it as google_api_key parameter."
             )
 
-        # Set project directory if not provided (for session storage)
-        if "project_directory" not in kwargs:
-            kwargs["project_directory"] = os.getcwd()
+        # Don't set project_directory - let ComicAgent use its default
+        # (data/sessions/{session_id}) unless explicitly provided
+
+        # Validate session directory (warn if it already exists)
+        session_dir = Path("data") / "sessions" / session_id
+        if session_dir.exists():
+            logger.warning(
+                f"Session directory already exists: {session_dir}. "
+                "Resuming existing session or overwriting files."
+            )
 
         agent = ComicAgent(
             session_id=session_id,

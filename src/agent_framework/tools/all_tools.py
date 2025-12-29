@@ -124,6 +124,12 @@ try:
 except ImportError:
     pass
 
+try:
+    from .comic.generate_comic_page_tool import GenerateComicPageTool
+    _optional_tools.append(('GenerateComicPageTool', GenerateComicPageTool))
+except ImportError:
+    pass
+
 
 def register_all_tools():
     """Register all available tools with the global registry."""

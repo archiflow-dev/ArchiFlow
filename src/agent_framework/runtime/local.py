@@ -175,6 +175,12 @@ class LocalRuntime(ToolRuntime):
         # Check if tool has execute method
         if not hasattr(tool, 'execute'):
             raise ExecutionError(f"Tool {tool} does not have execute method")
+
+        # Set execution context on tool before executing
+        # This ensures the tool gets the correct context even if tools are shared globally
+        if hasattr(tool, 'execution_context'):
+            tool.execution_context = context
+
         # Call tool's execute method
         execute_method = getattr(tool, 'execute')
         # Check if it's async

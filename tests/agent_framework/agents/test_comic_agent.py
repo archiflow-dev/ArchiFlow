@@ -102,10 +102,11 @@ class TestComicAgent(unittest.TestCase):
     def test_agent_configuration(self):
         """Test agent configuration constants."""
         self.assertEqual(self.agent.DEFAULT_PAGE_COUNT, 6)
-        self.assertEqual(self.agent.DEFAULT_PANELS_PER_PAGE, 6)
+        # Note: DEFAULT_PANELS_PER_PAGE removed - panel count is now dynamic per page
         self.assertEqual(self.agent.SCRIPT_FILE, "script.md")
         self.assertEqual(self.agent.SPEC_FILE, "comic_spec.md")
         self.assertIn("generate_comic_panel", self.agent.ALLOWED_TOOLS)
+        self.assertIn("generate_comic_page", self.agent.ALLOWED_TOOLS)
 
     # ===== System Message Tests =====
 
@@ -162,18 +163,18 @@ class TestComicAgent(unittest.TestCase):
         # Check session context
         self.assertIn("Has Script: True", system_msg)
         self.assertIn("Has Spec: True", system_msg)
-        self.assertIn("Has Panels: False", system_msg)
+        self.assertIn("Has Pages: False", system_msg)
 
     def test_get_system_message_export_mode(self):
-        """Test system message generation in export mode (panels exist)."""
-        # Create all necessary files and panels
+        """Test system message generation in export mode (pages exist)."""
+        # Create all necessary files and pages
         session_path = Path(self.agent.project_directory)
         (session_path / "script.md").write_text("# Test Script")
         (session_path / "comic_spec.md").write_text("# Test Spec")
 
-        # Create a panel file
-        panels_dir = session_path / "panels"
-        (panels_dir / "page_01_panel_01.png").write_bytes(b"fake image data")
+        # Create a page file
+        pages_dir = session_path / "pages"
+        (pages_dir / "page_01.png").write_bytes(b"fake image data")
 
         system_msg = self.agent.get_system_message()
 
@@ -181,7 +182,7 @@ class TestComicAgent(unittest.TestCase):
         self.assertIn("EXPORT MODE", system_msg)
 
         # Check session context
-        self.assertIn("Has Panels: True", system_msg)
+        self.assertIn("Has Pages: True", system_msg)
 
     def test_system_message_includes_session_directory(self):
         """Test that system message includes session directory path."""

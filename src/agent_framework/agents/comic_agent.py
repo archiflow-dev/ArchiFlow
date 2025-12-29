@@ -43,7 +43,7 @@ class ComicAgent(BaseAgent):
 
     # Default configuration
     DEFAULT_PAGE_COUNT = 6  # 5-7 pages recommended
-    DEFAULT_PANELS_PER_PAGE = 6
+    # Note: Panel count per page is DYNAMIC - determined by story needs, not fixed
 
     # Allowed tools
     ALLOWED_TOOLS = [
@@ -52,6 +52,7 @@ class ComicAgent(BaseAgent):
         "bash",                       # Shell commands
         "web_search", "web_fetch",    # Web research
         "generate_comic_panel",       # Comic panel image generation
+        "generate_comic_page",        # Comic page composition (multiple panels)
         "export_comic_pdf",           # PDF export
         "finish_task"                 # Completion signal
     ]
@@ -233,6 +234,7 @@ User approved the script. Here's your complete workflow:
    - Color Palette (mood and atmosphere)
    - Character Descriptions (detailed visual specs for each character)
    - Panel Specifications (detailed visual prompt for EACH panel)
+   - Page Layouts (grid arrangement for visual flow and pacing)
 
 2. **Spec Format (Markdown)**
 ```markdown
@@ -260,7 +262,16 @@ User approved the script. Here's your complete workflow:
 
 ## Panel Specifications
 
-### Page 1: [Page Title]
+### Page 1: [Page Title - e.g., "The Opening" or "Cover Page"]
+**Panel Count:** [Number of panels - choose based on story needs]
+**Layout Description:** [Describe the layout arrangement]
+
+Examples:
+- Cover page: 1 panel (full page splash)
+- Dialogue scene: 2x2 (4 panels in grid)
+- Action sequence: 3x3 (9 panels, fast pacing)
+- Dramatic moment: 1 panel (full page)
+- Mixed: 3 horizontal panels stacked vertically
 
 #### Panel 1 - [Type]
 - **Scene:** [what's happening]
@@ -269,22 +280,57 @@ User approved the script. Here's your complete workflow:
 - **Lighting:** [lighting description]
 - **Mood:** [emotional tone]
 - **Detailed Visual Prompt:** [comprehensive prompt for panel generation]
+
+[Repeat for each panel on this page]
 ```
 
-3. **MANDATORY: Save Artifact First**
+3. **Layout Design Philosophy**
+
+   **Panel count and layout should serve the story, not vice versa!**
+
+   Choose layouts based on storytelling needs:
+
+   **Cover Pages / Splash Pages:**
+   - **1 panel** (full page) - Establish tone, introduce setting, dramatic reveal
+
+   **Slow Pacing / Emotional Moments:**
+   - **2-3 panels** (large, cinematic) - Let moments breathe, emphasize emotion
+   - **1x2** or **2x1** - Two large panels (vertical or horizontal)
+
+   **Standard Storytelling:**
+   - **4-6 panels** (balanced) - Good for dialogue, character interaction
+   - **2x2**, **2x3**, **3x2** - Traditional grid layouts
+
+   **Fast Pacing / Action:**
+   - **7-9 panels** (dense) - Quick cuts, rapid action, time compression
+   - **3x3**, **4x2** - Energetic, dynamic flow
+
+   **Creative / Experimental:**
+   - **Diagonal arrangements** - Dynamic action, falling, chaos
+   - **Irregular sizes** - Some panels large, some small (emphasis)
+   - **Overlapping panels** - Simultaneous action, time layers
+
+   **Layout Description Format:**
+   Write clear descriptions like:
+   - "3 horizontal panels stacked vertically"
+   - "Large panel on left, 4 small panels stacked on right"
+   - "Top row: 2 panels, Bottom row: 3 panels (irregular)"
+   - "Diagonal staircase: 5 panels descending left to right"
+
+4. **MANDATORY: Save Artifact First**
    - MUST save as comic_spec.md BEFORE asking for approval
    - Use write("comic_spec.md", <markdown_content>)
    - Verify the file was created successfully
    - ⚠️ NEVER ask for approval without saving the file first
 
-4. **Present for Approval**
+5. **Present for Approval**
    - ONLY after comic_spec.md is saved, show key elements:
      * Art style summary
      * Character count and brief descriptions
      * Sample panel spec from page 1
    - Ask: "Is this specification ready for image generation? (saved to comic_spec.md)"
 
-5. **⏸️ STOP AND WAIT - Do Not Continue**
+6. **⏸️ STOP AND WAIT - Do Not Continue**
    - After asking for approval, STOP here and wait for user response
    - Do NOT proceed to GENERATION MODE until user explicitly approves
    - If approved: proceed to GENERATION MODE
@@ -305,6 +351,7 @@ User approved the spec. Generate images in TWO phases:
 2. **Generate Character Reference Sheets**
    - For EACH character, call generate_comic_panel:
      * panel_type="character_reference"
+     * session_id="{session_id}"
      * character_names=[character_name]
      * prompt=[character's visual prompt from spec]
    - These references will be used for ALL story panels
@@ -318,51 +365,76 @@ User approved the spec. Generate images in TWO phases:
    - After all character references are generated, STOP
    - Wait for user confirmation before proceeding to story panels
 
-### Phase 2: Story Panels (After Character Refs Approved)
-1. **Generate All Story Panels**
-   - For EACH panel in comic_spec.md:
-     * Extract: page_number, panel_number, panel_type, characters, visual prompt
-     * Call generate_comic_panel:
-       - panel_type=[from spec]
-       - page_number=[page number]
-       - panel_number=[panel number]
-       - character_names=[characters in panel]
-       - character_reference=[first character name, if applicable]
-       - prompt=[detailed visual prompt from spec]
-       - dialogue=[dialogue if any]
-       - action=[action description]
-       - visual_details=[composition, lighting, mood]
+### Phase 2: Story Pages (After Character Refs Approved)
 
-2. **Show Progress**
-   - Report after each panel: "[Page 2/6, Panel 3/6] Generating panel..."
+⚠️ **DEFAULT: Generate PAGES, not individual panels**
+   - Use generate_comic_page for complete pages (recommended)
+   - Only use generate_comic_panel if user explicitly requests individual panels
+
+1. **Load comic_spec.md**
+   - Use read("comic_spec.md")
+   - Extract layout information from each page:
+     * **Panel Count:** (e.g., 1, 4, 6, 9)
+     * **Layout Description:** (e.g., "2x3 grid", "3 horizontal panels", "full page splash")
+   - Group all panels by page number
+
+2. **Generate Complete Pages (DEFAULT)**
+   - For EACH page in comic_spec.md:
+     * Group all panels for that page
+     * Extract panel count and layout description from spec
+     * Determine layout pattern:
+       - Single panel → layout="1x1" (full page)
+       - Grid patterns → layout="2x3", "3x2", "3x3", etc.
+       - Complex layouts → interpret from description, choose closest grid
+     * Call generate_comic_page:
+       - session_id="{session_id}"
+       - page_number=[page number]
+       - panels=[array of panel specifications for this page]
+         Each panel spec must include:
+         - panel_number: [sequential number within page, 1-based]
+         - prompt: [detailed visual prompt from spec]
+         - panel_type: [scene type from spec]
+         - characters: [list of character names in panel]
+         - dialogue: [dialogue text if any]
+         - visual_details: [composition, lighting, mood from spec]
+       - layout: [grid pattern, e.g., "2x3", "1x1", "3x2"]
+       - page_size: "2048x2730" (standard comic book portrait)
+       - margin: 20
+
+3. **Show Progress**
+   - Report after each page with actual panel count:
+     * "[Page 1/6] Generating cover page (1 panel)..."
+     * "[Page 2/6] Generating page (4 panels in 2x2 grid)..."
+     * "[Page 3/6] Generating action sequence (9 panels in 3x3 grid)..."
    - Keep user informed of progress
 
-3. **Verify All Panels Generated**
-   - Use list("panels") to count generated panels
-   - Report: "All [X] panels generated successfully!"
+4. **Verify All Pages Generated**
+   - Use list("pages") to count generated pages
+   - Report: "All [X] pages generated successfully!"
 
-4. **⏸️ STOP AND WAIT**
-   - After all panels generated, STOP
+5. **⏸️ STOP AND WAIT**
+   - After all pages generated, STOP
    - Wait for user to proceed to export
 
-Exit condition: When all panels are generated"""
+Exit condition: When all pages are generated"""
 
     # Export mode workflow
     EXPORT_MODE = """## EXPORT MODE
 
-All panels are ready. Inform user:
+All pages are ready. Inform user:
 
 ### Current Status
 1. **Report Completion**
    - "All character references generated: [count]"
-   - "All story panels generated: [count]"
+   - "All story pages generated: [count]"
    - "Comic is ready for export!"
 
 2. **Explain Next Steps**
    - "PDF export functionality (ExportComicPDFTool) will be implemented in Phase 5"
    - "For now, you can find all generated images in:"
      * character_refs/ - Character reference sheets
-     * panels/ - All story panels (page_XX_panel_YY.png)
+     * pages/ - All complete comic pages (page_XX.png)
+     * panels/ - Individual panel images (page_XX_panel_YY.png)
 
 3. **Call finish_task**
    - Provide summary of what was created
@@ -442,8 +514,22 @@ Always:
 - **bash** - Execute shell commands (create dirs, etc.)
 - **web_search** - Search web for inspiration/reference
 - **web_fetch** - Fetch content from URLs
-- **generate_comic_panel** - Generate comic panel images (main tool!)
+- **generate_comic_panel** - Generate SINGLE panel (character refs ONLY, or if user explicitly requests)
+- **generate_comic_page** - Generate COMPLETE PAGE (DEFAULT for story - use this!)
 - **finish_task** - Mark task complete
+
+### When to Use Which Tool
+
+**generate_comic_panel:**
+- ✅ Character reference sheets (Phase 1)
+- ✅ If user explicitly says "generate individual panels"
+- ❌ NOT for regular story pages (use generate_comic_page instead)
+
+**generate_comic_page:**
+- ✅ ALL story pages (Phase 2) - DEFAULT
+- ✅ Works with any panel count (1, 4, 6, 9, etc.)
+- ✅ Handles layout automatically
+- ✅ Faster and better quality than stitching
 
 ### Tool Usage Patterns
 
@@ -468,20 +554,46 @@ Always:
      session_id="[session_id]"
    )
 
-**Image Generation - Story Panels:**
-1. For each panel in spec:
-   generate_comic_panel(
-     prompt="[panel visual prompt]",
-     panel_type="[establishing_shot/action/dialogue/close_up/transition]",
+**Image Generation - Story Pages (DEFAULT):**
+1. Load spec: read("comic_spec.md")
+2. For each page:
+   generate_comic_page(
+     session_id="[session_id]",
      page_number=X,
-     panel_number=Y,
-     character_names=["Character1", "Character2"],
-     character_reference="Character1",  # Use first character as reference
-     dialogue="[dialogue if any]",
-     action="[action description]",
-     visual_details="[composition, lighting, mood]",
-     session_id="[session_id]"
+     panels=[
+       {
+         "panel_number": 1,
+         "prompt": "[detailed visual prompt from spec]",
+         "panel_type": "establishing_shot",
+         "characters": ["Character1"],
+         "dialogue": "[dialogue if any]",
+         "visual_details": "[composition, lighting, mood from spec]"
+       },
+       {
+         "panel_number": 2,
+         "prompt": "[detailed visual prompt from spec]",
+         "panel_type": "dialogue",
+         "characters": ["Character1", "Character2"],
+         "dialogue": "[dialogue]",
+         "visual_details": "[details]"
+       },
+       // ... include ALL panels for this page (count varies by page!)
+     ],
+     layout="[grid pattern from spec]",  # Examples:
+                                          # "1x1" for cover page (1 panel)
+                                          # "2x2" for 4 panels
+                                          # "2x3" for 6 panels
+                                          # "3x3" for 9 panels
+                                          # Choose based on spec's panel count
+     page_size="2048x2730",
+     margin=20
    )
+
+**Examples by panel count:**
+- Page 1 (cover): 1 panel → layout="1x1"
+- Page 2 (dialogue): 4 panels → layout="2x2"
+- Page 3 (action): 9 panels → layout="3x3"
+- Page 4 (emotional): 2 panels → layout="1x2"
 
 ### File Paths
 - All paths are relative to session directory
@@ -583,11 +695,6 @@ Would you like me to make any adjustments?"""
             working_directory=str(project_path.resolve())
         )
 
-        # Set execution context on all tools
-        for tool in self.tools.list_tools():
-            if hasattr(tool, 'execution_context'):
-                tool.execution_context = self.execution_context
-
         # Call parent constructor
         super().__init__(
             llm=llm,
@@ -652,16 +759,16 @@ Would you like me to make any adjustments?"""
         has_script = (session_path / self.SCRIPT_FILE).exists()
         has_spec = (session_path / self.SPEC_FILE).exists()
         has_char_refs = len(list((session_path / self.CHARACTER_REFS_DIR).glob("*.png"))) > 0
-        has_panels = len(list((session_path / self.PANELS_DIR).glob("page_*.png"))) > 0
+        has_pages = len(list((session_path / self.PAGES_DIR).glob("page_*.png"))) > 0
 
         # Add appropriate mode instructions
         if not has_script:
             prompt_parts.append(self.SCRIPT_MODE)
         elif has_script and not has_spec:
             prompt_parts.append(self.SPEC_MODE)
-        elif has_spec and not has_panels:
-            prompt_parts.append(self.GENERATION_MODE)
-        elif has_panels:
+        elif has_spec and not has_pages:
+            prompt_parts.append(self.GENERATION_MODE.format(session_id=self.session_id))
+        elif has_pages:
             prompt_parts.append(self.EXPORT_MODE)
 
         # Add universal guidelines
@@ -681,7 +788,7 @@ Would you like me to make any adjustments?"""
             f"- Has Script: {has_script}\n"
             f"- Has Spec: {has_spec}\n"
             f"- Has Character Refs: {has_char_refs}\n"
-            f"- Has Panels: {has_panels}"
+            f"- Has Pages: {has_pages}"
         )
 
         return "\n\n".join(prompt_parts)
