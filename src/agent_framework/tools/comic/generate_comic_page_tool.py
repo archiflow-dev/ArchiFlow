@@ -139,6 +139,14 @@ class GenerateComicPageTool(BaseTool):
                 "type": "string",
                 "description": "Comma-separated panel numbers that are emphasized (e.g., '1,3' for panels 1 and 3)"
             },
+            "row_pattern": {
+                "type": "string",
+                "description": "Row pattern for non-uniform grids (e.g., '3-2-3' means Row1=3panels, Row2=2panels, Row3=3panels). Used for layouts like 'Spider-Man Alternating Rows'"
+            },
+            "layout_structure": {
+                "type": "string",
+                "description": "Compound layout structure describing panel arrangements (e.g., 'splash:1,grid:2-7' means Panel 1 is full-page splash, Panels 2-7 are in grid; 'half-splash:4,grid:1-3,5-6' means Panel 4 is half-page splash)"
+            },
             # Existing parameters
             "page_size": {
                 "type": "string",
@@ -271,7 +279,9 @@ class GenerateComicPageTool(BaseTool):
         gutter_type: Optional[str] = None,
         layout_system: Optional[str] = None,
         special_techniques: Optional[str] = None,
-        emphasis_panels: Optional[str] = None
+        emphasis_panels: Optional[str] = None,
+        row_pattern: Optional[str] = None,  # e.g., "3-2-3" for alternating row panels
+        layout_structure: Optional[str] = None  # e.g., "splash:1,grid:2-7" for compound layouts
     ) -> str:
         """
         Build a comprehensive prompt for direct page generation.
@@ -535,7 +545,14 @@ class GenerateComicPageTool(BaseTool):
                 "overlapping": "OVERLAPPING panels - panels overlap each other for layered storytelling.",
                 "broken_frame": "BROKEN frames - panel borders are irregular/broken for dramatic impact.",
                 "borderless": "BORDERLESS panels - no visible borders, panels bleed into each other.",
-                "widescreen": "WIDESCREEN panels - extra-wide horizontal panels for cinematic scope."
+                "widescreen": "WIDESCREEN panels - extra-wide horizontal panels for cinematic scope.",
+                "panel_merging": "PANEL MERGING - multiple grid positions combined into single larger panel (maintains ghost grid alignment).",
+                "splash": "SPLASH panel - one or more panels taking up significantly larger space for dramatic impact.",
+                "half_splash": "HALF-PAGE SPLASH - panel spans full width and occupies 50% of page height.",
+                "silhouette": "SILHOUETTE SHOT - subjects rendered as solid black shapes against bright background for dramatic effect.",
+                "bleed": "BLEED TO EDGES - artwork extends to page edge with no panel borders.",
+                "strict": "STRICT UNIFORM GRID - ALL panels MUST be exactly the same size, no variation, no emphasis panels. Creates monotony/routine feeling.",
+                "staccato": "STACCATO PACING - fast rhythm with narrow gutters and uniform panels, overwhelming flood of information."
             }
             for tech in special_techniques.lower().replace(" ", "").split(","):
                 if tech in technique_desc:
@@ -558,10 +575,66 @@ class GenerateComicPageTool(BaseTool):
                 "",
             ])
 
+        # Build gutter instruction based on gutter_type
+        gutter_instruction = "- Clear gutters (white space) between panels"
+        if gutter_type == "wide":
+            gutter_instruction = "- WIDE gutters between panels (extra spacing to show time passing or scene changes)"
+        elif gutter_type == "narrow":
+            gutter_instruction = "- NARROW gutters between panels (minimal spacing for fast staccato pacing, continuous rapid flow)"
+        elif gutter_type == "none":
+            gutter_instruction = "- NO visible gutters - panels flow continuously into each other (borderless/seamless)"
+        elif gutter_type == "variable":
+            gutter_instruction = "- VARIABLE gutter widths (narrow for fast action, wide for pauses/transitions)"
+
+        # Build row pattern instruction if provided
+        row_pattern_instruction = ""
+        if row_pattern:
+            row_counts = row_pattern.split("-")
+            row_pattern_instruction = f"\n- ROW PATTERN: {row_pattern} (Row 1 has {row_counts[0]} panels"
+            for i, count in enumerate(row_counts[1:], 2):
+                row_pattern_instruction += f", Row {i} has {count} panels"
+            row_pattern_instruction += ")"
+
+        # Build layout structure instruction if provided (for compound layouts like splash+grid)
+        layout_structure_instruction = ""
+        if layout_structure:
+            # Parse layout_structure like "splash:1,grid:2-7" or "half-splash:4,grid:1-3,5-6"
+            parts = layout_structure.split(",")
+            structure_desc = []
+            for part in parts:
+                if ":" in part:
+                    layout_type, panels_range = part.split(":", 1)
+                    layout_type = layout_type.strip().lower()
+                    panels_range = panels_range.strip()
+
+                    if layout_type == "splash":
+                        structure_desc.append(f"Panel {panels_range} is FULL-PAGE SPLASH (bleeds to all edges, no gutters, occupies entire page as background)")
+                    elif layout_type == "half-splash":
+                        structure_desc.append(f"Panel {panels_range} is HALF-PAGE SPLASH (spans full width, occupies 50% of page height)")
+                    elif layout_type == "grid":
+                        structure_desc.append(f"Panels {panels_range} are arranged in a grid layout")
+                    elif layout_type == "wide":
+                        structure_desc.append(f"Panel {panels_range} is WIDE (spans full width)")
+                    elif layout_type == "merged":
+                        structure_desc.append(f"Panel {panels_range} is MERGED (combines multiple grid positions)")
+
+            if structure_desc:
+                layout_structure_instruction = "\n- COMPOUND LAYOUT STRUCTURE:\n  " + "\n  ".join(structure_desc)
+
+        # Determine layout description
+        if layout_structure:
+            layout_desc = layout_structure_instruction
+        elif row_pattern:
+            layout_desc = row_pattern_instruction
+        else:
+            layout_desc = f"- Grid: {cols} columns x {rows} rows (uniform)"
+
         prompt_parts.extend([
             "LAYOUT:",
-            f"- Arranged in {cols} columns and {rows} rows",
-            "- Clear gutters (white space) between panels",
+            f"- Layout Template: {layout}",
+            f"- Total panels: {num_panels}",
+            layout_desc,
+            gutter_instruction,
             "- Professional comic book page composition"
         ])
 
@@ -585,6 +658,8 @@ class GenerateComicPageTool(BaseTool):
         layout_system: Optional[str] = None,
         special_techniques: Optional[str] = None,
         emphasis_panels: Optional[str] = None,
+        row_pattern: Optional[str] = None,  # e.g., "3-2-3" for 3-row, 2-row, 3-row panels
+        layout_structure: Optional[str] = None,  # e.g., "splash:1,grid:2-7" for compound layouts
         # Existing parameters
         page_size: str = "2048x2730",
         margin: int = 20,
@@ -666,7 +741,9 @@ class GenerateComicPageTool(BaseTool):
                     gutter_type=gutter_type,
                     layout_system=layout_system,
                     special_techniques=special_techniques,
-                    emphasis_panels=emphasis_panels
+                    emphasis_panels=emphasis_panels,
+                    row_pattern=row_pattern,
+                    layout_structure=layout_structure
                 )
                 aspect_ratio = self._get_closest_aspect_ratio(page_width, page_height)
 
