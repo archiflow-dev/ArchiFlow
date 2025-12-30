@@ -659,23 +659,61 @@ User approved the spec. Generate images in TWO phases:
 
    - Group all panels by page number
 
-2. **Parse Layout Description (CRITICAL - Extract ALL Layout Information)**
-   - **Grid Detection:** If description includes "2x3 grid", "3x3 grid", etc. → use layout="2x3", "3x3"
-   - **Splash Detection:** If "full-page splash" or "splash page" → layout="1x1"
-   - **Complex Layout Detection:** Look for patterns like:
-     * "Panel 1 = Full-page splash, Panels 2-6 = 2x3 grid below" → Mixed layout
-     * "Panel 4 is large half-page splash" → Variable panel sizes
-     * "Wide panel spanning full width" → Wide panel specification
-   - **Per-Panel Dimension Extraction:** For EACH panel, check if spec mentions:
-     * "Full-page splash" → dimensions="full-page" or "2048x2730, bleeds to edges"
-     * "Wide panel (spans full width)" → dimensions="wide" or "full-width"
-     * "Half-page splash" → dimensions="half-page" or "half-page-height, full-width"
-     * "Large panel spanning width" → dimensions="large-wide"
-     * "Standard panel" → dimensions="standard" (can omit)
-   - **Transition Extraction:** Extract transition type if mentioned (e.g., "action-to-action", "scene-to-scene")
-   - **Gutter Extraction:** Extract gutter information (e.g., "wide gutters", "no gutters", "variable gutters")
-   - **Technique Extraction:** Extract special techniques (e.g., "overlapping panels", "inset panels", "broken borders")
-   - **Emphasis Extraction:** Extract emphasis information (e.g., "center panel enlarged", "thick borders on panel 3")
+2. **Parse Layout Description (CRITICAL - Extract FULL Layout Information EXACTLY from Spec)**
+
+   **⚠️ MOST IMPORTANT RULE: Preserve the spec's layout requirements EXACTLY as written!**
+
+   The comic_spec.md contains professional layout specifications that MUST be preserved:
+   - Read the layout description word-for-word
+   - Extract ALL layout details mentioned in the spec
+   - Pass these details EXACTLY as specified to generate_comic_page
+   - DO NOT simplify, interpret, or modify the layout requirements
+   - If spec says "2x3 grid" → use layout="2x3" EXACTLY
+   - If spec says "Panel 1 is full-page splash" → Add panel_note with FULL specification
+   - If spec describes panel dimensions → Copy them VERBATIM into panel_note
+
+   **Required Layout Information to Extract:**
+
+   - **Layout Pattern:** The exact grid or layout type specified (e.g., "2x3 grid", "3 horizontal panels", "full page splash")
+   - **Panel Count:** Total number of panels specified
+
+   - **Per-Panel Dimensions (CRITICAL - Copy EXACTLY from spec):**
+     For EACH panel, read the spec's "Dimensions" or "Layout" field and extract VERBATIM:
+     * "Full-page splash (2048x2730)" → Include in panel_note EXACTLY as written
+     * "Full-page splash, bleeds to all edges, no gutters" → Include ALL these details
+     * "Wide panel spanning full width" → Include verbatim in panel_note
+     * "Half-page splash (occupies 50% page height)" → Include verbatim
+     * "Panel spans full width of page" → Include verbatim
+     * ANY dimension specifications mentioned → Include verbatim
+
+   - **Transition Type:** Extract if mentioned (e.g., "moment-to-moment", "action-to-action", "scene-to-scene", "aspect-to-aspect", "non-sequitur")
+
+   - **Gutter Specifications:** Extract gutter details EXACTLY as specified:
+     * "standard gutters" → gutter_type="standard"
+     * "wide gutters" → gutter_type="wide"
+     * "no gutters" → gutter_type="none"
+     * "variable gutters" → gutter_type="variable"
+     * "gutter width: X pixels" → Include in layout description
+
+   - **Special Techniques:** Extract ALL techniques mentioned:
+     * "overlapping panels" → special_techniques="overlapping"
+     * "inset panels" → special_techniques="inset"
+     * "broken frames" or "panel borders broken" → special_techniques="broken_frame"
+     * "borderless" → special_techniques="borderless"
+     * "widescreen" → special_techniques="widescreen"
+     * ANY other techniques → Include verbatim
+
+   - **Emphasis Panels:** Extract which panels are emphasized:
+     * "center panel enlarged" → emphasis_panels="center" or panel number
+     * "thick borders on panel 3" → emphasis_panels="3"
+     * "full-width bottom panel" → emphasis_panels="bottom"
+
+   **⚠️ CRITICAL INSTRUCTION: When in doubt, COPY the layout description VERBATIM from spec into panel_note!**
+
+   Example: If spec says "Panel 1: Full-page splash (2048x2730), bleeds to all edges, no gutters or borders"
+   → panel_note = "Full-page splash (2048x2730), bleeds to all edges, no gutters or borders"
+
+   DO NOT simplify to just "full-page splash" - include ALL the details!
 
 3. **Build Generation Prompt with Layout Details**
    Incorporate ALL layout details into the generation prompt:

@@ -638,13 +638,9 @@ class GenerateComicPageTool(BaseTool):
 
                 if unique_chars:
                     logger.info(f"Collecting references for characters: {unique_chars}")
-                    # Try to find reference images
-                    # Default location
-                    if self.execution_context and self.execution_context.working_directory:
-                        base_dir = self.execution_context.working_directory
-                    else:
-                        base_dir = os.path.join("data", "sessions", session_id)
-
+                    # Always use session folder for character references
+                    # working_directory should NOT be used as it's typically the project root
+                    base_dir = os.path.join("data", "sessions", session_id)
                     ref_dir = os.path.join(base_dir, "character_refs")
 
                     for char_name in unique_chars:
