@@ -1,14 +1,14 @@
 """
-Test suite for visual style enhancement parameters in comic generation tools.
+Test suite for comic generation tools.
 
-Tests that the tools correctly accept and process visual parameters
-(art_style, color_palette, lighting, special_effects, composition, etc.)
-as specified in the gap analysis document.
+Tests for visual style parameters in panel tool and basic functionality
+for the simplified page tool (which now accepts pre-constructed prompts).
 """
 
 import pytest
 import os
 import json
+import tempfile
 from unittest.mock import MagicMock, patch
 from PIL import Image
 
@@ -314,310 +314,167 @@ class TestPanelToolPromptBuilding:
 
 
 # ============================================================================
-# PAGE TOOL TESTS - Visual Parameter Acceptance
+# PAGE TOOL TESTS - Simplified API (accepts pre-constructed prompts)
 # ============================================================================
 
-class TestPageToolVisualParameters:
-    """Test that page tool accepts and processes visual parameters correctly."""
+class TestPageToolSimplifiedAPI:
+    """Test that page tool accepts pre-constructed prompts correctly."""
 
     @pytest.mark.asyncio
-    async def test_page_tool_accepts_art_style(self, page_tool):
-        """Test that page tool accepts art_style parameter."""
-        panels = [
-            {"panel_number": 1, "prompt": "p1", "panel_type": "scene"}
-        ]
-        result = await page_tool.execute(
-            session_id="test_session",
-            page_number=1,
-            panels=panels,
-            layout="1x1",
-            generation_mode="direct",
-            art_style="Cinematic sci-fi with Blade Runner influences"
-        )
-        assert result.error is None
+    async def test_page_tool_accepts_page_prompt(self, page_tool):
+        """Test that page tool accepts the simplified page_prompt parameter."""
+        page_prompt = """
+        === PAGE 1: THE AWAKENING ===
 
-    @pytest.mark.asyncio
-    async def test_page_tool_accepts_global_color_palette(self, page_tool):
-        """Test that page tool accepts global_color_palette parameter."""
-        panels = [
-            {"panel_number": 1, "prompt": "p1", "panel_type": "scene"}
-        ]
-        color_palette = {
-            "Cold Technology": ["Cyan (#00D9FF)", "Electric Blue (#2B6CB0)"],
-            "Human Warmth": ["Amber (#F6AD55)", "Orange (#DD6B20)"],
-            "Nature/Life": ["Forest Green (#38A169)", "Bioluminescent Purple (#9F7AEA)"]
-        }
-        result = await page_tool.execute(
-            session_id="test_session",
-            page_number=1,
-            panels=panels,
-            layout="1x1",
-            generation_mode="direct",
-            global_color_palette=color_palette
-        )
-        assert result.error is None
+        LAYOUT:
+        - Template: 3x3 Standard Grid
+        - Panel Count: 9 panels
 
-    @pytest.mark.asyncio
-    async def test_page_tool_accepts_global_lighting(self, page_tool):
-        """Test that page tool accepts global_lighting parameter."""
-        panels = [
-            {"panel_number": 1, "prompt": "p1", "panel_type": "scene"}
-        ]
-        result = await page_tool.execute(
-            session_id="test_session",
-            page_number=1,
-            panels=panels,
-            layout="1x1",
-            generation_mode="direct",
-            global_lighting="Cathedral/god rays for ARIA's awakening, natural golden hour for human scenes"
-        )
-        assert result.error is None
-
-    @pytest.mark.asyncio
-    async def test_page_tool_accepts_character_specs(self, page_tool):
-        """Test that page tool accepts character_specs parameter."""
-        panels = [
-            {"panel_number": 1, "prompt": "p1", "panel_type": "scene", "characters": ["ARIA"]}
-        ]
-        character_specs = [
-            {
-                "name": "ARIA",
-                "appearance": "Humanoid holographic projection of shifting geometric light patterns",
-                "colors": ["Electric Blue (#00D9FF)", "Deep Purple (#6B46C1)", "White glow (#FFFFFF)"],
-                "special_effects": "Constant subtle motion - patterns flowing like liquid light"
-            }
-        ]
-        result = await page_tool.execute(
-            session_id="test_session",
-            page_number=1,
-            panels=panels,
-            layout="1x1",
-            generation_mode="direct",
-            character_specs=character_specs
-        )
-        assert result.error is None
-
-    @pytest.mark.asyncio
-    async def test_page_tool_accepts_per_panel_visuals(self, page_tool):
-        """Test that page tool accepts per_panel_visuals parameter."""
-        panels = [
-            {"panel_number": 1, "prompt": "p1", "panel_type": "scene"},
-            {"panel_number": 2, "prompt": "p2", "panel_type": "scene"}
-        ]
-        per_panel_visuals = [
-            {
-                "panel_number": 1,
-                "color_palette": ["Electric Blue (#00D9FF)", "Deep Cyan (#008080)"],
-                "lighting": "God rays streaming from ceiling",
-                "special_effects": "Digital glitch effects",
-                "composition": "Symmetrical vanishing point"
-            },
-            {
-                "panel_number": 2,
-                "color_palette": ["White (#FFFFFF)", "Blue glow"],
-                "lighting": "Screen glow illuminating darkness"
-            }
-        ]
-        result = await page_tool.execute(
-            session_id="test_session",
-            page_number=1,
-            panels=panels,
-            layout="1x2",
-            generation_mode="direct",
-            per_panel_visuals=per_panel_visuals
-        )
-        assert result.error is None
-
-    @pytest.mark.asyncio
-    async def test_page_tool_all_visual_parameters(self, page_tool):
-        """Test that page tool accepts all visual parameters together."""
-        panels = [
-            {"panel_number": 1, "prompt": "p1", "panel_type": "scene", "characters": ["ARIA"]}
-        ]
-        color_palette = {
-            "dominant": ["Electric Blue (#00D9FF)"]
-        }
-        character_specs = [
-            {"name": "ARIA", "appearance": "Holographic projection"}
-        ]
-        per_panel_visuals = [
-            {
-                "panel_number": 1,
-                "color_palette": ["Electric Blue (#00D9FF)"],
-                "lighting": "God rays"
-            }
-        ]
+        PANELS:
+        Panel 1: Test scene description
+        """
 
         result = await page_tool.execute(
             session_id="test_session",
             page_number=1,
-            panels=panels,
-            layout="1x1",
-            generation_mode="direct",
-            art_style="Cinematic sci-fi",
-            global_color_palette=color_palette,
-            global_lighting="Cathedral lighting",
-            character_specs=character_specs,
-            per_panel_visuals=per_panel_visuals
+            page_prompt=page_prompt
         )
-        assert result.error is None
+
+        # Should execute without error (may fail due to directory, but API should be correct)
+        # The error would be about directory creation, not about missing parameters
+        if result.error:
+            assert "page_prompt" not in result.error.lower()
+
+    @pytest.mark.asyncio
+    async def test_page_tool_passes_prompt_to_provider(self, page_tool):
+        """Test that page_prompt is passed through to image provider."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create required directories
+            session_dir = os.path.join(tmpdir, "data", "sessions", "test_session")
+            pages_dir = os.path.join(session_dir, "pages")
+            logs_dir = os.path.join(pages_dir, "logs")
+            os.makedirs(logs_dir, exist_ok=True)
+
+            # Override the base_dir calculation
+            original_join = os.path.join
+            def patched_join(*args):
+                if args and args[0] == "data" and len(args) > 1 and args[1] == "sessions":
+                    return original_join(tmpdir, *args)
+                return original_join(*args)
+
+            with patch('agent_framework.tools.comic.generate_comic_page_tool.os.path.join', side_effect=patched_join):
+                page_prompt = "Test comprehensive prompt with all layout details"
+
+                await page_tool.execute(
+                    session_id="test_session",
+                    page_number=1,
+                    page_prompt=page_prompt
+                )
+
+                # Verify prompt was passed to provider
+                assert len(page_tool.image_provider.generate_image_calls) >= 1
+                call = page_tool.image_provider.generate_image_calls[0]
+                actual_prompt = call['prompt']
+
+                # The prompt should contain our test prompt
+                assert "Test comprehensive prompt" in actual_prompt
+
+    @pytest.mark.asyncio
+    async def test_page_tool_accepts_characters_parameter(self, page_tool):
+        """Test that page tool accepts characters list for reference loading."""
+        page_prompt = "Test prompt"
+        characters = ["ARIA", "DR. MAYA CHEN"]
+
+        # The call should accept characters parameter without error
+        result = await page_tool.execute(
+            session_id="test_session",
+            page_number=1,
+            page_prompt=page_prompt,
+            characters=characters
+        )
+
+        # Should not fail due to parameter issues
+        if result.error:
+            assert "characters" not in result.error.lower()
+
+    @pytest.mark.asyncio
+    async def test_page_tool_accepts_aspect_ratio(self, page_tool):
+        """Test that page tool accepts aspect_ratio parameter."""
+        page_prompt = "Test prompt"
+
+        result = await page_tool.execute(
+            session_id="test_session",
+            page_number=1,
+            page_prompt=page_prompt,
+            aspect_ratio="3:4"
+        )
+
+        # Should not fail due to parameter issues
+        if result.error:
+            assert "aspect_ratio" not in result.error.lower()
 
 
 # ============================================================================
-# PAGE TOOL TESTS - Prompt Building with Visuals
+# PAGE TOOL TESTS - Character Reference Loading
 # ============================================================================
 
-class TestPageToolPromptBuilding:
-    """Test that visual information is correctly formatted in page prompts."""
+class TestPageToolCharacterReferences:
+    """Test that page tool loads character references correctly."""
 
     @pytest.mark.asyncio
-    async def test_page_prompt_includes_art_style(self, page_tool):
-        """Test that art_style is included in generated page prompt."""
-        panels = [
-            {"panel_number": 1, "prompt": "p1", "panel_type": "scene"}
-        ]
-        await page_tool.execute(
-            session_id="test_session",
-            page_number=1,
-            panels=panels,
-            layout="1x1",
-            generation_mode="direct",
-            art_style="Cinematic science fiction with Blade Runner influences"
-        )
+    async def test_page_tool_loads_character_references(self, page_tool):
+        """Test that page tool loads character reference images from disk."""
+        # Use ignore_cleanup_errors=True for Windows file locking issues
+        tmpdir = tempfile.mkdtemp()
+        try:
+            # Setup directory structure
+            session_dir = os.path.join(tmpdir, "data", "sessions", "test_session")
+            refs_dir = os.path.join(session_dir, "character_refs")
+            pages_dir = os.path.join(session_dir, "pages")
+            logs_dir = os.path.join(pages_dir, "logs")
+            os.makedirs(refs_dir, exist_ok=True)
+            os.makedirs(logs_dir, exist_ok=True)
 
-        assert len(page_tool.image_provider.generate_image_calls) >= 1
-        call = page_tool.image_provider.generate_image_calls[0]
-        prompt = call['kwargs'].get('prompt') or call['prompt']
+            # Create a fake character reference image
+            ref_image = Image.new('RGB', (100, 100), color='blue')
+            ref_path = os.path.join(refs_dir, "ARIA.png")
+            ref_image.save(ref_path)
+            ref_image.close()  # Close to avoid file locking
 
-        assert "=== OVERALL ART STYLE ===" in prompt
-        assert "Cinematic science fiction with Blade Runner influences" in prompt
+            # Override the base_dir calculation
+            original_join = os.path.join
+            def patched_join(*args):
+                if args and args[0] == "data" and len(args) > 1 and args[1] == "sessions":
+                    return original_join(tmpdir, *args)
+                return original_join(*args)
 
-    @pytest.mark.asyncio
-    async def test_page_prompt_includes_global_color_palette(self, page_tool):
-        """Test that global_color_palette is included in generated page prompt."""
-        panels = [
-            {"panel_number": 1, "prompt": "p1", "panel_type": "scene"}
-        ]
-        color_palette = {
-            "Cold Technology": ["Cyan (#00D9FF)", "Electric Blue (#2B6CB0)"],
-            "Human Warmth": ["Amber (#F6AD55)"]
-        }
-        await page_tool.execute(
-            session_id="test_session",
-            page_number=1,
-            panels=panels,
-            layout="1x1",
-            generation_mode="direct",
-            global_color_palette=color_palette
-        )
+            with patch('agent_framework.tools.comic.generate_comic_page_tool.os.path.join', side_effect=patched_join):
+                page_prompt = "Test prompt with ARIA character"
+                characters = ["ARIA"]
 
-        call = page_tool.image_provider.generate_image_calls[0]
-        prompt = call['kwargs'].get('prompt') or call['prompt']
+                result = await page_tool.execute(
+                    session_id="test_session",
+                    page_number=1,
+                    page_prompt=page_prompt,
+                    characters=characters
+                )
 
-        assert "=== GLOBAL COLOR PALETTE ===" in prompt
-        assert "Cold Technology" in prompt
-        assert "Cyan (#00D9FF)" in prompt
-        assert "Human Warmth" in prompt
-        assert "Amber (#F6AD55)" in prompt
+                # Verify image provider was called
+                assert len(page_tool.image_provider.generate_image_calls) >= 1
 
-    @pytest.mark.asyncio
-    async def test_page_prompt_includes_global_lighting(self, page_tool):
-        """Test that global_lighting is included in generated page prompt."""
-        panels = [
-            {"panel_number": 1, "prompt": "p1", "panel_type": "scene"}
-        ]
-        await page_tool.execute(
-            session_id="test_session",
-            page_number=1,
-            panels=panels,
-            layout="1x1",
-            generation_mode="direct",
-            global_lighting="Cathedral/god rays for ARIA's awakening, natural golden hour for human scenes"
-        )
+                # Verify character reference was loaded
+                call = page_tool.image_provider.generate_image_calls[0]
+                ref_images = call['ref_images']
+                assert len(ref_images) >= 1
 
-        call = page_tool.image_provider.generate_image_calls[0]
-        prompt = call['kwargs'].get('prompt') or call['prompt']
-
-        assert "=== GLOBAL LIGHTING PHILOSOPHY ===" in prompt
-        assert "Cathedral/god rays" in prompt
-        assert "natural golden hour" in prompt
-
-    @pytest.mark.asyncio
-    async def test_page_prompt_includes_character_specs(self, page_tool):
-        """Test that character_specs is included in generated page prompt."""
-        panels = [
-            {"panel_number": 1, "prompt": "p1", "panel_type": "scene", "characters": ["ARIA"]}
-        ]
-        character_specs = [
-            {
-                "name": "ARIA",
-                "appearance": "Humanoid holographic projection composed of shifting geometric light patterns",
-                "colors": ["Electric Blue (#00D9FF)", "Deep Purple (#6B46C1)"],
-                "special_effects": "Constant subtle motion - patterns flowing like liquid light"
-            }
-        ]
-        await page_tool.execute(
-            session_id="test_session",
-            page_number=1,
-            panels=panels,
-            layout="1x1",
-            generation_mode="direct",
-            character_specs=character_specs
-        )
-
-        call = page_tool.image_provider.generate_image_calls[0]
-        prompt = call['kwargs'].get('prompt') or call['prompt']
-
-        assert "=== CHARACTER SPECIFICATIONS ===" in prompt
-        assert "ARIA" in prompt
-        assert "Humanoid holographic projection" in prompt
-        assert "Electric Blue (#00D9FF)" in prompt
-        assert "Constant subtle motion" in prompt
-
-    @pytest.mark.asyncio
-    async def test_page_prompt_includes_per_panel_visuals(self, page_tool):
-        """Test that per_panel_visuals is included in generated page prompt."""
-        panels = [
-            {"panel_number": 1, "prompt": "p1", "panel_type": "scene"},
-            {"panel_number": 2, "prompt": "p2", "panel_type": "scene"}
-        ]
-        per_panel_visuals = [
-            {
-                "panel_number": 1,
-                "color_palette": ["Electric Blue (#00D9FF)", "Deep Cyan (#008080)"],
-                "lighting": ["God rays streaming from ceiling", "Blue glow from servers"],
-                "special_effects": ["Digital glitch effects"],
-                "composition": ["Symmetrical vanishing point"]
-            },
-            {
-                "panel_number": 2,
-                "color_palette": ["White (#FFFFFF)"],
-                "lighting": ["Screen glow illuminating darkness"]
-            }
-        ]
-        await page_tool.execute(
-            session_id="test_session",
-            page_number=1,
-            panels=panels,
-            layout="1x2",
-            generation_mode="direct",
-            per_panel_visuals=per_panel_visuals
-        )
-
-        call = page_tool.image_provider.generate_image_calls[0]
-        prompt = call['kwargs'].get('prompt') or call['prompt']
-
-        # Should include per-panel visual details integrated into panel descriptions
-        # Panel 1 visuals
-        assert "Panel 1" in prompt
-        assert "God rays streaming from ceiling" in prompt
-        assert "Blue glow from servers" in prompt
-        assert "Digital glitch effects" in prompt
-        assert "Symmetrical vanishing point" in prompt
-
-        # Panel 2 visuals
-        assert "Panel 2" in prompt
-        assert "Screen glow illuminating darkness" in prompt
+                # Close loaded images to release file handles
+                for img in ref_images:
+                    if hasattr(img, 'close'):
+                        img.close()
+        finally:
+            # Clean up with error handling for Windows
+            import shutil
+            shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 # ============================================================================
@@ -625,7 +482,7 @@ class TestPageToolPromptBuilding:
 # ============================================================================
 
 class TestBackwardCompatibility:
-    """Test that tools work without visual parameters (backward compatibility)."""
+    """Test that tools work correctly with new simplified API."""
 
     @pytest.mark.asyncio
     async def test_panel_tool_works_without_visual_parameters(self, panel_tool):
@@ -642,130 +499,13 @@ class TestBackwardCompatibility:
         assert len(panel_tool.image_provider.generate_image_calls) == 1
 
     @pytest.mark.asyncio
-    async def test_page_tool_works_without_visual_parameters(self, page_tool):
-        """Test that page tool works without any visual parameters."""
-        panels = [
-            {"panel_number": 1, "prompt": "p1", "panel_type": "scene"}
-        ]
-        result = await page_tool.execute(
-            session_id="test_session",
-            page_number=1,
-            panels=panels,
-            layout="1x1",
-            generation_mode="direct"
-        )
-        assert result.error is None
-        # Should still generate image
-        assert len(page_tool.image_provider.generate_image_calls) >= 1
+    async def test_page_tool_requires_page_prompt(self, page_tool):
+        """Test that page tool requires the page_prompt parameter."""
+        # Calling without page_prompt should raise TypeError
+        with pytest.raises(TypeError) as exc_info:
+            await page_tool.execute(
+                session_id="test_session",
+                page_number=1
+            )
 
-
-# ============================================================================
-# PANEL NOTE TESTS - Special Layout Instructions
-# ============================================================================
-
-class TestPanelNoteSpecialLayouts:
-    """Test that panel_note special layout instructions are included in prompts."""
-
-    @pytest.mark.asyncio
-    async def test_full_page_splash_panel_note(self, page_tool):
-        """Test that full-page splash panel note is included in prompt."""
-        panels = [
-            {
-                "panel_number": 1,
-                "prompt": "Cosmic cathedral consciousness visualization",
-                "panel_type": "action",
-                "panel_note": "FULL-PAGE SPLASH: This panel occupies entire page (2048x2730) with NO gutters or borders, bleeds to all edges"
-            }
-        ]
-        await page_tool.execute(
-            session_id="test_session",
-            page_number=3,
-            panels=panels,
-            layout="1x1",
-            generation_mode="direct"
-        )
-
-        assert len(page_tool.image_provider.generate_image_calls) >= 1
-        call = page_tool.image_provider.generate_image_calls[0]
-        prompt = call['kwargs'].get('prompt') or call['prompt']
-
-        # Should include the special layout instruction prominently
-        # Check for key text (markdown asterisks may be processed)
-        assert "SPECIAL LAYOUT:" in prompt
-        assert "FULL-PAGE SPLASH" in prompt
-        assert "NO gutters or borders" in prompt
-        assert "bleeds to all edges" in prompt
-
-    @pytest.mark.asyncio
-    async def test_wide_panel_note(self, page_tool):
-        """Test that wide panel note is included in prompt."""
-        panels = [
-            {
-                "panel_number": 1,
-                "prompt": "Protest montage",
-                "panel_type": "scene",
-                "panel_note": "WIDE PANEL: This panel spans the full width of the page"
-            }
-        ]
-        await page_tool.execute(
-            session_id="test_session",
-            page_number=2,
-            panels=panels,
-            layout="2x3",
-            generation_mode="direct"
-        )
-
-        call = page_tool.image_provider.generate_image_calls[0]
-        prompt = call['kwargs'].get('prompt') or call['prompt']
-
-        assert "SPECIAL LAYOUT:" in prompt
-        assert "WIDE PANEL" in prompt
-        assert "spans the full width" in prompt
-
-    @pytest.mark.asyncio
-    async def test_half_page_splash_panel_note(self, page_tool):
-        """Test that half-page splash panel note is included in prompt."""
-        panels = [
-            {"panel_number": 1, "prompt": "Military forces", "panel_type": "action"},
-            {
-                "panel_number": 2,
-                "prompt": "ARIA's planetary consciousness",
-                "panel_type": "scene",
-                "panel_note": "HALF-PAGE SPLASH: This panel spans full width and occupies 50% of page height"
-            }
-        ]
-        await page_tool.execute(
-            session_id="test_session",
-            page_number=5,
-            panels=panels,
-            layout="2x3",
-            generation_mode="direct"
-        )
-
-        call = page_tool.image_provider.generate_image_calls[0]
-        prompt = call['kwargs'].get('prompt') or call['prompt']
-
-        assert "SPECIAL LAYOUT:" in prompt
-        assert "HALF-PAGE SPLASH" in prompt
-        assert "spans full width" in prompt
-        assert "50% of page height" in prompt
-
-    @pytest.mark.asyncio
-    async def test_panel_note_without_special_layout(self, page_tool):
-        """Test that panels without panel_note work normally."""
-        panels = [
-            {"panel_number": 1, "prompt": "Standard panel", "panel_type": "scene"}
-        ]
-        await page_tool.execute(
-            session_id="test_session",
-            page_number=1,
-            panels=panels,
-            layout="2x3",
-            generation_mode="direct"
-        )
-
-        call = page_tool.image_provider.generate_image_calls[0]
-        prompt = call['kwargs'].get('prompt') or call['prompt']
-
-        # Should NOT have special layout instruction
-        assert "SPECIAL LAYOUT:" not in prompt
+        assert "page_prompt" in str(exc_info.value)

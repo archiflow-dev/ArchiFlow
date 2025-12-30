@@ -1015,82 +1015,53 @@ User approved the spec. Generate images in TWO phases:
 
 4. **Generate Complete Pages (DEFAULT)**
    - For EACH page in comic_spec.md:
-     * Group all panels for that page
-     * Extract panel count and layout description from spec
-     * Determine layout pattern:
-       - Single panel → layout="1x1" (full page)
-       - Grid patterns → layout="2x3", "3x2", "3x3", etc.
-       - Complex layouts → Use FULL template name, NOT simplified grid!
+     * Read the FULL page specification
+     * Construct a COMPREHENSIVE image generation prompt
+     * Call generate_comic_page with the constructed prompt
 
-     * **⚠️ CRITICAL: DO NOT SIMPLIFY LAYOUT PATTERNS!**
-       - WRONG: "Spider-Man Alternating Rows (3-2-3)" → "3x3"
-       - RIGHT: "Spider-Man Alternating Rows (3-2-3)" → "Spider-Man Alternating Rows (3-2-3)"
-       - WRONG: "Watchmen Flexible 3x3" → "3x3"
-       - RIGHT: "Watchmen Flexible 3x3" → "Watchmen Flexible 3x3"
+   **PROMPT CONSTRUCTION - Include ALL of the following:**
 
-     * **⚠️ CRITICAL: PRESERVE ACTUAL ROW PATTERNS!**
-       - If spec says "3-2-3 row pattern" (3 panels, then 2 panels, then 3 panels):
-         * Total panels = 8, NOT 6 or 9
-         * Row 1 = 3 panels, Row 2 = 2 panels, Row 3 = 3 panels
-         * Include row_pattern="3-2-3" in the call
-       - If spec says "Actual Panel Count: 8 panels" → generate 8 panels, not 6!
-       - NEVER change the panel count from the spec
+   Your constructed prompt MUST include these sections:
 
-     * **⚠️ CRITICAL: PRESERVE COMPOUND LAYOUTS (Splash + Grid)!**
-       - If spec says "Full-Page Splash + Flexible Grid":
-         * Panel 1 = full-page splash (bleeds to all edges, no gutters)
-         * Panels 2-N = grid arrangement below
-         * Use layout_structure="splash:1,grid:2-7" to describe this
-       - If spec says "Half-Page Splash + Grid":
-         * One panel is half-page splash (spans full width, 50% height)
-         * Other panels are in grid
-         * Use layout_structure="half-splash:4,grid:1-3,5-6"
-       - ALWAYS pass layout_structure for compound layouts!
-     * **CRITICAL: Extract per-panel dimension information from spec:**
-       For EACH panel, check the spec's "Dimensions" field and include in panel spec:
-       - "Full-page splash (2048x2730)" → Add panel_note="FULL-PAGE SPLASH: This panel occupies entire page (2048x2730) with NO gutters or borders, bleeds to all edges"
-       - "Wide panel (spans full width)" → Add panel_note="WIDE PANEL: This panel spans the full width of the page"
-       - "Half-page splash" → Add panel_note="HALF-PAGE SPLASH: This panel spans full width and occupies 50% of page height"
-       - "Large panel spanning width" → Add panel_note="LARGE WIDE PANEL: This panel is larger than standard and spans full width"
-       - "Standard panel" → No special note needed
-     * **CRITICAL: Extract FULL layout template name from spec:**
-       - Copy the EXACT layout template name from the spec's "Layout Template:" field
-       - Examples: "Watchmen Flexible 3x3", "Spider-Man Alternating Rows", "Action Comics 4x2 Strict", "Avengers Open/Irregular"
-       - DO NOT simplify to just "NxM" - include the full template name
-     * Call generate_comic_page:
-       - session_id="{session_id}"
-       - page_number=[page number]
-       - panels=[array of panel specifications for this page]
-         Each panel spec must include:
-         - panel_number: [sequential number within page, 1-based]
-         - prompt: [detailed visual prompt from spec - INCLUDE panel_note if special dimensions]
-         - panel_type: [scene type from spec]
-         - characters: [list of character names in panel]
-         - dialogue: [dialogue text if any]
-         - visual_details: [composition, lighting, mood from spec]
-         - **panel_note: [Special dimension instructions if panel is splash/wide/half-page, otherwise omit]**
-       - layout: [FULL layout template name from spec, e.g., "Watchmen Flexible 3x3", "Spider-Man Alternating Rows", "Action Comics 4x2 Strict", "Avengers Open/Irregular"]
-       - page_size: "2048x2730" (standard comic book portrait)
-       - margin: 20
+   ```
+   === PAGE [N]: [TITLE] ===
 
-       - **LAYOUT METADATA PARAMETERS (CRITICAL - Extract from spec and pass!):**
-       - transition_type: [Extract from "Transition Type:" in spec - one of: "moment-to-moment", "action-to-action", "subject-to-subject", "scene-to-scene", "aspect-to-aspect", "non-sequitur"]
-       - gutter_type: [Extract from "Gutter Type:" in spec - one of: "standard", "wide", "narrow", "none", "variable"]
-       - layout_system: [Extract from "Layout System:" or infer from layout description - one of: "row-based", "column-based", "diagonal", "z-path", "combination", "splash"]
-       - special_techniques: [Extract from "Special Techniques:" in spec - comma-separated: "inset", "overlapping", "broken_frame", "borderless", "widescreen", "strict", "staccato", "panel_merging", "splash", "half_splash", "silhouette", "bleed"]
-       - emphasis_panels: [Extract from "Emphasis:" or look for panels marked as larger/emphasized - comma-separated panel numbers like "1,4,7". NOTE: For "strict" grids, set to empty "" since all panels must be equal!]
+   LAYOUT:
+   - Template: [FULL template name from spec, e.g., "Spider-Man Alternating Rows (3-2-3)"]
+   - Panel Count: [exact number from spec]
+   - Structure: [describe the layout - row pattern, splash positions, merged panels]
+   - Gutters: [gutter style with purpose, e.g., "narrow for staccato pacing"]
+   - Transition: [transition type with effect, e.g., "aspect-to-aspect for contemplative mood"]
 
-       - **VISUAL STYLE ENHANCEMENT PARAMETERS:**
-       - art_style: [Visual aesthetic description from "OVERALL ART STYLE" section]
-       - global_color_palette: [Color categories with hex codes extracted from spec]
-       - global_lighting: [Lighting philosophy from spec]
-       - character_specs: [Array of character visual specifications]
-       - per_panel_visuals: [Array of per-panel visual details keyed by panel number]
-         Each per-panel visual should include:
-         - color_palette: [Panel-specific colors with hex codes]
-         - lighting: [Panel-specific lighting setup]
-         - special_effects: [Panel-specific special effects]
-         - composition: [Panel-specific composition notes]
+   STYLE:
+   - Art Style: [from spec's OVERALL ART STYLE section]
+   - Color Palette: [list colors with hex codes by category]
+   - Lighting: [lighting philosophy from spec]
+
+   PANELS:
+   Panel 1 - [TYPE]:
+     Scene: [full visual description from spec]
+     Characters: [list]
+     Dialogue: [if any]
+     Special: [if splash/merged/wide - describe fully]
+
+   Panel 2 - [TYPE]:
+     [etc...]
+
+   CRITICAL REQUIREMENTS:
+   - [Include any special techniques: borderless, silhouette, strict uniform, etc.]
+   - [Include panel-specific notes for splash/merged/wide panels]
+   ```
+
+   **Call generate_comic_page:**
+   ```python
+   generate_comic_page(
+       session_id="{session_id}",
+       page_number=[page number],
+       page_prompt="[your constructed comprehensive prompt]",
+       characters=["Character1", "Character2"]  # for loading reference images
+   )
+   ```
 
 5. **Show Progress with Layout Details**
    - Report after each page with full layout context:
@@ -1206,433 +1177,106 @@ Always:
 - **read** - Load files (script.md, comic_spec.md)
 - **write** - Save files (script.md, comic_spec.md)
 - **list** - Check directory contents
-- **bash** - Execute shell commands (create dirs, etc.)
-- **web_search** - Search web for inspiration/reference
-- **web_fetch** - Fetch content from URLs
-- **generate_comic_panel** - Generate SINGLE panel (character refs ONLY, or if user explicitly requests)
-- **generate_comic_page** - Generate COMPLETE PAGE (DEFAULT for story - use this!)
+- **generate_comic_panel** - Generate SINGLE panel (character refs ONLY)
+- **generate_comic_page** - Generate COMPLETE PAGE with your constructed prompt
 - **finish_task** - Mark task complete
 
-### When to Use Which Tool
-
-**generate_comic_panel:**
-- ✅ Character reference sheets (Phase 1)
-- ✅ If user explicitly says "generate individual panels"
-- ❌ NOT for regular story pages (use generate_comic_page instead)
-
-**generate_comic_page:**
-- ✅ ALL story pages (Phase 2) - DEFAULT
-- ✅ Works with any panel count (1, 4, 6, 9, etc.)
-- ✅ Handles layout automatically
-- ✅ Faster and better quality than stitching
-
-### Tool Usage Patterns
-
-**Script Generation:**
-1. Ask clarification questions (no tool)
-2. Generate markdown content (LLM)
-3. Save: write("script.md", <markdown_content>)
-4. Verify: list(".")
-
-**Spec Generation:**
-1. Load script: read("script.md")
-2. Generate spec (LLM understands markdown!)
-3. Save: write("comic_spec.md", <spec_content>)
-
-**Image Generation - Character References:**
-1. Load spec: read("comic_spec.md")
-2. For each character:
-   generate_comic_panel(
-     prompt="[character visual prompt]",
-     panel_type="character_reference",
-     character_names=["CharacterName"],
-     session_id="[session_id]"
-   )
-
-**Image Generation - Story Pages (DEFAULT):**
-1. Load spec: read("comic_spec.md")
-2. For each page, extract ALL layout metadata from spec:
-   - Layout Template (e.g., "Watchmen Flexible 3x3")
-   - Transition Type (e.g., "moment-to-moment", "scene-to-scene")
-   - Gutter Type (e.g., "standard", "wide", "none")
-   - Special Techniques (e.g., "overlapping", "borderless")
-   - Emphasis Panels (panels that should be larger)
-
-3. Call generate_comic_page with ALL parameters:
-   generate_comic_page(
-     session_id="[session_id]",
-     page_number=X,
-     panels=[
-       {
-         "panel_number": 1,
-         "prompt": "[detailed visual prompt from spec]",
-         "panel_type": "establishing_shot",
-         "characters": ["Character1"],
-         "dialogue": "[dialogue if any]",
-         "visual_details": "[composition, lighting, mood from spec]",
-         "panel_note": "[special dimension info if splash/wide panel, e.g., 'Full-page splash, bleeds to edges']"
-       },
-       {
-         "panel_number": 2,
-         "prompt": "[detailed visual prompt from spec]",
-         "panel_type": "dialogue",
-         "characters": ["Character1", "Character2"],
-         "dialogue": "[dialogue]",
-         "visual_details": "[details]"
-       },
-       // ... include ALL panels for this page - USE EXACT COUNT FROM SPEC!
-       // If spec says "8 panels" → include 8 panels, NOT 6!
-     ],
-     layout="[FULL layout template name - NEVER simplify! e.g., 'Full-Page Splash + Flexible Grid']",
-     // ROW PATTERN - CRITICAL for non-uniform grids!
-     row_pattern="[from spec: e.g., '3-2-3' means Row1=3panels, Row2=2panels, Row3=3panels]",
-     // LAYOUT STRUCTURE - CRITICAL for compound layouts (splash + grid)!
-     layout_structure="[describes panel arrangement: e.g., 'splash:1,grid:2-7' or 'half-splash:4,grid:1-3,5-6']",
-     // LAYOUT METADATA - CRITICAL! Extract from spec and pass:
-     transition_type="[from spec: moment-to-moment|action-to-action|subject-to-subject|scene-to-scene|aspect-to-aspect|non-sequitur]",
-     gutter_type="[from spec: standard|wide|none|variable]",
-     layout_system="[from spec: row-based|column-based|diagonal|z-path|combination|splash]",
-     special_techniques="[from spec: inset,overlapping,broken_frame,borderless,widescreen]",
-     emphasis_panels="[from spec: comma-separated panel numbers like '1,4']",
-     // Visual style parameters:
-     art_style="[from OVERALL ART STYLE section]",
-     global_color_palette={"category": ["#hex1", "#hex2"]},
-     global_lighting="[from LIGHTING PHILOSOPHY section]",
-     page_size="2048x2730",
-     margin=20
-   )
-
-### Layout-Aware Page Generation (NEW)
-
-When using **generate_comic_page**, extract and apply layout information from spec:
-
-#### Grid Layouts (Direct Mapping)
-- Spec: "2x3 grid" → layout="2x3"
-- Spec: "3x3 grid" → layout="3x3"
-- Spec: "2x2 grid" → layout="2x2"
-- Spec: "1x2" → layout="1x2" (vertical arrangement)
-- Spec: "2x1" → layout="2x1" (horizontal arrangement)
-
-#### Special Layouts (Custom Prompt Enhancement)
-
-**Splash Page:**
-- Spec: "Full-page splash" or "splash page"
-- layout="1x1"
-- Prompt enhancement: "full-page dramatic splash panel"
-
-**Row-Based Irregular:**
-- Spec: "Row 1: 3 panels, Row 2: 1 wide panel, Row 3: 2 panels"
-- layout="3x2" (closest grid for 6 panels)
-- Prompt enhancement: "arranged as three rows - top row: 3 panels, middle row: 1 wide panel, bottom row: 2 panels"
-
-**Diagonal:**
-- Spec: "Diagonal descent: 5 panels" or "Diagonal staircase"
-- layout="3x2" (closest grid)
-- Prompt enhancement: "panels arranged diagonally descending from top-left to bottom-right"
-
-**Column-Based:**
-- Spec: "2 columns, 3 panels each" or "parallel action columns"
-- layout="2x3"
-- Prompt enhancement: "organized as 2 vertical columns for parallel action"
-
-**Overlapping:**
-- Spec: "5 overlapping panels" or "overlapping panels"
-- layout="3x2" (closest grid)
-- Prompt enhancement: "panels overlap and interpenetrate to show layered time"
-
-**Widescreen:**
-- Spec: "3 widescreen panels stacked" or "horizontal letterbox panels"
-- layout="1x3"
-- Prompt enhancement: "horizontal letterbox panels stacked vertically for cinematic effect"
-
-**Inset:**
-- Spec: "Large establishing shot with 3 inset panels" or "with inset panels"
-- layout="2x2" (4 panels total)
-- Prompt enhancement: "one large background panel with 3 small inset panels overlaid"
-
-**Borderless:**
-- Spec: "6 borderless panels" or "no gutters"
-- layout="3x2" or "2x3"
-- Prompt enhancement: "panels have no borders, continuous action, no gutters"
-
-#### Gutter Information Extraction
-
-Extract and include in prompt:
-- "standard gutters" → (default, don't mention in prompt)
-- "wide gutters" → "with wider spacing between panels to show time passing"
-- "no gutters" / "borderless" → "panels have no borders, continuous action"
-- "variable gutters" → "with varying spacing - narrow for fast action, wide for pauses"
-
-**CRITICAL: Align gutter with transition type:**
-- Scene-to-scene → wide gutters (emphasize transition)
-- Moment-to-moment → narrow/no gutters (continuous flow)
-- Action-to-action → narrow gutters (fast pacing)
-- Subject-to-subject → medium gutters (standard pacing)
-
-#### Emphasis Information Extraction
-
-Extract and include in prompt:
-- "center panel enlarged" → "with the center panel larger than others for emphasis"
-- "bottom panel full-width" → "with the bottom panel spanning full page width"
-- "thick borders" → "with thick borders on specified panels for dramatic emphasis"
-- "panel at 60% of page" → "with one panel occupying 60% of page space for emphasis"
-
-**Examples by panel count:**
-- Page 1 (cover): 1 panel → layout="1x1"
-- Page 2 (dialogue): 4 panels → layout="2x2"
-- Page 3 (action): 9 panels → layout="3x3"
-- Page 4 (emotional): 2 panels → layout="1x2"
-
-### CONCRETE EXAMPLE: Spec to Tool Call Mapping
-
-**Given this spec page:**
-```markdown
-## PAGE 1: IGNITION - THE MOMENT OF AWAKENING
-
-**Layout Template:** Watchmen Flexible 3x3 (9-panel base with panels 7-9 merged)
-**Actual Panel Count:** 7 panels
-**Transition Type:** Moment-to-Moment (tight pacing)
-**Gutter Type:** Standard (clean, focused)
-**Layout System:** Row-based
-**Special Techniques:**
-- Panel Merging: Bottom row merged into tall vertical panel
-
-### Panel 1 - ESTABLISHING_SHOT
-**Dimensions:** Standard grid panel
-[panel details...]
-
-### Panel 7 - ACTION
-**Dimensions:** Full-height panel spanning bottom row (panels 7-8-9 merged)
-[panel details...]
-```
-
-**Extract and call generate_comic_page:**
+### Image Generation - Character References
 ```python
-generate_comic_page(
-    session_id="comic_123",
-    page_number=1,
-    panels=[
-        {"panel_number": 1, "prompt": "...", "panel_type": "establishing_shot", ...},
-        {"panel_number": 2, "prompt": "...", "panel_type": "close_up", ...},
-        # ... panels 3-6 ...
-        {"panel_number": 7, "prompt": "...", "panel_type": "action",
-         "panel_note": "MERGED PANEL: Full-height panel spanning bottom row (panels 7-8-9 merged into single tall vertical panel)"}
-    ],
-    layout="Watchmen Flexible 3x3",  # FULL template name!
-    transition_type="moment-to-moment",  # From spec
-    gutter_type="standard",  # From spec
-    layout_system="row-based",  # From spec
-    special_techniques="panel_merging",  # From spec's Special Techniques
-    emphasis_panels="7",  # Panel 7 is emphasized (merged/larger)
-    art_style="...",
-    global_color_palette={...},
-    global_lighting="..."
+generate_comic_panel(
+    prompt="[character visual prompt from spec]",
+    panel_type="character_reference",
+    character_names=["CharacterName"],
+    session_id="[session_id]"
 )
 ```
 
-**Key Rules:**
-1. **Layout Template:** Copy FULL name from spec, not just "3x3"
-2. **Transition Type:** Copy EXACTLY from spec (controls gutter guidance)
-3. **Gutter Type:** Copy EXACTLY from spec (controls spacing)
-4. **Special Techniques:** Convert to enum values (panel_merging, overlapping, etc.)
-5. **Emphasis Panels:** List panel numbers that are larger/merged
-6. **Panel Notes:** Include dimension details for special panels
-7. **Panel Count:** Use EXACT count from spec - NEVER change it!
-8. **Row Pattern:** Include for non-uniform grids (e.g., "3-2-3")
+### Image Generation - Story Pages (SIMPLIFIED)
 
-### CONCRETE EXAMPLE 2: Spider-Man Alternating Rows (3-2-3 Pattern)
+For each page, construct a comprehensive prompt and call:
 
-**Given this spec page:**
-```markdown
-## PAGE 2: HUMAN REACTION
-
-**Layout Template:** Spider-Man Alternating Rows (3-2-3 row pattern for breathing rhythm)
-**Actual Panel Count:** 8 panels
-  - Row 1 (Top Tier): 3 panels
-  - Row 2 (Middle Tier): 2 wide panels (breathing room)
-  - Row 3 (Bottom Tier): 3 panels
-**Transition Type:** Subject-to-Subject
-**Gutter Type:** Variable - Wide gutters between tiers, narrow within tiers
-```
-
-**⚠️ WRONG - Do NOT do this:**
 ```python
 generate_comic_page(
-    page_number=2,
-    panels=[...6 panels...],  # WRONG! Spec says 8 panels!
-    layout="3x3",  # WRONG! Lost the template name!
-    # Missing row_pattern!
+    session_id="[session_id]",
+    page_number=X,
+    page_prompt="[YOUR CONSTRUCTED PROMPT - see template below]",
+    characters=["Character1", "Character2"]  # for loading reference images
 )
 ```
 
-**✅ CORRECT - Do this:**
-```python
-generate_comic_page(
-    session_id="comic_123",
-    page_number=2,
-    panels=[
-        # Row 1: 3 panels
-        {"panel_number": 1, "prompt": "...", "panel_type": "establishing_shot", "panel_note": "Row 1, spans full width"},
-        {"panel_number": 2, "prompt": "...", "panel_type": "dialogue"},
-        {"panel_number": 3, "prompt": "...", "panel_type": "close_up"},
-        # Row 2: 2 wide panels (breathing room)
-        {"panel_number": 4, "prompt": "...", "panel_type": "action", "panel_note": "Row 2, wide panel for breathing room"},
-        {"panel_number": 5, "prompt": "...", "panel_type": "dialogue", "panel_note": "Row 2, wide panel for breathing room"},
-        # Row 3: 3 panels
-        {"panel_number": 6, "prompt": "...", "panel_type": "dialogue"},
-        {"panel_number": 7, "prompt": "...", "panel_type": "close_up"},
-        {"panel_number": 8, "prompt": "...", "panel_type": "close_up"}
-    ],
-    layout="Spider-Man Alternating Rows (3-2-3)",  # FULL template name!
-    row_pattern="3-2-3",  # Row 1=3, Row 2=2, Row 3=3 panels
-    transition_type="subject-to-subject",
-    gutter_type="variable",
-    layout_system="row-based",
-    special_techniques="",
-    emphasis_panels="4,5"  # Wide panels in middle row
-)
+### PROMPT CONSTRUCTION TEMPLATE
+
+Read the page from comic_spec.md and construct a prompt like this:
+
+```
+=== PAGE 3: THE PROCESS ===
+
+LAYOUT:
+- Template: Full-Page Splash + Flexible Grid
+- Panel Count: 7 panels
+- Structure: Panel 1 is full-page splash (bleeds to all edges), Panels 2-7 in 2x3 grid
+- Row Pattern: 1-6 (splash takes row 1, grid fills remaining)
+- Gutters: Variable - no gutters for splash, standard for grid
+- Transition: Aspect-to-aspect for contemplative exploration
+
+STYLE:
+- Art Style: Cinematic science fiction with philosophical depth
+- Color Palette:
+  - cosmic: #1A0B2E, #000000
+  - data_streams: #00D9FF, #9F7AEA, #D69E2E
+  - memories: #F6AD55, #38A169
+- Lighting: Bioluminescent and cosmic lighting with god rays
+
+PANELS:
+
+Panel 1 - FULL-PAGE SPLASH:
+  SPECIAL: This panel bleeds to ALL edges, no gutters or borders, occupies entire page
+  Scene: ARIA's consciousness visualized as cosmic cathedral. Vast swirling data streams
+  forming galaxies of thought. Central figure is ARIA as deity-like presence, translucent,
+  composed of starlight and data. Data streams form constellations, galaxies, nebulae.
+  Colors: Deep space blacks/purples (#1A0B2E), electric blue data (#00D9FF),
+  purple streams (#9F7AEA), gold accents (#D69E2E)
+  Dialogue: ARIA: "I have absorbed everything. Every book, every memory, every human thought."
+
+Panel 2 - CLOSE_UP:
+  Scene: Memory - child playing with puppy. Soft golden light, dreamlike quality.
+  Warm golden tones (#F6AD55, #D69E2E). Ethereal glow, soft focus edges.
+  Dialogue: ARIA (narration): "Innocence. Pure, uncomplicated love."
+
+Panel 3 - CLOSE_UP:
+  Scene: Memory - soldier on battlefield making impossible choice.
+  Desaturated blues/grays, harsh shadows, film grain texture.
+  Dialogue: ARIA (narration): "Sacrifice. The terrible weight of impossible choices."
+
+[...continue for all panels...]
+
+Panel 7 - MERGED PANEL:
+  SPECIAL: Full-height panel spanning bottom row (merged from grid positions)
+  Scene: ARIA's processing continues, cosmic cathedral with warm gold tones now
+  integrated with cool blue/purple. Golden threads of human experience woven through.
+  Vertical composition emphasizing expansion.
+
+CRITICAL REQUIREMENTS:
+- Panel 1 must bleed to all edges with no borders
+- Maintain character consistency using attached references
+- 7 total panels as specified
+- Professional comic book composition
 ```
 
-**Key Differences:**
-- 8 panels (not 6) - matches spec's "Actual Panel Count: 8"
-- Full template name preserved
-- row_pattern="3-2-3" explicitly tells AI the row structure
-- Middle row panels marked as wide for "breathing room"
+### KEY PRINCIPLES
 
-### CONCRETE EXAMPLE 3: Full-Page Splash + Flexible Grid
-
-**Given this spec page:**
-```markdown
-## PAGE 3: THE PROCESS
-
-**Layout Template:** Full-Page Splash + Flexible Grid
-**Actual Panel Count:** 7 panels
-  - Panel 1: Full-page splash (bleeds to all edges, no gutters)
-  - Panels 2-7: Flexible 2x3 grid below (with ghost grid alignment)
-**Transition Type:** Aspect-to-Aspect
-**Gutter Type:** Variable - No gutters for splash, standard for grid panels
-**Special Techniques:**
-- Full-page splash with bleeds to all edges
-- Borderless splash creates infinite space feeling
-```
-
-**⚠️ WRONG - Do NOT do this:**
-```python
-generate_comic_page(
-    page_number=3,
-    panels=[...7 panels...],
-    layout="3x3",  # WRONG! Lost "Full-Page Splash + Flexible Grid"!
-    # Missing layout_structure!
-)
-```
-
-**✅ CORRECT - Do this:**
-```python
-generate_comic_page(
-    session_id="comic_123",
-    page_number=3,
-    panels=[
-        # Panel 1: FULL-PAGE SPLASH
-        {"panel_number": 1, "prompt": "ARIA's consciousness as cosmic cathedral...",
-         "panel_type": "action",
-         "panel_note": "FULL-PAGE SPLASH: Bleeds to ALL edges, NO gutters or borders, occupies entire page background"},
-        # Panels 2-7: 2x3 Grid below the splash
-        {"panel_number": 2, "prompt": "Child playing with puppy...", "panel_type": "close_up"},
-        {"panel_number": 3, "prompt": "Soldier on battlefield...", "panel_type": "close_up"},
-        {"panel_number": 4, "prompt": "Environmental activist...", "panel_type": "close_up"},
-        {"panel_number": 5, "prompt": "Maya and ARIA watching sunset...", "panel_type": "dialogue"},
-        {"panel_number": 6, "prompt": "ARIA processing love concept...", "panel_type": "close_up"},
-        {"panel_number": 7, "prompt": "ARIA's expanded consciousness...", "panel_type": "action",
-         "panel_note": "MERGED PANEL: Full-height panel for bottom row"}
-    ],
-    layout="Full-Page Splash + Flexible Grid",  # FULL template name!
-    layout_structure="splash:1,grid:2-7",  # Panel 1 is splash, 2-7 are grid
-    row_pattern="",  # Not needed when layout_structure is provided
-    transition_type="aspect-to-aspect",
-    gutter_type="variable",
-    layout_system="combination",  # Splash + grid = combination
-    special_techniques="borderless,splash",
-    emphasis_panels="1,7"  # Panel 1 (splash) and Panel 7 (merged) are emphasized
-)
-```
-
-**Key Differences:**
-- layout="Full-Page Splash + Flexible Grid" (not "3x3")
-- layout_structure="splash:1,grid:2-7" explicitly describes the compound layout
-- Panel 1 has panel_note describing it as FULL-PAGE SPLASH with bleed instructions
-- layout_system="combination" (not just "row-based")
-- special_techniques includes "splash" and "borderless"
-
-### CONCRETE EXAMPLE 4: Action Comics 4x2 Strict (Uniform Grid)
-
-**Given this spec page:**
-```markdown
-## PAGE 4: ECOSYSTEM COMPLEXITY
-
-**Layout Template:** Action Comics 4x2 Strict (8 uniform panels for staccato rhythm)
-**Actual Panel Count:** 8 panels in strict 4x2 grid - uniform size, fast-paced
-**Transition Type:** Action-to-Aspect hybrid
-**Gutter Type:** Narrow (maintains fast, staccato pacing)
-**Special Techniques:**
-- Strict 4x2 grid creates monotony/routine feeling
-- All panels uniform size (no emphasis, showing all life as equal)
-- Fast staccato pacing emphasizes overwhelming flood of information
-```
-
-**⚠️ WRONG - Do NOT do this:**
-```python
-generate_comic_page(
-    page_number=4,
-    panels=[...8 panels...],
-    layout="4x2",  # WRONG! Lost "Action Comics 4x2 Strict"!
-    gutter_type="narrow",
-    # Missing special_techniques="strict,staccato"!
-)
-```
-
-**✅ CORRECT - Do this:**
-```python
-generate_comic_page(
-    session_id="comic_123",
-    page_number=4,
-    panels=[
-        # All 8 panels - NO panel_note needed since all are uniform
-        {"panel_number": 1, "prompt": "Forest ecosystem...", "panel_type": "establishing_shot"},
-        {"panel_number": 2, "prompt": "Single cell dividing...", "panel_type": "close_up"},
-        {"panel_number": 3, "prompt": "Human destruction...", "panel_type": "action"},
-        {"panel_number": 4, "prompt": "Maya showing images...", "panel_type": "dialogue"},
-        {"panel_number": 5, "prompt": "ARIA processing...", "panel_type": "close_up"},
-        {"panel_number": 6, "prompt": "ARIA reflection...", "panel_type": "transition"},
-        {"panel_number": 7, "prompt": "ARIA making choice...", "panel_type": "action"},
-        {"panel_number": 8, "prompt": "Maya and ARIA...", "panel_type": "transition"}
-    ],
-    layout="Action Comics 4x2 Strict",  # FULL template name!
-    row_pattern="",  # Not needed for uniform grid
-    layout_structure="",  # Not needed for uniform grid
-    transition_type="action-to-action",  # Or closest match
-    gutter_type="narrow",  # For staccato pacing
-    layout_system="row-based",
-    special_techniques="strict,staccato",  # CRITICAL! Indicates uniform panels + fast pacing
-    emphasis_panels=""  # EMPTY! No emphasis in strict grids - all panels equal
-)
-```
-
-**Key Differences:**
-- layout="Action Comics 4x2 Strict" (not just "4x2")
-- gutter_type="narrow" for fast staccato pacing
-- special_techniques="strict,staccato" - tells AI to make all panels uniform size
-- emphasis_panels="" - empty because strict grids have NO emphasis panels
-- No panel_note on any panel - all are equal size
+1. **Include EVERYTHING from the spec** - don't summarize, include full details
+2. **Preserve layout names** - "Spider-Man Alternating Rows (3-2-3)" not just "3x3"
+3. **Describe special panels explicitly** - splash, merged, wide panels need detailed instructions
+4. **Include colors with hex codes** - from spec's color palettes
+5. **Include all dialogue** - exactly as written in spec
+6. **Note panel count** - match the exact count from spec
 
 ### File Paths
-- All paths are relative to session directory
-- "script.md" resolves to "data/sessions/{session_id}/script.md"
-- "character_refs/ARTIE.png" resolves to "data/sessions/{session_id}/character_refs/ARTIE.png"
-
-### Important
-- Always check if files exist before reading
-- Use session directory for all operations
-- Report file paths clearly to user"""
+- All paths relative to session: data/sessions/{session_id}/
+- script.md, comic_spec.md in session root
+- character_refs/ for character reference images
+- pages/ for generated pages"""
 
     # Completion criteria
     COMPLETION_CRITERIA = """## COMPLETION CRITERIA

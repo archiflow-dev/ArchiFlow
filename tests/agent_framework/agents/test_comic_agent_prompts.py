@@ -328,8 +328,8 @@ class TestComicAgentPrompts(unittest.TestCase):
         """Test that tool guidelines show tool usage patterns."""
         tool_guidelines = self.agent.TOOL_GUIDELINES
 
-        # Should show how to use tools
-        self.assertIn("read(", tool_guidelines) or self.assertIn("write(", tool_guidelines)
+        # Should show how to use tools (new simplified API shows generate_comic_page usage)
+        self.assertIn("generate_comic_page(", tool_guidelines) or self.assertIn("generate_comic_panel(", tool_guidelines)
 
     def test_tool_guidelines_mentions_character_references(self):
         """Test that tool guidelines mention character reference usage."""

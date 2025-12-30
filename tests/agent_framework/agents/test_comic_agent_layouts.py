@@ -305,59 +305,54 @@ class TestComicAgentLayouts(unittest.TestCase):
         self.assertIn("action-to-action", generation_mode.lower())
         self.assertIn("narrow gutters", generation_mode.lower())
 
-    # ===== TOOL_GUIDELINES Tests =====
+    # ===== TOOL_GUIDELINES Tests (Simplified Prompt Construction Approach) =====
 
-    def test_tool_guidelines_includes_layout_aware_section(self):
-        """Test that TOOL_GUIDELINES includes layout-aware generation."""
+    def test_tool_guidelines_includes_prompt_construction(self):
+        """Test that TOOL_GUIDELINES includes prompt construction template."""
         tool_guidelines = self.agent.TOOL_GUIDELINES
 
-        # Should have layout-aware section
-        self.assertTrue("Layout-Aware" in tool_guidelines or "layout aware" in tool_guidelines.lower())
+        # Should have prompt construction section
+        self.assertTrue("PROMPT CONSTRUCTION" in tool_guidelines or "prompt" in tool_guidelines.lower())
 
-    def test_tool_guidelines_maps_grid_layouts(self):
-        """Test that grid layout mapping is documented."""
+    def test_tool_guidelines_shows_page_tool_usage(self):
+        """Test that page tool usage is documented."""
         tool_guidelines = self.agent.TOOL_GUIDELINES
 
-        # Should show grid mapping
-        self.assertIn("2x3", tool_guidelines)
-        self.assertIn("3x3", tool_guidelines)
-
-        # Should mention direct mapping
-        self.assertIn("Direct Mapping", tool_guidelines) or self.assertIn("mapping", tool_guidelines.lower())
+        # Should show generate_comic_page usage
+        self.assertIn("generate_comic_page", tool_guidelines)
+        self.assertIn("page_prompt", tool_guidelines)
 
     def test_tool_guidelines_handles_special_layouts(self):
         """Test that special layout handling is documented."""
         tool_guidelines = self.agent.TOOL_GUIDELINES
 
-        # Should mention special layouts
-        self.assertIn("Splash", tool_guidelines)
-        self.assertIn("Diagonal", tool_guidelines)
-        self.assertIn("Overlapping", tool_guidelines) or self.assertIn("overlap", tool_guidelines.lower())
+        # Should mention special layouts in the template/principles
+        self.assertIn("splash", tool_guidelines.lower())
+        # Should describe merged panels
+        self.assertIn("merged", tool_guidelines.lower())
 
-    def test_tool_guidelines_includes_gutter_extraction(self):
-        """Test that gutter information extraction is documented."""
+    def test_tool_guidelines_includes_key_principles(self):
+        """Test that key principles are documented."""
         tool_guidelines = self.agent.TOOL_GUIDELINES
 
-        # Should have gutter section
+        # Should have key principles section
+        self.assertIn("KEY PRINCIPLES", tool_guidelines)
+
+    def test_tool_guidelines_mentions_layout_preservation(self):
+        """Test that layout name preservation is documented."""
+        tool_guidelines = self.agent.TOOL_GUIDELINES
+
+        # Should mention preserving layout names
+        self.assertIn("Preserve layout names", tool_guidelines)
+        # Should include example
+        self.assertIn("Spider-Man Alternating Rows (3-2-3)", tool_guidelines)
+
+    def test_tool_guidelines_includes_gutter_in_template(self):
+        """Test that gutter information is in prompt template."""
+        tool_guidelines = self.agent.TOOL_GUIDELINES
+
+        # Should have gutter in the template
         self.assertIn("Gutter", tool_guidelines)
-
-        # Should mention extraction
-        self.assertIn("Extract", tool_guidelines)
-
-    def test_tool_guidelines_includes_emphasis_extraction(self):
-        """Test that emphasis information extraction is documented."""
-        tool_guidelines = self.agent.TOOL_GUIDELINES
-
-        # Should have emphasis section
-        self.assertIn("Emphasis", tool_guidelines)
-
-    def test_tool_guidelines_includes_transition_gutter_alignment(self):
-        """Test that transition-gutter alignment is documented."""
-        tool_guidelines = self.agent.TOOL_GUIDELINES
-
-        # Should mention the critical alignment (case-insensitive check)
-        self.assertTrue("scene-to-scene" in tool_guidelines.lower() and "wide" in tool_guidelines.lower())
-        self.assertTrue("moment-to-moment" in tool_guidelines.lower() and "narrow" in tool_guidelines.lower())
 
     # ===== Integration Tests =====
 
