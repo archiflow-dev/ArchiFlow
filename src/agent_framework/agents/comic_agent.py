@@ -626,7 +626,22 @@ User approved the spec. Generate images in TWO phases:
 
 1. **Load comic_spec.md**
    - Use read("comic_spec.md")
-   - Extract comprehensive layout information from each page:
+   - Extract **comprehensive visual information** from the spec:
+
+     **A. Overall Art Style (from "OVERALL ART STYLE" section):**
+     * **Visual Aesthetic:** Primary style, influences, technique, atmosphere
+     * **Global Color Palette:** Extract all color categories with hex codes (e.g., "Electric Blue (#00D9FF)", "Cyan (#00D9FF)")
+     * **Global Lighting Philosophy:** Overall lighting approach (cathedral/god rays, natural, high contrast, bioluminescent, digital)
+
+     **B. Character Specifications (from "CHARACTER SPECIFICATIONS" section):**
+     * Extract for EACH character:
+       - Physical appearance (age, height, build, facial features, skin tone)
+       - Costumes and clothing
+       - Lighting notes specific to character
+       - Expression evolution across pages
+       - Special effects or visual traits
+
+     **C. Layout Information (from each page section):**
      * **Panel Count:** (e.g., 1, 4, 6, 9)
      * **Layout Description:** (e.g., "2x3 grid", "3 horizontal panels", "full page splash")
      * **Layout System:** (row-based, column-based, diagonal, Z-path, combination)
@@ -634,21 +649,46 @@ User approved the spec. Generate images in TWO phases:
      * **Special Techniques:** (insets, overlapping, broken frames, borderless, widescreen)
      * **Gutter Type:** (standard, wide, none, variable)
      * **Emphasis Panels:** (which panels are larger/emphasized)
+
+     **D. Per-Panel Visual Details (from each "Panel X" subsection):**
+     For each panel, extract:
+     * **Color Palette:** Dominant colors, secondary colors, accents (with hex codes if provided)
+     * **Lighting:** Specific lighting setup (god rays, screen glow, harsh lighting, etc.)
+     * **Special Effects:** Digital glitches, light rays, motion blur, panel border breaks, etc.
+     * **Composition Notes:** Symmetrical, vanishing point, vertical lines, etc.
+
    - Group all panels by page number
 
-2. **Parse Layout Description**
+2. **Parse Layout Description (CRITICAL - Extract ALL Layout Information)**
    - **Grid Detection:** If description includes "2x3 grid", "3x3 grid", etc. → use layout="2x3", "3x3"
    - **Splash Detection:** If "full-page splash" or "splash page" → layout="1x1"
+   - **Complex Layout Detection:** Look for patterns like:
+     * "Panel 1 = Full-page splash, Panels 2-6 = 2x3 grid below" → Mixed layout
+     * "Panel 4 is large half-page splash" → Variable panel sizes
+     * "Wide panel spanning full width" → Wide panel specification
+   - **Per-Panel Dimension Extraction:** For EACH panel, check if spec mentions:
+     * "Full-page splash" → dimensions="full-page" or "2048x2730, bleeds to edges"
+     * "Wide panel (spans full width)" → dimensions="wide" or "full-width"
+     * "Half-page splash" → dimensions="half-page" or "half-page-height, full-width"
+     * "Large panel spanning width" → dimensions="large-wide"
+     * "Standard panel" → dimensions="standard" (can omit)
    - **Transition Extraction:** Extract transition type if mentioned (e.g., "action-to-action", "scene-to-scene")
    - **Gutter Extraction:** Extract gutter information (e.g., "wide gutters", "no gutters", "variable gutters")
    - **Technique Extraction:** Extract special techniques (e.g., "overlapping panels", "inset panels", "broken borders")
    - **Emphasis Extraction:** Extract emphasis information (e.g., "center panel enlarged", "thick borders on panel 3")
 
-3. **Build Generation Prompt**
-   Incorporate all layout details into the generation prompt:
+3. **Build Generation Prompt with Layout Details**
+   Incorporate ALL layout details into the generation prompt:
 
    **Basic grid:**
    "Create a comic page with 6 panels in 2x3 grid layout..."
+
+   **With special panel dimensions (CRITICAL):**
+   For pages with splash or wide panels, include EXPLICIT instructions:
+   * "Panel 1 is a FULL-PAGE SPLASH (2048x2730, no gutters, no borders, bleeds to all edges)"
+   * "Panel 4 is a HALF-PAGE SPLASH (spans full width, occupies 50% page height)"
+   * "Panel 1 is a WIDE PANEL (spans full width of page)"
+   * "Panel 6 is a WIDE FINAL SPLASH (spans full width)"
 
    **With transition awareness:**
    "Create an action-to-action page with 6 panels in 3x2 grid,
@@ -674,27 +714,49 @@ User approved the spec. Generate images in TWO phases:
        - Single panel → layout="1x1" (full page)
        - Grid patterns → layout="2x3", "3x2", "3x3", etc.
        - Complex layouts → interpret from description, choose closest grid
+     * **CRITICAL: Extract per-panel dimension information from spec:**
+       For EACH panel, check the spec's "Dimensions" field and include in panel spec:
+       - "Full-page splash (2048x2730)" → Add panel_note="FULL-PAGE SPLASH: This panel occupies entire page (2048x2730) with NO gutters or borders, bleeds to all edges"
+       - "Wide panel (spans full width)" → Add panel_note="WIDE PANEL: This panel spans the full width of the page"
+       - "Half-page splash" → Add panel_note="HALF-PAGE SPLASH: This panel spans full width and occupies 50% of page height"
+       - "Large panel spanning width" → Add panel_note="LARGE WIDE PANEL: This panel is larger than standard and spans full width"
+       - "Standard panel" → No special note needed
      * Call generate_comic_page:
        - session_id="{session_id}"
        - page_number=[page number]
        - panels=[array of panel specifications for this page]
          Each panel spec must include:
          - panel_number: [sequential number within page, 1-based]
-         - prompt: [detailed visual prompt from spec]
+         - prompt: [detailed visual prompt from spec - INCLUDE panel_note if special dimensions]
          - panel_type: [scene type from spec]
          - characters: [list of character names in panel]
          - dialogue: [dialogue text if any]
          - visual_details: [composition, lighting, mood from spec]
+         - **panel_note: [Special dimension instructions if panel is splash/wide/half-page, otherwise omit]**
        - layout: [grid pattern, e.g., "2x3", "1x1", "3x2"]
        - page_size: "2048x2730" (standard comic book portrait)
        - margin: 20
+       - **VISUAL STYLE ENHANCEMENT PARAMETERS:**
+       - art_style: [Visual aesthetic description from "OVERALL ART STYLE" section]
+       - global_color_palette: [Color categories with hex codes extracted from spec]
+       - global_lighting: [Lighting philosophy from spec]
+       - character_specs: [Array of character visual specifications]
+       - per_panel_visuals: [Array of per-panel visual details keyed by panel number]
+         Each per-panel visual should include:
+         - color_palette: [Panel-specific colors with hex codes]
+         - lighting: [Panel-specific lighting setup]
+         - special_effects: [Panel-specific special effects]
+         - composition: [Panel-specific composition notes]
 
-5. **Show Progress**
+5. **Show Progress with Layout Details**
    - Report after each page with full layout context:
      * "[Page 1/6] Generating splash page (1 panel, full-page)..."
-     * "[Page 2/6] Generating dialogue scene (4 panels, 2x2 grid, subject-to-subject)..."
-     * "[Page 3/6] Generating action sequence (6 panels, diagonal layout, action-to-action, narrow gutters)..."
-     * "[Page 4/6] Generating emotional moment (2 panels, widescreen, moment-to-moment, wide gutters)..."
+     * "[Page 2/6] Generating dialogue scene (6 panels, 2x3 grid, Panel 1 is wide)..."
+     * "[Page 3/6] Generating cosmic consciousness (6 panels, Panel 1 is full-page splash)..."
+     * "[Page 4/6] Generating ecosystem scene (6 panels, 2x3 grid, subject-to-subject)..."
+     * "[Page 5/6] Generating judgment scene (6 panels, Panel 4 is half-page splash)..."
+     * "[Page 6/6] Generating final scene (6 panels, 2x3 grid, Panel 6 is wide final splash)..."
+   - **CRITICAL:** Always mention if page has special panels (splash, wide, half-page)
    - Keep user informed of progress
 
 6. **Verify All Pages Generated**

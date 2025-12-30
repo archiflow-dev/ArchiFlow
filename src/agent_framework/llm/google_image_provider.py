@@ -9,12 +9,94 @@ import os
 import logging
 import tempfile
 import base64
-from typing import Optional, List
+import json
+from datetime import datetime
+from pathlib import Path
+from typing import Optional, List, Dict, Any
 from PIL import Image
 from ..config.env_loader import load_env
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
+
+
+def _log_generation_details(
+    prompt: str,
+    ref_images: Optional[List[Image.Image]],
+    aspect_ratio: str,
+    resolution: str,
+    session_id: Optional[str] = None,
+    output_dir: Optional[str] = None
+) -> None:
+    """
+    Log image generation details to a JSON file for debugging and analysis.
+
+    Args:
+        prompt: The text prompt sent to the API
+        ref_images: List of reference PIL Images
+        aspect_ratio: Image aspect ratio
+        resolution: Image resolution
+        session_id: Optional session ID for organizing logs
+        output_dir: Optional output directory for logs
+    """
+    try:
+        # Determine log directory
+        if output_dir and session_id:
+            log_dir = Path(output_dir) / "logs"
+        elif session_id:
+            log_dir = Path("data") / "sessions" / session_id / "logs"
+        else:
+            log_dir = Path("data") / "image_generation_logs"
+
+        log_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create log filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]  # Millisecond precision
+        log_file = log_dir / f"gen_{timestamp}.json"
+
+        # Build reference image info
+        ref_info = []
+        if ref_images:
+            for i, img in enumerate(ref_images):
+                info = {
+                    "index": i,
+                    "size": f"{img.width}x{img.height}" if hasattr(img, 'width') else "unknown",
+                    "mode": img.mode if hasattr(img, 'mode') else "unknown"
+                }
+                # Try to get filename if it has one
+                if hasattr(img, 'filename') and img.filename:
+                    info["filename"] = str(img.filename)
+                elif hasattr(img, '_fp') and img._fp and hasattr(img._fp, 'name'):
+                    info["filename"] = str(img._fp.name)
+                else:
+                    info["filename"] = f"<memory_image_{i}>"
+                ref_info.append(info)
+
+        # Build log entry
+        log_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "session_id": session_id,
+            "model": "google_gemai",
+            "parameters": {
+                "aspect_ratio": aspect_ratio,
+                "resolution": resolution
+            },
+            "prompt": prompt,
+            "prompt_length": len(prompt),
+            "prompt_preview": prompt[:200] + "..." if len(prompt) > 200 else prompt,
+            "reference_images": ref_info,
+            "reference_count": len(ref_images) if ref_images else 0
+        }
+
+        # Write to file
+        with open(log_file, 'w', encoding='utf-8') as f:
+            json.dump(log_entry, f, indent=2, ensure_ascii=False)
+
+        logger.info(f"Image generation details logged to: {log_file}")
+
+    except Exception as e:
+        # Don't fail generation if logging fails
+        logger.warning(f"Failed to log generation details: {e}")
 
 
 
@@ -105,7 +187,9 @@ class GoogleImageProvider(ImageProvider):
         prompt: str,
         ref_images: Optional[List[Image.Image]] = None,
         aspect_ratio: str = "16:9",
-        resolution: str = "2K"
+        resolution: str = "2K",
+        session_id: Optional[str] = None,
+        output_dir: Optional[str] = None
     ) -> Optional[Image.Image]:
         """
         Generate image using Google GenAI SDK
@@ -115,10 +199,22 @@ class GoogleImageProvider(ImageProvider):
             ref_images: Optional list of reference images
             aspect_ratio: Image aspect ratio (e.g., "16:9", "1:1", "9:16")
             resolution: Image resolution (supports "1K", "2K", "4K")
+            session_id: Optional session ID for logging
+            output_dir: Optional output directory for logging
 
         Returns:
             Generated PIL Image object, or None if failed
         """
+
+        # Log generation details before API call
+        _log_generation_details(
+            prompt=prompt,
+            ref_images=ref_images,
+            aspect_ratio=aspect_ratio,
+            resolution=resolution,
+            session_id=session_id,
+            output_dir=output_dir
+        )
 
         try:
             # Construct content payload with text prompt and images

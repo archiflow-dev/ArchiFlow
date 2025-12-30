@@ -76,6 +76,59 @@ class GenerateComicPanelTool(BaseTool):
                 "type": "string",
                 "description": "Character name to use as reference (loads from character_refs/ directory)"
             },
+            # Advanced layout parameters
+            "transition_type": {
+                "type": "string",
+                "enum": ["moment-to-moment", "action-to-action", "subject-to-subject", "scene-to-scene", "aspect-to-aspect", "non-sequitur"],
+                "description": "McCloud's panel transition type for pacing and flow control"
+            },
+            "gutter_type": {
+                "type": "string",
+                "enum": ["standard", "wide", "none", "variable"],
+                "description": "Gutter type affecting pacing (standard=normal, wide=time pause, none=continuous, variable=custom)"
+            },
+            "layout_system": {
+                "type": "string",
+                "enum": ["row-based", "column-based", "diagonal", "z-path", "combination", "splash"],
+                "description": "Layout system for panel arrangement and reading flow"
+            },
+            "special_techniques": {
+                "type": "string",
+                "description": "Special panel techniques (e.g., 'inset', 'overlapping', 'broken_frame', 'borderless', 'widescreen')"
+            },
+            "emphasis_panel": {
+                "type": "boolean",
+                "description": "Whether this panel is emphasized (larger or more prominent)"
+            },
+            # Visual style enhancement parameters
+            "art_style": {
+                "type": "string",
+                "description": "Overall art style description (visual aesthetic, influences, technique)"
+            },
+            "color_palette": {
+                "type": "object",
+                "description": "Color palette for this panel with hex codes",
+                "additionalProperties": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                }
+            },
+            "lighting": {
+                "type": "array",
+                "description": "Lighting descriptions for this panel",
+                "items": {"type": "string"}
+            },
+            "special_effects": {
+                "type": "array",
+                "description": "Special effects for this panel (glitch, particles, etc.)",
+                "items": {"type": "string"}
+            },
+            "composition": {
+                "type": "array",
+                "description": "Composition notes (angles, framing, focus)",
+                "items": {"type": "string"}
+            },
+            # Existing parameters
             "session_id": {
                 "type": "string",
                 "description": "Session ID for organizing images"
@@ -138,7 +191,18 @@ class GenerateComicPanelTool(BaseTool):
         action: Optional[str] = None,
         visual_details: Optional[str] = None,
         page_number: Optional[int] = None,
-        panel_number: Optional[int] = None
+        panel_number: Optional[int] = None,
+        transition_type: Optional[str] = None,
+        gutter_type: Optional[str] = None,
+        layout_system: Optional[str] = None,
+        special_techniques: Optional[str] = None,
+        emphasis_panel: Optional[bool] = None,
+        # Visual style enhancement parameters
+        art_style: Optional[str] = None,
+        color_palette: Optional[Dict[str, List[str]]] = None,
+        lighting: Optional[List[str]] = None,
+        special_effects: Optional[List[str]] = None,
+        composition: Optional[List[str]] = None
     ) -> str:
         """
         Build an enhanced prompt for comic panel generation.
@@ -152,11 +216,35 @@ class GenerateComicPanelTool(BaseTool):
             visual_details: Visual composition details
             page_number: Page number
             panel_number: Panel number
+            transition_type: McCloud's panel transition type
+            gutter_type: Gutter type for pacing control
+            layout_system: Layout system for panel arrangement
+            special_techniques: Special panel techniques
+            emphasis_panel: Whether this panel is emphasized
+            art_style: Overall art style description
+            color_palette: Color palette with hex codes
+            lighting: Lighting descriptions
+            special_effects: Special effects (glitch, particles, etc.)
+            composition: Composition notes (angles, framing, focus)
 
         Returns:
             Enhanced prompt for image generation
         """
         parts = []
+
+        # ===== OVERALL ART STYLE =====
+        if art_style:
+            parts.append("=== ART STYLE ===")
+            parts.append(art_style)
+            parts.append("")
+
+        # ===== COLOR PALETTE =====
+        if color_palette:
+            parts.append("=== COLOR PALETTE ===")
+            for category, colors in color_palette.items():
+                color_list = colors if isinstance(colors, list) else [colors]
+                parts.append(f"- {category}: {', '.join(color_list)}")
+            parts.append("")
 
         # Add panel type context
         if panel_type == "character_reference":
@@ -188,6 +276,100 @@ class GenerateComicPanelTool(BaseTool):
         if page_number and panel_number:
             parts.append(f"Context: Page {page_number}, Panel {panel_number} of a comic book")
 
+        # ===== PER-PANEL VISUAL DETAILS =====
+        has_visual_details = False
+
+        # Lighting
+        if lighting:
+            if not has_visual_details:
+                parts.append("VISUAL DETAILS:")
+                has_visual_details = True
+            parts.append("Lighting:")
+            for light in lighting:
+                parts.append(f"  - {light}")
+
+        # Special Effects
+        if special_effects:
+            if not has_visual_details:
+                parts.append("VISUAL DETAILS:")
+                has_visual_details = True
+            parts.append("Special Effects:")
+            for effect in special_effects:
+                parts.append(f"  - {effect}")
+
+        # Composition
+        if composition:
+            if not has_visual_details:
+                parts.append("VISUAL DETAILS:")
+                has_visual_details = True
+            parts.append("Composition:")
+            for comp in composition:
+                parts.append(f"  - {comp}")
+
+        # ===== ADVANCED LAYOUT INFORMATION =====
+        layout_parts = []
+
+        # Transition type guidance (McCloud's framework)
+        if transition_type:
+            transition_guidance = {
+                "moment-to-moment": "Small change in time/action. Focus on subtle differences between moments. Use narrow gutters for continuity.",
+                "action-to-action": "Focus on dynamic action progression. Clear cause-and-effect between actions. Use narrow gutters for fast pacing.",
+                "subject-to-subject": "Shift focus between subjects/characters while staying in same scene/idea. Maintain visual continuity.",
+                "scene-to-scene": "Transition between different scenes or locations. Use wide gutters to indicate significant time/space change.",
+                "aspect-to-aspect": "Explore different aspects of same place/idea/mood. Focus on mood, atmosphere, and setting details.",
+                "non-sequitur": "No logical relationship between panels. Use for artistic effect, dream sequences, or juxtaposition."
+            }
+            if transition_type in transition_guidance:
+                layout_parts.append(f"TRANSITION TYPE: {transition_type.upper()}")
+                layout_parts.append(f"  {transition_guidance[transition_type]}")
+
+        # Gutter type guidance
+        if gutter_type:
+            gutter_guidance = {
+                "standard": "Standard gutters for normal reading pace.",
+                "wide": "WIDE gutters to indicate time pause, reflection, or scene change.",
+                "none": "NO gutters between panels - continuous flow indicating simultaneous events or fast action.",
+                "variable": "Variable gutter widths - use strategically to control pacing and emphasis."
+            }
+            if gutter_type in gutter_guidance:
+                layout_parts.append(f"GUTTER: {gutter_guidance[gutter_type]}")
+
+        # Layout system guidance
+        if layout_system:
+            layout_sys_guidance = {
+                "row-based": "Row-based layout - panels arranged in horizontal rows for traditional flow.",
+                "column-based": "Column-based layout - panels arranged in vertical columns.",
+                "diagonal": "DIAGONAL layout - panels arranged diagonally for dynamic action and energy flow.",
+                "z-path": "Z-PATH layout - panels follow natural Z-shaped reading pattern (top-left → top-right → bottom-left → bottom-right).",
+                "combination": "Combination layout - mix of grid and dynamic arrangements.",
+                "splash": "SPLASH page - single large panel taking full page for dramatic impact."
+            }
+            if layout_system in layout_sys_guidance:
+                layout_parts.append(f"LAYOUT SYSTEM: {layout_sys_guidance[layout_system]}")
+
+        # Special techniques
+        if special_techniques:
+            technique_guidance = {
+                "inset": "Inset panel - smaller panel within larger panel for detail or flashback.",
+                "overlapping": "OVERLAPPING panels - panels overlap each other for layered storytelling effect.",
+                "broken_frame": "BROKEN frame - panel borders are irregular/broken for dramatic impact.",
+                "borderless": "BORDERLESS panel - no visible border, bleeds into page for emphasis.",
+                "widescreen": "WIDESCREEN panel - extra-wide horizontal panel for cinematic scope."
+            }
+            # Handle comma-separated techniques
+            for tech in special_techniques.lower().replace(" ", "").split(","):
+                if tech in technique_guidance:
+                    layout_parts.append(f"TECHNIQUE: {technique_guidance[tech]}")
+
+        # Emphasis panel
+        if emphasis_panel:
+            layout_parts.append("EMPHASIS PANEL: This panel should be LARGER or MORE PROMINENT than surrounding panels for dramatic impact.")
+
+        # Add layout section if any layout info present
+        if layout_parts:
+            parts.append("LAYOUT & COMPOSITION:")
+            parts.extend(layout_parts)
+
         # Add panel type-specific guidance
         panel_guidance = {
             "establishing_shot": "Wide shot establishing the scene and setting. Show full environment.",
@@ -217,6 +399,19 @@ class GenerateComicPanelTool(BaseTool):
         action: Optional[str] = None,
         visual_details: Optional[str] = None,
         character_reference: Optional[str] = None,
+        # Advanced layout parameters
+        transition_type: Optional[str] = None,
+        gutter_type: Optional[str] = None,
+        layout_system: Optional[str] = None,
+        special_techniques: Optional[str] = None,
+        emphasis_panel: Optional[bool] = None,
+        # Visual style enhancement parameters
+        art_style: Optional[str] = None,
+        color_palette: Optional[Dict[str, List[str]]] = None,
+        lighting: Optional[List[str]] = None,
+        special_effects: Optional[List[str]] = None,
+        composition: Optional[List[str]] = None,
+        # Existing parameters
         output_dir: Optional[str] = None,
         aspect_ratio: str = "4:3",
         resolution: str = "2K",
@@ -236,6 +431,16 @@ class GenerateComicPanelTool(BaseTool):
             action: Action happening in the panel
             visual_details: Detailed visual description (composition, lighting, mood, camera angle)
             character_reference: Character name to use as reference
+            transition_type: McCloud's panel transition type (moment-to-moment, action-to-action, etc.)
+            gutter_type: Gutter type for pacing (standard, wide, none, variable)
+            layout_system: Layout system (row-based, column-based, diagonal, z-path, etc.)
+            special_techniques: Special panel techniques (inset, overlapping, broken_frame, etc.)
+            emphasis_panel: Whether this panel is emphasized
+            art_style: Overall art style description
+            color_palette: Color palette with hex codes
+            lighting: Lighting descriptions
+            special_effects: Special effects (glitch, particles, etc.)
+            composition: Composition notes (angles, framing, focus)
             output_dir: Output directory (default: auto-determined)
             aspect_ratio: Image aspect ratio (default: "4:3")
             resolution: Image resolution (default: "2K")
@@ -248,7 +453,7 @@ class GenerateComicPanelTool(BaseTool):
                 "No image provider available. Please configure GOOGLE_API_KEY."
             )
 
-        # Build enhanced prompt
+        # Build enhanced prompt with layout information
         enhanced_prompt = self._build_comic_prompt(
             prompt=prompt,
             panel_type=panel_type,
@@ -257,7 +462,18 @@ class GenerateComicPanelTool(BaseTool):
             action=action,
             visual_details=visual_details,
             page_number=page_number,
-            panel_number=panel_number
+            panel_number=panel_number,
+            transition_type=transition_type,
+            gutter_type=gutter_type,
+            layout_system=layout_system,
+            special_techniques=special_techniques,
+            emphasis_panel=emphasis_panel,
+            # Visual style enhancement parameters
+            art_style=art_style,
+            color_palette=color_palette,
+            lighting=lighting,
+            special_effects=special_effects,
+            composition=composition
         )
 
         try:
@@ -319,18 +535,7 @@ class GenerateComicPanelTool(BaseTool):
                                  "clothing, and style exactly."
                 logger.debug("Added reference instructions to prompt")
 
-            # Generate image
-            image = self.image_provider.generate_image(
-                prompt=enhanced_prompt,
-                aspect_ratio=aspect_ratio,
-                resolution=resolution,
-                ref_images=ref_images if ref_images else None
-            )
-
-            if not image:
-                return self.fail_response("Failed to generate image")
-
-            # Determine output directory based on panel type
+            # Determine output directory BEFORE generating image (for logging)
             if output_dir is None:
                 # Use execution context working directory as base
                 base_dir = None
@@ -347,6 +552,19 @@ class GenerateComicPanelTool(BaseTool):
 
             # Create output directory
             os.makedirs(output_dir, exist_ok=True)
+
+            # Generate image with session_id and output_dir for logging
+            image = self.image_provider.generate_image(
+                prompt=enhanced_prompt,
+                aspect_ratio=aspect_ratio,
+                resolution=resolution,
+                ref_images=ref_images if ref_images else None,
+                session_id=session_id,
+                output_dir=output_dir
+            )
+
+            if not image:
+                return self.fail_response("Failed to generate image")
 
             # Generate filename
             if panel_type == "character_reference":
