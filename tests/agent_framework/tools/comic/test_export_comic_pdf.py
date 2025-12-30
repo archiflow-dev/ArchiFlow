@@ -78,7 +78,7 @@ class TestExportComicPDFTool(unittest.TestCase):
         """Test tool initialization."""
         self.assertIsNotNone(self.tool)
         self.assertEqual(self.tool.name, "export_comic_pdf")
-        self.assertIn("Export comic panels to PDF", self.tool.description)
+        self.assertIn("Export comic to PDF", self.tool.description)
 
     def test_tool_schema(self):
         """Test tool schema structure."""
@@ -276,7 +276,7 @@ class TestExportComicPDFTool(unittest.TestCase):
             self.assertIn("pdf_path", output)
             self.assertEqual(output["title"], "Test Comic")
             self.assertGreater(output["page_count"], 0)
-            self.assertEqual(output["panel_count"], 6)
+            self.assertEqual(output["image_count"], 6)
 
             # Verify PDF file exists
             pdf_path = Path(output["pdf_path"])
@@ -447,7 +447,7 @@ class TestExportComicPDFTool(unittest.TestCase):
             result = await self.tool.execute(session_id=self.session_id)
 
             self.assertIsNotNone(result.error)
-            self.assertIn("No panel images found", result.error)
+            self.assertIn("No images found", result.error)
 
         asyncio.run(run_test())
 
@@ -494,7 +494,7 @@ class TestExportComicPDFTool(unittest.TestCase):
             self.assertIsNotNone(output)
             self.assertTrue(output["success"])
             self.assertEqual(output["title"], "Complete Comic Test")
-            self.assertEqual(output["panel_count"], 18)
+            self.assertEqual(output["image_count"], 18)
             # Should have: 1 cover + 3 story pages + 1 credits = 5 pages
             self.assertEqual(output["page_count"], 5)
 
@@ -506,7 +506,7 @@ class TestExportComicPDFTool(unittest.TestCase):
         asyncio.run(run_test())
 
     @unittest.skipIf(not PIL_AVAILABLE, "PIL not available")
-    def test_export_pdf_mixed_panel_counts(self):
+    def test_export_pdf_mixed_image_counts(self):
         """Test PDF export with different panel counts per page."""
         async def run_test():
             # Page 1: 6 panels
@@ -531,7 +531,7 @@ class TestExportComicPDFTool(unittest.TestCase):
             output = self.parse_output(result)
             self.assertIsNotNone(output)
             self.assertTrue(output["success"])
-            self.assertEqual(output["panel_count"], 12)
+            self.assertEqual(output["image_count"], 12)
 
         asyncio.run(run_test())
 

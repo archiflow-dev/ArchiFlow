@@ -58,7 +58,7 @@ class GenerateComicPageTool(BaseTool):
             "characters": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "List of character names appearing on this page (for loading reference images)"
+                "description": "List of character names/variants for loading reference images. Supports: exact names ('ARIA'), variants ('ARIA_planetary'), or wildcards ('ARIA*' loads all ARIA variants)"
             },
             "aspect_ratio": {
                 "type": "string",
@@ -133,20 +133,20 @@ class GenerateComicPageTool(BaseTool):
 
             # Collect character reference images
             ref_images = []
+            loaded_refs = []
             if characters:
                 ref_dir = os.path.join(base_dir, "character_refs")
-                for char_name in characters:
-                    # Try case variations
-                    for name in [char_name.upper(), char_name.lower(), char_name.title(), char_name]:
-                        path = os.path.join(ref_dir, f"{name}.png")
-                        if os.path.exists(path):
+                if os.path.exists(ref_dir):
+                    for char_name in characters:
+                        found_refs = self._find_character_references(ref_dir, char_name)
+                        for ref_path in found_refs:
                             try:
-                                img = Image.open(path)
+                                img = Image.open(ref_path)
                                 ref_images.append(img)
-                                logger.info(f"Loaded reference for {char_name}")
-                                break
+                                loaded_refs.append(os.path.basename(ref_path))
+                                logger.info(f"Loaded reference: {os.path.basename(ref_path)}")
                             except Exception as e:
-                                logger.warning(f"Failed to load ref for {char_name}: {e}")
+                                logger.warning(f"Failed to load ref {ref_path}: {e}")
 
             # Enhance prompt with reference instructions if we have references
             final_prompt = page_prompt
@@ -164,6 +164,7 @@ class GenerateComicPageTool(BaseTool):
                 "prompt_length": len(final_prompt),
                 "prompt_preview": final_prompt[:500] + "..." if len(final_prompt) > 500 else final_prompt,
                 "characters": characters or [],
+                "loaded_references": loaded_refs,
                 "reference_count": len(ref_images)
             }
 
@@ -203,9 +204,88 @@ class GenerateComicPageTool(BaseTool):
                 "page_path": page_path,
                 "page_number": page_number,
                 "file_size_mb": round(file_size, 2),
-                "log_path": log_path
+                "log_path": log_path,
+                "loaded_references": loaded_refs,
+                "reference_count": len(ref_images)
             })
 
         except Exception as e:
             logger.error(f"Page generation failed: {e}", exc_info=True)
             return self.fail_response(f"Page generation failed: {str(e)}")
+
+    def _find_character_references(self, ref_dir: str, char_spec: str) -> List[str]:
+        """
+        Find character reference files matching the specification.
+
+        Supports three modes:
+        1. Exact match: "ARIA" → finds ARIA.png
+        2. Variant match: "ARIA_planetary" → finds ARIA_planetary.png
+        3. Wildcard match: "ARIA*" → finds all ARIA*.png files
+
+        Args:
+            ref_dir: Directory containing character references
+            char_spec: Character specification (name, variant, or wildcard)
+
+        Returns:
+            List of matching file paths
+        """
+        import re
+        from glob import glob
+
+        results = []
+
+        # Check for wildcard mode (ends with *)
+        if char_spec.endswith('*'):
+            base_name = char_spec[:-1]  # Remove the *
+            # Sanitize for filesystem
+            safe_name = re.sub(r'[^\w\s_-]', '', base_name).strip().replace(' ', '_')
+
+            # Find all files matching the pattern
+            patterns = [
+                os.path.join(ref_dir, f"{safe_name.upper()}*.png"),
+                os.path.join(ref_dir, f"{safe_name.upper()}*.jpg"),
+                os.path.join(ref_dir, f"{safe_name.lower()}*.png"),
+            ]
+
+            for pattern in patterns:
+                matches = glob(pattern)
+                for match in matches:
+                    if match not in results:
+                        results.append(match)
+
+            logger.info(f"Wildcard search for '{char_spec}' found {len(results)} references")
+            return sorted(results)
+
+        # Exact/variant match mode
+        # Sanitize for filesystem matching
+        safe_name = re.sub(r'[^\w\s_-]', '', char_spec).strip().replace(' ', '_')
+
+        # Try various case combinations
+        names_to_check = [
+            safe_name.upper(),
+            safe_name.lower(),
+            safe_name.title(),
+            safe_name,
+            char_spec.upper().replace(' ', '_'),
+            char_spec.upper().replace(' ', ''),
+        ]
+
+        for name in names_to_check:
+            for ext in ['.png', '.jpg', '.jpeg']:
+                path = os.path.join(ref_dir, f"{name}{ext}")
+                if os.path.exists(path) and path not in results:
+                    results.append(path)
+                    return results  # Return first match for exact mode
+
+        # If no exact match and name contains underscore, try base character as fallback
+        if '_' in safe_name and not results:
+            base_name = safe_name.rsplit('_', 1)[0]
+            for name in [base_name.upper(), base_name.lower()]:
+                for ext in ['.png', '.jpg', '.jpeg']:
+                    path = os.path.join(ref_dir, f"{name}{ext}")
+                    if os.path.exists(path):
+                        logger.info(f"Variant not found, falling back to base: {path}")
+                        results.append(path)
+                        return results
+
+        return results

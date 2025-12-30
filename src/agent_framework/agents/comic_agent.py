@@ -868,16 +868,36 @@ User approved the spec. Generate images in TWO phases:
    - Extract ALL character descriptions
 
 2. **Generate Character Reference Sheets**
-   - ⚠️ **IMPORTANT:** Generate ONE reference sheet per UNIQUE character
-   - Extract the PRIMARY/FULL-BODY description for each character
-   - For each UNIQUE character, call generate_comic_panel:
+   - For each UNIQUE character, generate reference sheet(s):
+
+   **A. Primary Form (REQUIRED for every character):**
+   - Call generate_comic_panel:
      * panel_type="character_reference"
      * session_id="{session_id}"
      * character_names=[character_name]
      * prompt=[character's PRIMARY visual description - full body, main appearance]
-   - ⚠️ **DO NOT** generate multiple references per character (e.g., face close-up, alternate forms)
-   - These references will be used for ALL story panels
-   - Progress: "[1/3] Generating character reference: [Character Name]..."
+     * variant=None (omit for primary form)
+   - Creates: `CHARACTER_NAME.png`
+
+   **B. Alternate Forms/Costumes (if spec defines them):**
+   - If character has alternate forms, costumes, or transformations in spec, generate ADDITIONAL references
+   - Call generate_comic_panel with `variant` parameter:
+     * panel_type="character_reference"
+     * character_names=[character_name]
+     * prompt=[variant-specific description]
+     * variant="variant_name" (e.g., "planetary", "casual", "battle")
+   - Creates: `CHARACTER_NAME_variant.png` (e.g., `ARIA_planetary.png`)
+   - Examples:
+     * ARIA with "planetary" form → variant="planetary"
+     * DR. MAYA CHEN with "casual" outfit → variant="casual"
+     * GENERAL HARRIS with "combat" gear → variant="combat"
+
+   **C. Variant Naming Conventions:**
+   - Use lowercase, descriptive names matching the spec terminology
+   - Common variants: "primary", "casual", "formal", "battle", "injured", "transformed"
+   - Form variants: "planetary", "ethereal", "human", "datastream"
+
+   - Progress: "[1/N] Generating character reference: [Character Name] (variant)..."
 
 3. **Verify Character References**
    - Use list("character_refs") to verify all were created
@@ -1183,12 +1203,24 @@ Always:
 
 ### Image Generation - Character References
 ```python
+# Primary form (no variant)
 generate_comic_panel(
     prompt="[character visual prompt from spec]",
     panel_type="character_reference",
     character_names=["CharacterName"],
     session_id="[session_id]"
 )
+# Creates: CHARACTER_NAME.png
+
+# Alternate form/costume (with variant)
+generate_comic_panel(
+    prompt="[variant-specific visual prompt]",
+    panel_type="character_reference",
+    character_names=["CharacterName"],
+    variant="planetary",  # or "casual", "battle", etc.
+    session_id="[session_id]"
+)
+# Creates: CHARACTER_NAME_planetary.png
 ```
 
 ### Image Generation - Story Pages (SIMPLIFIED)
@@ -1202,6 +1234,23 @@ generate_comic_page(
     page_prompt="[YOUR CONSTRUCTED PROMPT - see template below]",
     characters=["Character1", "Character2"]  # for loading reference images
 )
+```
+
+**Using Character References in Story Pages:**
+- **Base character:** `"ARIA"` → loads ARIA.png
+- **Specific variant:** `"ARIA_planetary"` → loads ARIA_planetary.png (falls back to ARIA.png if not found)
+- **All variants (wildcard):** `"ARIA*"` → loads ALL ARIA*.png files (ARIA.png, ARIA_planetary.png, ARIA_datastream.png, etc.)
+
+**Examples:**
+```python
+# Load specific variants for this page
+characters=["ARIA_planetary", "DR_MAYA_CHEN_casual"]
+
+# Load ALL variants for a character (recommended for complex scenes)
+characters=["ARIA*", "DR_MAYA_CHEN*"]
+
+# Mix of specific and wildcard
+characters=["ARIA*", "GENERAL_HARRIS"]  # All ARIA variants + base HARRIS
 ```
 
 ### PROMPT CONSTRUCTION TEMPLATE

@@ -596,6 +596,287 @@ class TestGenerateComicPanelTool(unittest.TestCase):
         self.assertIn("GenerateComicPanelTool", repr_str)
         self.assertIn("MockImageProvider", repr_str)
 
+    # ===== Variant Functionality Tests =====
+
+    def test_generate_character_reference_with_variant(self):
+        """Test character reference generation with variant."""
+        async def run_test():
+            result = await self.tool.execute(
+                prompt="ARIA in planetary consciousness form",
+                panel_type="character_reference",
+                character_names=["ARIA"],
+                variant="planetary",
+                session_id="test",
+                output_dir=self.temp_dir
+            )
+            self.assertIsNone(result.error)
+            output = self.parse_output(result)
+            self.assertIsNotNone(output)
+            self.assertTrue(output["success"])
+            # Filename should include variant
+            self.assertEqual(output["filename"], "ARIA_planetary.png")
+            self.assertEqual(output["variant"], "planetary")
+            self.assertTrue(os.path.exists(output["file_path"]))
+
+        asyncio.run(run_test())
+
+    def test_variant_stored_with_variant_key(self):
+        """Test character reference with variant is stored with variant-aware key."""
+        async def run_test():
+            result = await self.tool.execute(
+                prompt="ARIA in planetary form",
+                panel_type="character_reference",
+                character_names=["ARIA"],
+                variant="planetary",
+                session_id="test",
+                output_dir=self.temp_dir
+            )
+            self.assertIsNone(result.error)
+
+            # Check if character reference was stored with variant key
+            self.assertIn("ARIA_planetary", self.tool.character_references)
+            ref_image = self.tool.get_character_reference("ARIA_planetary")
+            self.assertIsNotNone(ref_image)
+
+        asyncio.run(run_test())
+
+    def test_multiple_variants_same_character(self):
+        """Test generating multiple variants for the same character."""
+        async def run_test():
+            # Generate primary form
+            result1 = await self.tool.execute(
+                prompt="ARIA default form",
+                panel_type="character_reference",
+                character_names=["ARIA"],
+                session_id="test",
+                output_dir=self.temp_dir
+            )
+            self.assertIsNone(result1.error)
+            output1 = self.parse_output(result1)
+            self.assertEqual(output1["filename"], "ARIA.png")
+
+            # Generate planetary variant
+            result2 = await self.tool.execute(
+                prompt="ARIA planetary form",
+                panel_type="character_reference",
+                character_names=["ARIA"],
+                variant="planetary",
+                session_id="test",
+                output_dir=self.temp_dir
+            )
+            self.assertIsNone(result2.error)
+            output2 = self.parse_output(result2)
+            self.assertEqual(output2["filename"], "ARIA_planetary.png")
+
+            # Generate datastream variant
+            result3 = await self.tool.execute(
+                prompt="ARIA datastream form",
+                panel_type="character_reference",
+                character_names=["ARIA"],
+                variant="datastream",
+                session_id="test",
+                output_dir=self.temp_dir
+            )
+            self.assertIsNone(result3.error)
+            output3 = self.parse_output(result3)
+            self.assertEqual(output3["filename"], "ARIA_datastream.png")
+
+            # Verify all files exist
+            self.assertTrue(os.path.exists(output1["file_path"]))
+            self.assertTrue(os.path.exists(output2["file_path"]))
+            self.assertTrue(os.path.exists(output3["file_path"]))
+
+            # Verify all are cached separately
+            self.assertIn("ARIA", self.tool.character_references)
+            self.assertIn("ARIA_planetary", self.tool.character_references)
+            self.assertIn("ARIA_datastream", self.tool.character_references)
+
+        asyncio.run(run_test())
+
+    def test_collision_prevention_without_variant(self):
+        """Test collision prevention when no variant is specified."""
+        async def run_test():
+            # Generate first reference
+            result1 = await self.tool.execute(
+                prompt="ARIA form 1",
+                panel_type="character_reference",
+                character_names=["ARIA"],
+                session_id="test",
+                output_dir=self.temp_dir
+            )
+            self.assertIsNone(result1.error)
+            output1 = self.parse_output(result1)
+            self.assertEqual(output1["filename"], "ARIA.png")
+
+            # Generate second reference (should get incremented filename)
+            result2 = await self.tool.execute(
+                prompt="ARIA form 2",
+                panel_type="character_reference",
+                character_names=["ARIA"],
+                session_id="test",
+                output_dir=self.temp_dir
+            )
+            self.assertIsNone(result2.error)
+            output2 = self.parse_output(result2)
+            self.assertEqual(output2["filename"], "ARIA_2.png")
+
+            # Both files should exist
+            self.assertTrue(os.path.exists(output1["file_path"]))
+            self.assertTrue(os.path.exists(output2["file_path"]))
+
+        asyncio.run(run_test())
+
+    def test_collision_prevention_with_variant(self):
+        """Test collision prevention when same variant is generated twice."""
+        async def run_test():
+            # Generate first planetary variant
+            result1 = await self.tool.execute(
+                prompt="ARIA planetary form v1",
+                panel_type="character_reference",
+                character_names=["ARIA"],
+                variant="planetary",
+                session_id="test",
+                output_dir=self.temp_dir
+            )
+            self.assertIsNone(result1.error)
+            output1 = self.parse_output(result1)
+            self.assertEqual(output1["filename"], "ARIA_planetary.png")
+
+            # Generate second planetary variant (should get incremented)
+            result2 = await self.tool.execute(
+                prompt="ARIA planetary form v2",
+                panel_type="character_reference",
+                character_names=["ARIA"],
+                variant="planetary",
+                session_id="test",
+                output_dir=self.temp_dir
+            )
+            self.assertIsNone(result2.error)
+            output2 = self.parse_output(result2)
+            self.assertEqual(output2["filename"], "ARIA_planetary_2.png")
+
+        asyncio.run(run_test())
+
+    def test_variant_filename_sanitization(self):
+        """Test variant names are sanitized for filesystem."""
+        async def run_test():
+            result = await self.tool.execute(
+                prompt="Character in special form",
+                panel_type="character_reference",
+                character_names=["DR. MAYA CHEN"],
+                variant="lab coat",  # Space in variant name
+                session_id="test",
+                output_dir=self.temp_dir
+            )
+            self.assertIsNone(result.error)
+            output = self.parse_output(result)
+            # Spaces should be replaced with underscores
+            self.assertEqual(output["filename"], "DR_MAYA_CHEN_lab_coat.png")
+
+        asyncio.run(run_test())
+
+    def test_find_reference_with_variant_syntax(self):
+        """Test finding reference using variant syntax (CHARACTER_variant)."""
+        async def run_test():
+            # Create directory structure matching what _find_reference_on_disk expects
+            char_refs_dir = os.path.join(self.temp_dir, "character_refs")
+            os.makedirs(char_refs_dir, exist_ok=True)
+
+            # Generate the variant reference in the expected location
+            result = await self.tool.execute(
+                prompt="ARIA planetary form",
+                panel_type="character_reference",
+                character_names=["ARIA"],
+                variant="planetary",
+                session_id="test",
+                output_dir=char_refs_dir
+            )
+            self.assertIsNone(result.error)
+
+            # Clear in-memory cache to force disk lookup
+            self.tool.clear_references()
+
+            # Set execution context to point to our temp dir
+            from agent_framework.runtime.context import ExecutionContext
+            self.tool.execution_context = ExecutionContext(
+                session_id="test",
+                working_directory=self.temp_dir
+            )
+
+            # Now find it using variant syntax
+            ref_path = self.tool._find_reference_on_disk("test", "ARIA_planetary")
+            self.assertIsNotNone(ref_path)
+            # Case-insensitive comparison for cross-platform compatibility
+            self.assertEqual(os.path.basename(ref_path).lower(), "aria_planetary.png")
+
+        asyncio.run(run_test())
+
+    def test_find_reference_fallback_to_base(self):
+        """Test finding reference falls back to base character if variant not found."""
+        async def run_test():
+            # Create directory structure matching what _find_reference_on_disk expects
+            char_refs_dir = os.path.join(self.temp_dir, "character_refs")
+            os.makedirs(char_refs_dir, exist_ok=True)
+
+            # Generate only base character (no variant)
+            result = await self.tool.execute(
+                prompt="ARIA default form",
+                panel_type="character_reference",
+                character_names=["ARIA"],
+                session_id="test",
+                output_dir=char_refs_dir
+            )
+            self.assertIsNone(result.error)
+
+            # Clear in-memory cache
+            self.tool.clear_references()
+
+            # Set execution context to point to our temp dir
+            from agent_framework.runtime.context import ExecutionContext
+            self.tool.execution_context = ExecutionContext(
+                session_id="test",
+                working_directory=self.temp_dir
+            )
+
+            # Try to find a variant that doesn't exist - should fall back to base
+            ref_path = self.tool._find_reference_on_disk("test", "ARIA_nonexistent")
+            self.assertIsNotNone(ref_path)
+            self.assertTrue(ref_path.endswith("ARIA.png"))
+
+        asyncio.run(run_test())
+
+    def test_variant_in_result_message(self):
+        """Test variant is included in result message."""
+        async def run_test():
+            result = await self.tool.execute(
+                prompt="ARIA planetary form",
+                panel_type="character_reference",
+                character_names=["ARIA"],
+                variant="planetary",
+                session_id="test",
+                output_dir=self.temp_dir
+            )
+            self.assertIsNone(result.error)
+            output = self.parse_output(result)
+            self.assertIn("planetary", output["message"])
+            self.assertIn("ARIA", output["message"])
+
+        asyncio.run(run_test())
+
+    def test_generate_reference_filename_method(self):
+        """Test _generate_reference_filename method directly."""
+        # Test without variant
+        filename = self.tool._generate_reference_filename("ARIA", None, self.temp_dir)
+        self.assertEqual(filename, "ARIA.png")
+
+        # Test with variant
+        filename = self.tool._generate_reference_filename("ARIA", "planetary", self.temp_dir)
+        self.assertEqual(filename, "ARIA_planetary.png")
+
+        # Test with spaces in name
+        filename = self.tool._generate_reference_filename("Dr. Maya Chen", "casual", self.temp_dir)
+        self.assertEqual(filename, "DR_MAYA_CHEN_casual.png")
+
 
 if __name__ == '__main__':
     unittest.main()

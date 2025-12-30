@@ -33,7 +33,7 @@ class ExportComicPDFTool(BaseTool):
     """
 
     name: str = "export_comic_pdf"
-    description: str = "Export comic panels to PDF with optional cover and credits pages"
+    description: str = "Export comic to PDF. Supports both individual panels (from panels/) and pre-composited pages (from pages/). Includes optional cover and credits pages."
 
     parameters: Dict[str, Any] = {
         "type": "object",
@@ -139,19 +139,36 @@ class ExportComicPDFTool(BaseTool):
                 else:
                     title = "Untitled Comic"
 
-            # 3. Find all panel images
+            # 3. Find images - check both panels/ and pages/ directories
+            pages_dir = session_dir / "pages"
+
+            # First try panels directory (individual panel images)
             panel_files = sorted(panels_dir.glob("page_*_panel_*.png"))
-            if not panel_files:
+            page_files = sorted(pages_dir.glob("page_*.png")) if pages_dir.exists() else []
+
+            # Determine which mode to use
+            use_page_mode = False
+            if panel_files:
+                logger.info(f"Found {len(panel_files)} panel images in panels/")
+            elif page_files:
+                logger.info(f"Found {len(page_files)} page images in pages/")
+                use_page_mode = True
+            else:
                 return self.fail_response(
-                    f"No panel images found in {panels_dir}. "
-                    "Generate panels first using generate_comic_panel tool."
+                    f"No images found. Checked:\n"
+                    f"  - {panels_dir} (for panel images)\n"
+                    f"  - {pages_dir} (for page images)\n"
+                    "Generate images first using generate_comic_panel or generate_comic_page tool."
                 )
 
-            logger.info(f"Found {len(panel_files)} panel images")
-
-            # 4. Parse panel files to understand page structure
-            page_panels = self._group_panels_by_page(panel_files)
-            logger.info(f"Organized into {len(page_panels)} pages")
+            # 4. Parse files to understand page structure
+            if use_page_mode:
+                # Pages are already composited, just sort by page number
+                page_panels = self._group_page_files(page_files)
+                logger.info(f"Found {len(page_panels)} complete pages")
+            else:
+                page_panels = self._group_panels_by_page(panel_files)
+                logger.info(f"Organized panels into {len(page_panels)} pages")
 
             # 5. Generate output path if not provided
             if not output_path:
@@ -171,22 +188,48 @@ class ExportComicPDFTool(BaseTool):
                 page_images.append(cover_img)
 
             # Add story pages
-            for page_num, panels in page_panels.items():
-                # Load panel images
-                panel_imgs = []
-                for panel_file in panels:
-                    try:
-                        img = Image.open(panel_file)
-                        panel_imgs.append(img)
-                    except Exception as e:
-                        logger.warning(f"Failed to load {panel_file}: {e}")
+            for page_num in sorted(page_panels.keys()):
+                panels = page_panels[page_num]
 
-                # Composite page
-                if panel_imgs:
-                    page_img = self._composite_page(
-                        panel_imgs, panels_per_page, page_size, dpi
-                    )
-                    page_images.append(page_img)
+                if use_page_mode:
+                    # Pages are already composited - just load and optionally resize
+                    for page_file in panels:
+                        try:
+                            img = Image.open(page_file)
+                            # Optionally resize to match PDF page size
+                            target_width, target_height = self._get_page_dimensions(page_size, dpi)
+                            if img.size != (target_width, target_height):
+                                # Resize while maintaining aspect ratio
+                                img.thumbnail((target_width, target_height), Image.Resampling.LANCZOS)
+                                # Center on page
+                                page_img = Image.new('RGB', (target_width, target_height), (255, 255, 255))
+                                x = (target_width - img.width) // 2
+                                y = (target_height - img.height) // 2
+                                if img.mode == 'RGBA':
+                                    page_img.paste(img, (x, y), mask=img.split()[3])
+                                else:
+                                    page_img.paste(img, (x, y))
+                                page_images.append(page_img)
+                            else:
+                                page_images.append(img)
+                        except Exception as e:
+                            logger.warning(f"Failed to load {page_file}: {e}")
+                else:
+                    # Load individual panel images and composite
+                    panel_imgs = []
+                    for panel_file in panels:
+                        try:
+                            img = Image.open(panel_file)
+                            panel_imgs.append(img)
+                        except Exception as e:
+                            logger.warning(f"Failed to load {panel_file}: {e}")
+
+                    # Composite page
+                    if panel_imgs:
+                        page_img = self._composite_page(
+                            panel_imgs, panels_per_page, page_size, dpi
+                        )
+                        page_images.append(page_img)
 
             # Add credits page
             if include_credits:
@@ -233,7 +276,8 @@ class ExportComicPDFTool(BaseTool):
                 "pdf_path": str(output_path),
                 "file_size_mb": round(file_size, 2),
                 "page_count": len(page_images),
-                "panel_count": len(panel_files),
+                "image_count": len(page_files) if use_page_mode else len(panel_files),
+                "mode": "pages" if use_page_mode else "panels",
                 "title": title
             }
 
@@ -270,6 +314,23 @@ class ExportComicPDFTool(BaseTool):
                     pages[page_num].append(panel_file)
             except (ValueError, IndexError) as e:
                 logger.warning(f"Failed to parse panel filename {panel_file}: {e}")
+
+        return pages
+
+    def _group_page_files(self, page_files: List[Path]) -> Dict[int, List[Path]]:
+        """Group page files by page number (for pre-composited pages)."""
+        pages = {}
+        for page_file in page_files:
+            # Extract page number from filename like "page_01.png"
+            try:
+                parts = page_file.stem.split('_')
+                if len(parts) >= 2 and parts[0] == 'page':
+                    page_num = int(parts[1])
+                    if page_num not in pages:
+                        pages[page_num] = []
+                    pages[page_num].append(page_file)
+            except (ValueError, IndexError) as e:
+                logger.warning(f"Failed to parse page filename {page_file}: {e}")
 
         return pages
 

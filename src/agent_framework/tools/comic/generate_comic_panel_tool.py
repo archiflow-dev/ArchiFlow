@@ -74,7 +74,11 @@ class GenerateComicPanelTool(BaseTool):
             },
             "character_reference": {
                 "type": "string",
-                "description": "Character name to use as reference (loads from character_refs/ directory)"
+                "description": "Character name to use as reference (loads from character_refs/ directory). Supports variant syntax: 'CHARACTER_variant' (e.g., 'ARIA_planetary')"
+            },
+            "variant": {
+                "type": "string",
+                "description": "Optional variant identifier for character references. Use for alternate forms (e.g., 'planetary', 'datastream') or costumes (e.g., 'casual', 'formal'). Creates distinct filenames like 'ARIA_planetary.png'. Omit for primary/default form."
             },
             # Advanced layout parameters
             "transition_type": {
@@ -399,6 +403,7 @@ class GenerateComicPanelTool(BaseTool):
         action: Optional[str] = None,
         visual_details: Optional[str] = None,
         character_reference: Optional[str] = None,
+        variant: Optional[str] = None,
         # Advanced layout parameters
         transition_type: Optional[str] = None,
         gutter_type: Optional[str] = None,
@@ -430,7 +435,8 @@ class GenerateComicPanelTool(BaseTool):
             dialogue: Dialogue or text to be shown in the panel
             action: Action happening in the panel
             visual_details: Detailed visual description (composition, lighting, mood, camera angle)
-            character_reference: Character name to use as reference
+            character_reference: Character name to use as reference (supports variant syntax: 'ARIA_planetary')
+            variant: Optional variant identifier for character refs (e.g., 'planetary', 'casual')
             transition_type: McCloud's panel transition type (moment-to-moment, action-to-action, etc.)
             gutter_type: Gutter type for pacing (standard, wide, none, variable)
             layout_system: Layout system (row-based, column-based, diagonal, z-path, etc.)
@@ -566,7 +572,7 @@ class GenerateComicPanelTool(BaseTool):
             if panel_type == "character_reference":
                 # Use character name from prompt or default
                 char_name = character_names[0] if character_names else "character"
-                filename = f"{char_name.upper()}.png"
+                filename = self._generate_reference_filename(char_name, variant, output_dir)
             else:
                 # Panel file naming
                 if not page_number or not panel_number:
@@ -599,8 +605,12 @@ class GenerateComicPanelTool(BaseTool):
 
             # Store character reference if it's a reference sheet
             if panel_type == "character_reference" and character_names:
-                self.character_references[character_names[0]] = pil_image
-                logger.info(f"Stored character reference: {character_names[0]}")
+                # Use variant-aware key for in-memory cache
+                cache_key = character_names[0]
+                if variant:
+                    cache_key = f"{character_names[0]}_{variant}"
+                self.character_references[cache_key] = pil_image
+                logger.info(f"Stored character reference: {cache_key}")
 
             # Return success
             result = {
@@ -614,7 +624,12 @@ class GenerateComicPanelTool(BaseTool):
             }
 
             if panel_type == "character_reference":
-                result["message"] = f"Character reference generated: {character_names[0] if character_names else 'unknown'}"
+                char_desc = character_names[0] if character_names else 'unknown'
+                if variant:
+                    char_desc = f"{char_desc} ({variant})"
+                result["message"] = f"Character reference generated: {char_desc}"
+                if variant:
+                    result["variant"] = variant
             else:
                 result["message"] = f"Panel generated: Page {page_number}, Panel {panel_number}"
                 result["page_number"] = page_number
@@ -626,6 +641,55 @@ class GenerateComicPanelTool(BaseTool):
             error_msg = f"Error generating comic panel: {str(e)}"
             logger.error(error_msg, exc_info=True)
             return self.fail_response(error_msg)
+
+    def _generate_reference_filename(
+        self,
+        char_name: str,
+        variant: Optional[str],
+        output_dir: str
+    ) -> str:
+        """
+        Generate unique filename for character reference.
+
+        Supports variant naming and collision prevention.
+
+        Args:
+            char_name: Character name
+            variant: Optional variant identifier (e.g., 'planetary', 'casual')
+            output_dir: Directory where file will be saved
+
+        Returns:
+            Unique filename (without path)
+        """
+        import re
+
+        # Sanitize character name for filesystem (remove special chars, replace spaces)
+        safe_name = re.sub(r'[^\w\s-]', '', char_name.upper()).strip().replace(' ', '_')
+
+        # Build base filename
+        if variant:
+            safe_variant = re.sub(r'[^\w\s-]', '', variant.lower()).strip().replace(' ', '_')
+            base_filename = f"{safe_name}_{safe_variant}"
+        else:
+            base_filename = safe_name
+
+        # Check for collision and increment if needed
+        filename = f"{base_filename}.png"
+        filepath = os.path.join(output_dir, filename)
+
+        counter = 2
+        while os.path.exists(filepath):
+            filename = f"{base_filename}_{counter}.png"
+            filepath = os.path.join(output_dir, filename)
+            counter += 1
+
+            # Safety limit to prevent infinite loops
+            if counter > 100:
+                logger.warning(f"Too many variants for {char_name}, using counter {counter}")
+                break
+
+        logger.info(f"Generated reference filename: {filename}")
+        return filename
 
     def get_character_reference(self, character_name: str) -> Optional[Image.Image]:
         """
@@ -642,44 +706,77 @@ class GenerateComicPanelTool(BaseTool):
     def _find_reference_on_disk(self, session_id: str, character_name: str) -> Optional[str]:
         """
         Look for character reference file on disk.
-        
+
+        Supports variant syntax: 'CHARACTER_variant' (e.g., 'ARIA_planetary').
+        If variant specified but not found, falls back to base character.
+
         Args:
             session_id: The session ID
-            character_name: Name of the character
-            
+            character_name: Name of the character (can include variant suffix)
+
         Returns:
             Path to file if found, None otherwise
         """
+        import re
+
         if not session_id or not character_name:
             return None
-            
+
         try:
-            # Construct path: data/sessions/{session_id}/character_refs/{NAME}.png
-            # Try multiple case variations just in case
-            
-            # Default location
+            # Determine base directory
             if self.execution_context and self.execution_context.working_directory:
                 base_dir = self.execution_context.working_directory
             else:
                 base_dir = os.path.join("data", "sessions", session_id)
-                
+
             ref_dir = os.path.join(base_dir, "character_refs")
-            
-            # Variations to check
+
+            if not os.path.exists(ref_dir):
+                return None
+
+            # Sanitize input for filesystem matching
+            safe_name = re.sub(r'[^\w\s_-]', '', character_name).strip().replace(' ', '_')
+
+            # Try exact match first (with any variant suffix)
             names_to_check = [
-                character_name.upper(),
-                character_name.lower(),
-                character_name.title(),
-                character_name
+                safe_name.upper(),
+                safe_name.lower(),
+                safe_name.title(),
+                safe_name,
+                character_name.upper().replace(' ', '_'),
+                character_name.upper().replace(' ', ''),
             ]
-            
+
             for name in names_to_check:
-                path = os.path.join(ref_dir, f"{name}.png")
-                if os.path.exists(path):
-                    return path
-                    
+                for ext in ['.png', '.jpg', '.jpeg']:
+                    path = os.path.join(ref_dir, f"{name}{ext}")
+                    if os.path.exists(path):
+                        logger.debug(f"Found reference on disk: {path}")
+                        return path
+
+            # If name contains underscore, try to find base character as fallback
+            # e.g., 'ARIA_planetary' -> try 'ARIA' if planetary not found
+            if '_' in safe_name:
+                # Split and try base name (everything before last underscore)
+                parts = safe_name.rsplit('_', 1)
+                base_name = parts[0]
+
+                base_names_to_check = [
+                    base_name.upper(),
+                    base_name.lower(),
+                    base_name.title(),
+                    base_name,
+                ]
+
+                for name in base_names_to_check:
+                    for ext in ['.png', '.jpg', '.jpeg']:
+                        path = os.path.join(ref_dir, f"{name}{ext}")
+                        if os.path.exists(path):
+                            logger.info(f"Variant not found, falling back to base character: {path}")
+                            return path
+
             return None
-            
+
         except Exception as e:
             logger.warning(f"Error checking disk for reference {character_name}: {e}")
             return None
