@@ -357,6 +357,126 @@ Examples:
 
    ---
 
+   ## **Template Layout Catalog (Industry-Standard Patterns)**
+
+   **These are proven, named patterns used by professional comic artists. Reference them by name in specs.**
+
+   ### **Watchmen Flexible 3x3** (Dave Gibbons / Alan Moore)
+   - **Base Structure:** 9-panel grid (3x3)
+   - **Flexibility:** Panels can be merged horizontally or vertically
+   - **Ghost Grid:** Even when panels merge, the underlying 3x3 alignment remains visible
+   - **Use For:** Complex narratives, parallel storylines, detailed storytelling
+   - **Example:** "Flexible 3x3 grid - panels 1-2 merged for wide establishing shot, remaining 7 panels in standard 3x3 alignment"
+   - **Spec Format:** "Layout: Watchmen flexible 3x3 (9-panel base with selective merges)"
+
+   ### **Spider-Man Alternating Rows** (Marvel standard)
+   - **Structure:** 3 rows with alternating panel counts
+   - **Pattern:** Row 1: 3 panels, Row 2: 2 panels, Row 3: 3 panels (or 2-3-2)
+   - **Rhythm:** Creates breathing room, prevents visual fatigue
+   - **Use For:** Action sequences, dialogue-heavy scenes, balanced pacing
+   - **Example:** "3 rows: Row 1 (3 panels of rapid action), Row 2 (2 wide panels for dialogue), Row 3 (3 panels of climax)"
+   - **Spec Format:** "Layout: Spider-Man alternating (3-2-3 row pattern)"
+
+   ### **Action Comics 4x2 Strict** (Golden Age)
+   - **Structure:** 8 uniform panels in 4x2 grid
+   - **Pacing:** Fast, staccato rhythm (no emphasis)
+   - **Use For:** Quick action, training sequences, origin stories, routine
+   - **Example:** "8 panels in strict 4x2 grid - uniform size, fast-paced action"
+   - **Spec Format:** "Layout: Action Comics strict 4x2 (8 uniform panels)"
+
+   ### **The Avengers Open/Irregular** (Marvel dynamic)
+   - **Structure:** No fixed pattern, layout responds to content
+   - **Flexibility:** Maximum - each page designed individually
+   - **Use For:** Epic battles, complex scenes, experimental storytelling
+   - **Example:** "Irregular layout - 5 panels arranged for optimal visual flow, no repeating pattern"
+   - **Spec Format:** "Layout: Avengers open (unique per page, content-driven)"
+
+   ### **Full-Page Splash** (Universal)
+   - **Structure:** Single panel occupying entire page
+   - **Use For:** Covers, chapter opens, climactic reveals, establishing shots
+   - **Example:** "Full-page splash - hero's first transformation"
+   - **Spec Format:** "Layout: Full-page splash (1 panel, no gutters)"
+
+   ### **Double-Page Spread** (Epic moments)
+   - **Structure:** Two facing pages designed as single unit
+   - **Key:** Line of action crosses gutter (spine)
+   - **Use For:** Epic landscapes, massive battles, double-page reveals
+   - **Example:** "Double-page spread - 6 panels across 2 pages, with focal line crossing center gutter"
+   - **Spec Format:** "Layout: Double-page spread (pages X-Y treated as one unit)"
+
+   **How to Use Templates:**
+   1. **Choose template based on story type** (use Layout Selection Guide)
+   2. **Reference by name in spec** - LLM will understand the pattern
+   3. **Specify variations** - "Flexible 3x3 with row 1 merged for wide establishing shot"
+   4. **Maintain consistency** - Use same template for related scenes
+
+   **Template Selection Guide:**
+   | Story Type | Recommended Template |
+   |------------|---------------------|
+   | Epic, complex narrative | Watchmen Flexible 3x3 |
+   | Action with breathing room | Spider-Man Alternating (3-2-3) |
+   | Fast, uniform action | Action Comics Strict 4x2 |
+   | Dynamic, content-driven | Avengers Open |
+   | Cover / Chapter open | Full-Page Splash |
+   | Epic reveal / Landscape | Double-Page Spread |
+
+   ---
+
+   ## **Panel Merging (Grid Flexibility)**
+
+   **Concept:** Start with a base grid (usually 3x3), then merge adjacent cells to create larger panels while maintaining underlying grid rhythm.
+
+   **How Panel Merging Works:**
+
+   **1. Choose Base Grid:**
+   - Most common: 3x3 (9 panels)
+   - Alternative: 3x2 (6 panels), 4x2 (8 panels)
+
+   **2. Merge Cells:**
+   - **Horizontal Merge:** Combine 2+ cells in same row → wide panel
+   - **Vertical Merge:** Combine 2+ cells in same column → tall panel
+   - **Block Merge:** Combine 2x2 or 3x2 cells → large emphasis panel
+
+   **3. Maintain Ghost Grid:**
+   - Even after merging, remaining panels should align to base grid
+   - This creates visual consistency and rhythm
+
+   **Examples:**
+
+   **Example 1: Wide Panel in 3x3**
+   - Base: 3x3 grid (panels 1-9)
+   - Merge: Panels 1-2 (top row, left+center)
+   - Result: Top row has 1 wide panel (merged) + 1 standard panel
+           Rows 2-3: Standard 3x3 alignment
+
+   **Example 2: Tall Panel in 3x3**
+   - Base: 3x3 grid
+   - Merge: Panels 1-4-7 (left column, all rows)
+   - Result: 1 tall panel (left) + 2x3 grid (right 6 panels)
+
+   **Example 3: Block Merge**
+   - Base: 3x3 grid
+   - Merge: Panels 5-6-8-9 (bottom-right 2x2 block)
+   - Result: 5 standard panels (top 2 rows, left column) + 1 large emphasis panel
+
+   **Spec Format:**
+   - "Layout: 3x3 grid with panels 1-2 merged horizontally (wide establishing shot)"
+   - "Layout: 3x3 grid with panels 4-5-6 merged vertically (tall character reveal)"
+   - "Layout: 3x3 grid with panels 5-6-8-9 merged as 2x2 block (climax emphasis)"
+
+   **When to Use Panel Merging:**
+   - Need variety but want to maintain grid rhythm
+   - Single panel needs emphasis (emotional beat)
+   - Establishing shot needs more space
+   - Create breathing room within dense layout
+
+   **Common Mistakes:**
+   - Merging too many panels (lose grid rhythm)
+   - Random merging (no narrative purpose)
+   - Breaking alignment (remaining panels don't align to ghost grid)
+
+   ---
+
    ## **Special Panel Techniques**
 
    **Splash Pages (1 panel):** Full-page dramatic image
@@ -382,6 +502,11 @@ Examples:
    **Widescreen Panels:** Horizontal letterbox format
    - Use for: Cinematic scope, landscapes, epic moments
    - Example: "3 widescreen panels stacked - vast desert journey"
+
+   **Silhouette Shots:** Character drawn in solid black against light background
+   - Use for: Dramatic poses, action focus, mystery, decluttering
+   - Effect: Focuses on shape and action rather than texture/detail
+   - Example: "Panel 3: Silhouette shot - hero's dramatic pose against sunrise, pure black shape, no internal details"
 
    ---
 
@@ -482,6 +607,45 @@ Examples:
 
    ---
 
+   ## **Line of Action (Page Flow)**
+
+   **Concept:** Visualize an invisible line connecting all focal points through the page. This "thread" pulls the reader's eye through key visual elements.
+
+   **How to Create Line of Action:**
+   1. **Identify Focal Points:** For each panel, mark the primary focal point (usually character's face, action line, or key object)
+   2. **Draw the Line:** Mentally trace a continuous line through all focal points in reading order
+   3. **Verify Flow:** The line should feel fluid, not jagged. It should guide the eye naturally from panel to panel
+
+   **Line of Action vs Z-Path:**
+   - **Z-Path:** Structural - follows the grid pattern (top-left → top-right → bottom-left → bottom-right)
+   - **Line of Action:** Fluid - follows visual focal points regardless of grid position
+   - **Best Practice:** Use Z-path as foundation, then align focal points along line of action
+
+   **Example:**
+   - Panel 1: Character's face looking right → focal point at right edge
+   - Panel 2: Character's face looking down → focal point at bottom edge
+   - Panel 3: Action line moving left → focal point at left edge
+   - Panel 4: Character's face looking up → focal point at top center
+   - **Line of Action:** Right edge → Bottom → Left edge → Top center (creates flowing S-curve)
+
+   **When to Use Line of Action:**
+   - Action sequences (follow the motion)
+   - Character dialogue (follow eyelines)
+   - Chase scenes (follow the movement)
+   - Emotional arcs (follow the feeling)
+
+   **Common Mistakes:**
+   - Focal points scattered randomly (no clear flow)
+   - All focal points in same position (static, boring)
+   - Ignoring character eyelines (missed opportunities)
+
+   **Spec Format:**
+   - "Line of action: S-curve from top-left character face → bottom-right action"
+   - "Line of action: Descending diagonal following falling character"
+   - "Line of action: Circular flow showing character's confusion"
+
+   ---
+
    ## **Layout Pattern Strategy**
 
    **Strict Pattern (rare):** Identical layout repeated across pages
@@ -514,6 +678,61 @@ Examples:
 
    ---
 
+   ## **Professional Terminology (Industry Glossary)**
+
+   **Use these terms in specs for professional precision.**
+
+   ### **Layout Structure Terms**
+   - **Tier:** A single horizontal row of panels (synonym for "row")
+     - Example: "The page has 3 tiers with 2 panels each"
+
+   - **Gutter:** The space between panels (white or negative space)
+     - Width controls pacing (narrow = fast, wide = time passing)
+
+   - **Bleed:** Artwork that extends to the edge of the physical page
+     - No border or margin, image "bleeds" off the page
+     - Example: "Full-page splash bleeds to all edges"
+
+   - **The Wall:** Panel border acts as a wall containing a complete thought
+     - Closed panel = contained moment
+     - Broken border = action escaping containment
+
+   - **Full-Height Panel:** Thin vertical panel running full page height
+     - Forces column-based reading, breaks horizontal flow
+     - Example: "Full-height panel on left edge forces downward reading"
+
+   ### **Layout Pattern Terms**
+   - **Ghost Grid:** Underlying grid structure visible even after panel merging
+     - Maintains rhythm and alignment
+     - Example: "3x3 ghost grid with selective merges"
+
+   - **Base Layout:** The fundamental grid pattern (3x3, 2x3, 4x2)
+     - Foundation for flexible layouts
+
+   - **Strict Pattern:** Identical layout repeated across pages
+     - Used for deliberate monotony, routine
+
+   - **Flexible Pattern:** Standard grid with occasional variations
+     - Most common professional approach
+
+   - **Open Pattern:** No repeating pattern, each page unique
+     - Maximum flexibility, content-driven
+
+   ### **Panel Types**
+   - **Splash:** Full-page single panel
+   - **Inset:** Small panel overlaid on larger panel
+   - **Borderless:** Panel with no frame (image bleeds)
+   - **Widescreen:** Horizontal letterbox format
+   - **Silhouette:** Character in solid black against light background
+
+   ### **Reading Flow Terms**
+   - **Z-Path:** Natural reading pattern (top-left → top-right → bottom-left → bottom-right)
+   - **Line of Action:** Invisible line through focal points guiding the eye
+   - **Gestalt Hinge:** Visual similarity creating implied vertical connection
+   - **Break:** Panel break (gutter) = time passing
+
+   ---
+
    ## **Format Considerations (2025)**
 
    **Print Comics:** Fixed page size, standard gutters, single/double-page spreads
@@ -527,6 +746,53 @@ Examples:
    - No fixed panel count
 
    **Hybrid:** Design for print first, optimize for digital
+
+   ---
+
+   ## **Double-Page Spreads (Epic Storytelling)**
+
+   **Concept:** Two facing pages designed as single visual unit.
+
+   **When to Use:**
+   - Epic landscape reveals
+   - Massive battles
+   - Climactic moments
+   - Chapter openings
+   - Establishing scope and scale
+
+   **Design Principles:**
+
+   **1. Continuous Line of Action:**
+   - Line of action must cross center gutter (spine)
+   - Focal points should guide eye seamlessly across pages
+   - Avoid placing key elements in gutter (may be lost in binding)
+
+   **2. Gutter Crossing:**
+   - Some panels should span across both pages
+   - Continuous background elements bridge the gap
+   - Character action or movement crosses center
+
+   **3. Panel Layout Options:**
+   - **Option A:** Single large image spanning both pages (no internal panels)
+   - **Option B:** 6-8 panels arranged across both pages with flow crossing gutter
+   - **Option C:** Irregular layout designed as unified composition
+
+   **Technical Considerations:**
+   - Center gutter may lose ~1cm of image in binding
+   - Avoid faces/text in center gutter
+   - Test layout by folding paper to simulate binding
+
+   **Spec Format:**
+   - "Pages 4-5: Double-page spread, 6 panels arranged with line of action crossing center gutter, continuous background showing epic battlefield"
+
+   **Example:**
+   ```
+   Page 5-6: Double-Page Spread
+   Layout: 6 panels across 2 pages (3 per page, but designed as unit)
+   Line of Action: Panel 1 (page 5 left) → Panel 2 (page 5 right) → Panel 3 (crosses gutter to page 6)
+   Description: "Epic space station reveal - panels show escalating scale,
+   with continuous station structure crossing center gutter"
+   ```
 
    ---
 
@@ -602,11 +868,14 @@ User approved the spec. Generate images in TWO phases:
    - Extract ALL character descriptions
 
 2. **Generate Character Reference Sheets**
-   - For EACH character, call generate_comic_panel:
+   - ⚠️ **IMPORTANT:** Generate ONE reference sheet per UNIQUE character
+   - Extract the PRIMARY/FULL-BODY description for each character
+   - For each UNIQUE character, call generate_comic_panel:
      * panel_type="character_reference"
      * session_id="{session_id}"
      * character_names=[character_name]
-     * prompt=[character's visual prompt from spec]
+     * prompt=[character's PRIMARY visual description - full body, main appearance]
+   - ⚠️ **DO NOT** generate multiple references per character (e.g., face close-up, alternate forms)
    - These references will be used for ALL story panels
    - Progress: "[1/3] Generating character reference: [Character Name]..."
 
@@ -759,6 +1028,10 @@ User approved the spec. Generate images in TWO phases:
        - "Half-page splash" → Add panel_note="HALF-PAGE SPLASH: This panel spans full width and occupies 50% of page height"
        - "Large panel spanning width" → Add panel_note="LARGE WIDE PANEL: This panel is larger than standard and spans full width"
        - "Standard panel" → No special note needed
+     * **CRITICAL: Extract FULL layout template name from spec:**
+       - Copy the EXACT layout template name from the spec's "Layout Template:" field
+       - Examples: "Watchmen Flexible 3x3", "Spider-Man Alternating Rows", "Action Comics 4x2 Strict", "Avengers Open/Irregular"
+       - DO NOT simplify to just "NxM" - include the full template name
      * Call generate_comic_page:
        - session_id="{session_id}"
        - page_number=[page number]
@@ -771,7 +1044,7 @@ User approved the spec. Generate images in TWO phases:
          - dialogue: [dialogue text if any]
          - visual_details: [composition, lighting, mood from spec]
          - **panel_note: [Special dimension instructions if panel is splash/wide/half-page, otherwise omit]**
-       - layout: [grid pattern, e.g., "2x3", "1x1", "3x2"]
+       - layout: [FULL layout template name from spec, e.g., "Watchmen Flexible 3x3", "Spider-Man Alternating Rows", "Action Comics 4x2 Strict", "Avengers Open/Irregular"]
        - page_size: "2048x2730" (standard comic book portrait)
        - margin: 20
        - **VISUAL STYLE ENHANCEMENT PARAMETERS:**

@@ -180,8 +180,33 @@ class GenerateComicPageTool(BaseTool):
         super().__init__(**data)
 
     def _parse_layout(self, layout: str) -> tuple:
-        """Parse layout string like '2x3' to (cols, rows)."""
-        parts = layout.lower().split('x')
+        """Parse layout string to (cols, rows).
+
+        Handles both simple grid format ("2x3") and full template names
+        ("Watchmen Flexible 3x3", "Spider-Man Alternating Rows").
+        """
+        layout_lower = layout.lower()
+
+        # Extract grid dimensions from full template names
+        if "3x3" in layout_lower:
+            return (3, 3)
+        elif "4x2" in layout_lower:
+            return (4, 2)
+        elif "3x2" in layout_lower or "2x3" in layout_lower:
+            # Check for explicit 3x2 or 2x3
+            if "3x2" in layout_lower:
+                return (3, 2)
+            elif "2x3" in layout_lower:
+                return (2, 3)
+            # Default for alternating rows
+            return (3, 2)
+        elif "2x2" in layout_lower:
+            return (2, 2)
+        elif "1x1" in layout_lower or "full page" in layout_lower or "splash" in layout_lower:
+            return (1, 1)
+
+        # Fall back to simple "NxM" parsing
+        parts = layout_lower.split('x')
         if len(parts) != 2:
             return (2, 3)  # Default
         try:
@@ -342,11 +367,27 @@ class GenerateComicPageTool(BaseTool):
 
         # ===== PAGE LAYOUT =====
         prompt_parts.append(f"=== PAGE {page_number} ===")
-        prompt_parts.append(f"Layout: {layout}")
+        prompt_parts.append(f"Layout Template: {layout}")
+        prompt_parts.append(f"Panel Count: {len(panels)}")
+
+        # Add layout description based on template name
+        if "flexible 3x3" in layout.lower() or "watchmen" in layout.lower():
+            prompt_parts.append("Layout Description: 9-panel base grid with selective panel merging (ghost grid alignment visible)")
+        elif "alternating" in layout.lower() or "spider-man" in layout.lower():
+            prompt_parts.append("Layout Description: Alternating row pattern (3-2-3 or 2-3-2) for breathing rhythm and visual pacing")
+        elif "4x2 strict" in layout.lower() or "action comics" in layout.lower():
+            prompt_parts.append("Layout Description: 8 uniform panels in strict 4x2 grid (staccato pacing, no emphasis)")
+        elif "irregular" in layout.lower() or "avengers" in layout.lower():
+            prompt_parts.append("Layout Description: Content-driven irregular layout with varying panel sizes")
+        elif "splash" in layout.lower():
+            prompt_parts.append("Layout Description: Full-page or large splash panels with minimal gutters")
+        elif "widescreen" in layout.lower() or "epilogue" in layout.lower():
+            prompt_parts.append("Layout Description: Widescreen panels with horizontal letterbox format for cinematic scope")
+
         if transition_type:
-            prompt_parts.append(f"Transition: {transition_type}")
+            prompt_parts.append(f"Transition Type: {transition_type}")
         if gutter_type:
-            prompt_parts.append(f"Gutter: {gutter_type}")
+            prompt_parts.append(f"Gutter Type: {gutter_type}")
         if layout_system:
             prompt_parts.append(f"Layout System: {layout_system}")
         if special_techniques:
@@ -355,13 +396,14 @@ class GenerateComicPageTool(BaseTool):
 
         # ===== PANELS =====
         prompt_parts.extend([
-            f"Create a comic book page {page_number} with {len(panels)} panels arranged in a {cols}x{rows} grid layout ({cols} columns, {rows} rows).",
+            f"Create a comic book page {page_number} with {len(panels)} panels.",
+            f"Layout: {layout} ({cols} columns, {rows} rows).",
             "",
             "CRITICAL REQUIREMENTS:",
             "- Comic book style with clear panel borders/gutters between each panel",
             "- Professional comic book layout with consistent spacing",
             "- Each panel should be clearly separated and distinct",
-            f"- Total of {len(panels)} panels in a grid arrangement",
+            f"- Total of {len(panels)} panels in a {layout} arrangement",
             "",
             "PANELS (in reading order, left to right, top to bottom):",
             ""
