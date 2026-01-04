@@ -174,6 +174,95 @@ class MockTool:
             return ToolResult(error="Failed")
 
 
+class TestSandboxedToolRegistry:
+    """Tests for SandboxedToolRegistry isolation (SECURITY CRITICAL)."""
+
+    @pytest.fixture
+    def temp_workspace(self):
+        """Create a temporary workspace."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir)
+
+    @pytest.fixture
+    def mock_workspace_manager(self, temp_workspace):
+        """Create a mock workspace manager."""
+        return WorkspaceManager(base_path=str(temp_workspace))
+
+    def test_registry_is_not_singleton(self):
+        """Test that SandboxedToolRegistry is NOT a singleton.
+
+        SECURITY: Each session must have isolated tools to prevent
+        one session from accessing another's sandbox.
+        """
+        from src.web_backend.services.sandboxed_tool import SandboxedToolRegistry
+
+        reg1 = SandboxedToolRegistry()
+        reg2 = SandboxedToolRegistry()
+
+        # They should be different instances
+        assert reg1 is not reg2
+
+    def test_toolkit_creates_isolated_registry(self, temp_workspace, mock_workspace_manager):
+        """Test that each toolkit has its own isolated registry.
+
+        SECURITY: Sessions must have completely isolated tool registries.
+        """
+        context1 = WebExecutionContext(
+            session_id="session1",
+            user_id="user1",
+            workspace_path=temp_workspace / "workspace1",
+            workspace_manager=mock_workspace_manager,
+            sandbox_mode=SandboxMode.STRICT,
+        )
+        context2 = WebExecutionContext(
+            session_id="session2",
+            user_id="user2",
+            workspace_path=temp_workspace / "workspace2",
+            workspace_manager=mock_workspace_manager,
+            sandbox_mode=SandboxMode.STRICT,
+        )
+
+        # Create mock tools
+        mock_tool = MagicMock()
+        mock_tool.name = "read"
+
+        # Create two toolkits
+        toolkit1 = SandboxedToolkit([mock_tool], context1)
+        toolkit2 = SandboxedToolkit([mock_tool], context2)
+
+        # Their registries should be different
+        assert toolkit1.get_registry() is not toolkit2.get_registry()
+
+    def test_toolkit_registry_returns_sandboxed_tools(self, temp_workspace, mock_workspace_manager):
+        """Test that toolkit's registry returns sandboxed (not original) tools.
+
+        SECURITY: RuntimeExecutor must get sandboxed tools from registry,
+        not the original unsandboxed tools.
+        """
+        context = WebExecutionContext(
+            session_id="test",
+            user_id="user",
+            workspace_path=temp_workspace,
+            workspace_manager=mock_workspace_manager,
+            sandbox_mode=SandboxMode.STRICT,
+        )
+
+        # Create a mock tool
+        mock_tool = MagicMock()
+        mock_tool.name = "read"
+
+        # Create toolkit
+        toolkit = SandboxedToolkit([mock_tool], context)
+        registry = toolkit.get_registry()
+
+        # Get tool from registry
+        retrieved_tool = registry.get("read")
+
+        # It should be a SandboxedToolWrapper, not the original
+        assert retrieved_tool is not mock_tool
+        assert isinstance(retrieved_tool, SandboxedToolWrapper)
+
+
 class TestSandboxedToolWrapper:
     """Tests for SandboxedToolWrapper class."""
 

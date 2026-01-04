@@ -7,6 +7,7 @@ based on security policies.
 """
 
 import logging
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 from agent_framework.runtime.base import ToolRuntime
@@ -234,7 +235,7 @@ class RuntimeManager:
     def get_runtime_stats(self) -> Dict[str, Any]:
         """
         Get statistics about registered runtimes.
-        
+
         Returns:
             Dictionary with runtime statistics
         """
@@ -244,3 +245,39 @@ class RuntimeManager:
             'default_runtime': self.security_policy.default_runtime,
             'last_runtime_used': self.last_runtime_used,
         }
+
+    def create_session_manager(
+        self,
+        session_id: str,
+        workspace_path: Path,
+        storage_quota: Optional["StorageQuota"] = None,
+        audit_trail: Optional["AuditTrail"] = None,
+        sandbox_mode: str = "strict",
+    ) -> "SessionRuntimeManager":
+        """
+        Create a session-scoped runtime manager.
+
+        The session manager has its own SandboxRuntime (with workspace)
+        but delegates to this RuntimeManager for shared runtimes.
+
+        Args:
+            session_id: Session identifier
+            workspace_path: Session workspace directory (must exist)
+            storage_quota: Optional storage quota enforcement
+            audit_trail: Optional audit logging
+            sandbox_mode: Sandbox enforcement level (strict, permissive, disabled)
+
+        Returns:
+            SessionRuntimeManager for this session
+        """
+        # Import here to avoid circular dependency
+        from .session_manager import SessionRuntimeManager
+
+        return SessionRuntimeManager(
+            session_id=session_id,
+            workspace_path=workspace_path,
+            global_manager=self,
+            storage_quota=storage_quota,
+            audit_trail=audit_trail,
+            sandbox_mode=sandbox_mode,
+        )

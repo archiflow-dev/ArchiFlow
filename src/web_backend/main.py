@@ -13,8 +13,16 @@ import sys
 
 from .config import settings
 from .database.connection import init_db, close_db
-from .routes import sessions, agents, artifacts, workflow, messages
+from .routes import sessions, agents, artifacts, workflow, messages, agent_execution
 from .websocket.server import sio
+from .services import (
+    get_workspace_manager,
+    get_storage_manager,
+    get_audit_logger,
+    init_web_agent_factory,
+    get_runner_pool,
+    SandboxMode,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -45,12 +53,33 @@ async def lifespan(app: FastAPI):
     Path(settings.WORKSPACE_BASE_DIR).mkdir(parents=True, exist_ok=True)
     Path("./data").mkdir(parents=True, exist_ok=True)
 
+    # Initialize services
+    workspace_manager = get_workspace_manager()
+    storage_manager = get_storage_manager()
+    audit_logger = get_audit_logger()
+
+    # Initialize WebAgentFactory
+    sandbox_mode = SandboxMode.STRICT if not settings.DEBUG else SandboxMode.PERMISSIVE
+    init_web_agent_factory(
+        workspace_manager=workspace_manager,
+        storage_manager=storage_manager,
+        audit_logger=audit_logger,
+        sandbox_mode=sandbox_mode,
+    )
+    logger.info(f"WebAgentFactory initialized with sandbox_mode={sandbox_mode.value}")
+
     logger.info("Application startup complete")
 
     yield
 
     # Shutdown
     logger.info("Shutting down application...")
+
+    # Stop all running agents
+    runner_pool = get_runner_pool()
+    await runner_pool.stop_all()
+    logger.info("All agent runners stopped")
+
     await close_db()
     logger.info("Application shutdown complete")
 
@@ -135,6 +164,12 @@ app.include_router(
     messages.router,
     prefix=f"{settings.API_PREFIX}/sessions/{{session_id}}/messages",
     tags=["messages"]
+)
+
+app.include_router(
+    agent_execution.router,
+    prefix=f"{settings.API_PREFIX}/sessions",
+    tags=["agent-execution"]
 )
 
 

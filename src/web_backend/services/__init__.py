@@ -43,6 +43,7 @@ from .web_context import (
 from .sandboxed_tool import (
     SandboxedToolWrapper,
     SandboxedToolkit,
+    SandboxedToolRegistry,
     SandboxViolationError,
 )
 from .audit_logger import (
@@ -51,6 +52,25 @@ from .audit_logger import (
     AuditEventType,
     AuditSeverity,
     get_audit_logger,
+)
+from .web_agent_factory import (
+    WebAgentFactory,
+    get_web_agent_factory,
+    init_web_agent_factory,
+)
+from .agent_runner import (
+    WebAgentRunner,
+    AgentRunnerPool,
+    AgentExecutionError,
+    get_runner_pool,
+)
+from .web_session_broker import (
+    WebSessionBroker,
+    WebSessionBrokerError,
+)
+from .agent_session_manager import (
+    AgentSessionManager,
+    get_agent_session_manager,
 )
 
 __all__ = [
@@ -88,6 +108,7 @@ __all__ = [
     # Sandboxed Tools
     "SandboxedToolWrapper",
     "SandboxedToolkit",
+    "SandboxedToolRegistry",
     "SandboxViolationError",
     # Audit
     "AuditLogger",
@@ -95,4 +116,19 @@ __all__ = [
     "AuditEventType",
     "AuditSeverity",
     "get_audit_logger",
+    # Agent Factory
+    "WebAgentFactory",
+    "get_web_agent_factory",
+    "init_web_agent_factory",
+    # Agent Runner
+    "WebAgentRunner",
+    "AgentRunnerPool",
+    "AgentExecutionError",
+    "get_runner_pool",
+    # Session Broker
+    "WebSessionBroker",
+    "WebSessionBrokerError",
+    # Agent Session Manager
+    "AgentSessionManager",
+    "get_agent_session_manager",
 ]

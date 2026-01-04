@@ -277,6 +277,45 @@ class SandboxedToolWrapper:
         }
 
 
+class SandboxedToolRegistry:
+    """
+    A non-singleton tool registry for sandboxed sessions.
+
+    Unlike the global ToolRegistry (singleton), this creates a
+    per-session registry that holds only sandboxed tools.
+    This ensures RuntimeExecutor uses sandboxed versions.
+    """
+
+    def __init__(self):
+        """Initialize empty registry."""
+        self.tools: Dict[str, SandboxedToolWrapper] = {}
+
+    def register(self, tool: SandboxedToolWrapper) -> None:
+        """Register a sandboxed tool."""
+        self.tools[tool.name] = tool
+
+    def get(self, name: str) -> Optional[SandboxedToolWrapper]:
+        """Get a tool by name."""
+        return self.tools.get(name)
+
+    def list_tools(self) -> list:
+        """Get all registered tools."""
+        return list(self.tools.values())
+
+    def to_llm_schema(self, tool_names: Optional[list] = None) -> list:
+        """Convert tools to LLM-compatible schema."""
+        if tool_names is None:
+            tools_to_convert = self.tools.values()
+        else:
+            tools_to_convert = [self.tools[name] for name in tool_names if name in self.tools]
+
+        return [tool.to_llm_schema() for tool in tools_to_convert]
+
+    def clear(self) -> None:
+        """Clear all tools."""
+        self.tools = {}
+
+
 class SandboxedToolkit:
     """
     A collection of sandboxed tools for a session.
@@ -298,9 +337,12 @@ class SandboxedToolkit:
         """
         self.context = context
         self._tools: Dict[str, SandboxedToolWrapper] = {}
+        self._registry = SandboxedToolRegistry()
 
         for tool in tools:
-            self._tools[tool.name] = SandboxedToolWrapper(tool, context)
+            wrapped = SandboxedToolWrapper(tool, context)
+            self._tools[tool.name] = wrapped
+            self._registry.register(wrapped)
 
     def get(self, name: str) -> Optional[SandboxedToolWrapper]:
         """Get a sandboxed tool by name."""
@@ -313,6 +355,10 @@ class SandboxedToolkit:
     def get_all(self) -> list[SandboxedToolWrapper]:
         """Get all sandboxed tools."""
         return list(self._tools.values())
+
+    def get_registry(self) -> SandboxedToolRegistry:
+        """Get the sandboxed tool registry for RuntimeExecutor."""
+        return self._registry
 
     async def execute(self, tool_name: str, **kwargs) -> ToolResult:
         """
