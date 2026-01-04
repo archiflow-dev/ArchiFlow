@@ -2,19 +2,40 @@
 Web Agent Factory for ArchiFlow Web Backend.
 
 Creates agents with sandboxed tools for secure web execution.
-This implements Option C: Handle tool wrapping at agent creation time.
+
+This module uses the framework's SessionRuntimeManager for sandboxing:
+- Framework-level path validation, command validation, quota enforcement
+- Cleaner separation of concerns
+- Better reusability across all interfaces (web, CLI, future APIs)
+
+Architecture:
+    - Uses agent_framework.runtime.SessionRuntimeManager
+    - Framework-level validation and enforcement
+    - Web backend provides adapters (WebStorageQuota, WebAuditTrail) for integration
+
+Usage:
+    factory = WebAgentFactory(
+        workspace_manager=workspace_manager,
+        storage_manager=storage_manager,
+        audit_logger=audit_logger,
+    )
+
+    agent = await factory.create_agent(
+        agent_type="coding",
+        session_id="session_123",
+        user_id="user_456",
+    )
 """
 
 from typing import Optional, List, Dict, Any, TYPE_CHECKING
 from pathlib import Path
 import logging
-import copy
 
-from agent_framework.tools.tool_base import BaseTool, ToolResult
 from agent_framework.runtime.context import ExecutionContext
+from agent_framework.runtime.manager import RuntimeManager
+from agent_framework.runtime.local import LocalRuntime
 
 from .web_context import WebExecutionContext, SandboxMode
-from .sandboxed_tool import SandboxedToolWrapper, SandboxedToolkit
 from .workspace_manager import WorkspaceManager
 from .storage_manager import StorageManager
 from .audit_logger import AuditLogger
@@ -27,26 +48,30 @@ logger = logging.getLogger(__name__)
 
 class WebAgentFactory:
     """
-    Factory for creating agents with sandbox-wrapped tools.
+    Factory for creating agents with sandboxed tools.
 
     This factory creates agents configured for secure web execution:
-    - All file tools are wrapped with SandboxedToolWrapper
+    - All file tools are sandboxed at framework level
     - Paths are validated against the session workspace
     - Storage quotas are enforced
     - All operations are audit logged
+
+    Architecture:
+        Uses agent_framework.runtime.SessionRuntimeManager for sandboxing.
+        The framework handles path validation, command validation, and quota
+        enforcement. Web backend provides adapters for storage and audit.
 
     Usage:
         factory = WebAgentFactory(
             workspace_manager=workspace_manager,
             storage_manager=storage_manager,
-            audit_logger=audit_logger
+            audit_logger=audit_logger,
         )
 
         agent = await factory.create_agent(
             agent_type="coding",
             session_id="session_123",
             user_id="user_456",
-            user_prompt="Build a web app"
         )
     """
 
@@ -70,6 +95,15 @@ class WebAgentFactory:
         self.storage_manager = storage_manager
         self.audit_logger = audit_logger
         self.sandbox_mode = sandbox_mode
+
+        # Create global runtime manager
+        self._runtime_manager = RuntimeManager()
+        self._runtime_manager.register_runtime("local", LocalRuntime())
+
+        logger.info(
+            f"WebAgentFactory initialized: sandbox_mode={sandbox_mode.value}, "
+            f"architecture=FRAMEWORK (SessionRuntimeManager)"
+        )
 
     def create_execution_context(
         self,
@@ -118,22 +152,79 @@ class WebAgentFactory:
             }
         )
 
-    def wrap_tools(
+    async def _setup_agent_sandbox(
         self,
-        tools: List[BaseTool],
-        context: WebExecutionContext
-    ) -> SandboxedToolkit:
+        agent: "BaseAgent",
+        context: WebExecutionContext,
+    ) -> None:
         """
-        Wrap a list of tools with sandbox enforcement.
+        Setup agent with framework SessionRuntimeManager.
+
+        This creates a SessionRuntimeManager that:
+        - Wraps file tools with path validation and quota enforcement
+        - Delegates non-file tools to the global RuntimeManager
+        - Uses web backend's storage/audit via adapters
 
         Args:
-            tools: List of tools to wrap
-            context: Execution context for sandbox configuration
-
-        Returns:
-            SandboxedToolkit containing wrapped tools
+            agent: The agent to configure
+            context: Execution context
         """
-        return SandboxedToolkit(tools, context)
+        from ..adapters import WebStorageQuota, WebAuditTrail
+        from agent_framework.runtime.session_manager import SessionRuntimeManager
+        from agent_framework.runtime.sandbox import SandboxMode as FrameworkSandboxMode
+
+        # Map sandbox mode
+        mode_map = {
+            SandboxMode.DISABLED: FrameworkSandboxMode.DISABLED,
+            SandboxMode.PERMISSIVE: FrameworkSandboxMode.PERMISSIVE,
+            SandboxMode.STRICT: FrameworkSandboxMode.STRICT,
+        }
+        framework_mode = mode_map.get(self.sandbox_mode, FrameworkSandboxMode.STRICT)
+
+        # Create storage quota adapter
+        storage_quota = None
+        if self.storage_manager:
+            storage_quota = WebStorageQuota(
+                user_id=context.user_id,
+                session_id=context.session_id,
+                storage_manager=self.storage_manager,
+            )
+
+        # Create audit trail adapter
+        audit_trail = None
+        if self.audit_logger:
+            audit_trail = WebAuditTrail(
+                user_id=context.user_id,
+                session_id=context.session_id,
+                audit_logger=self.audit_logger,
+            )
+
+        # Create session runtime manager
+        session_manager = self._runtime_manager.create_session_manager(
+            session_id=context.session_id,
+            workspace_path=context.workspace_path,
+            storage_quota=storage_quota,
+            audit_trail=audit_trail,
+            sandbox_mode=framework_mode,
+        )
+
+        # Store on agent for use during execution
+        agent._session_runtime_manager = session_manager
+
+        # Configure agent's tools to use the session manager
+        # The SessionRuntimeManager intercepts tool.execute() calls
+        # for file tools and applies sandbox validation
+        if hasattr(agent, 'tools') and agent.tools:
+            for tool in agent.tools:
+                # Inject session manager into tools that support it
+                if hasattr(tool, '_session_runtime_manager'):
+                    tool._session_runtime_manager = session_manager
+
+        logger.info(
+            f"Configured agent with framework SessionRuntimeManager "
+            f"(mode={framework_mode}, quota={storage_quota is not None}, "
+            f"audit={audit_trail is not None})"
+        )
 
     async def create_agent(
         self,
@@ -184,6 +275,7 @@ class WebAgentFactory:
                     "agent_type": agent_type,
                     "workspace": str(workspace_path),
                     "sandbox_mode": self.sandbox_mode.value,
+                    "architecture": "framework",
                 }
             )
 
@@ -193,7 +285,6 @@ class WebAgentFactory:
             llm_provider = create_llm_provider()
 
         # Create the base agent using CLI factory
-        # Note: We pass workspace as project_directory for agents that need it
         agent = cli_create_agent(
             agent_type=agent_type,
             session_id=session_id,
@@ -202,32 +293,8 @@ class WebAgentFactory:
             **kwargs
         )
 
-        # Set execution context on all tools
-        if hasattr(agent, 'tools') and agent.tools:
-            # Wrap tools with sandbox
-            toolkit = self.wrap_tools(agent.tools, context)
-
-            # Replace agent's tools with sandboxed versions
-            sandboxed_tools = toolkit.get_all()
-
-            # Store original tools for reference
-            agent._original_tools = agent.tools
-
-            # Replace with sandboxed tools (maintain same list reference if possible)
-            agent.tools = sandboxed_tools
-
-            # CRITICAL: Also update tool_registry to use sandboxed tools
-            # The RuntimeExecutor uses tool_registry.get() to find tools,
-            # so we must ensure it returns sandboxed versions
-            # We use the toolkit's non-singleton registry instead of the
-            # global ToolRegistry to ensure per-session isolation
-            if hasattr(agent, 'tool_registry'):
-                agent.tool_registry = toolkit.get_registry()
-
-            logger.info(
-                f"Created {agent_type} agent with {len(sandboxed_tools)} sandboxed tools "
-                f"for session {session_id}"
-            )
+        # Setup sandbox with framework SessionRuntimeManager
+        await self._setup_agent_sandbox(agent, context)
 
         # Store context on agent for reference
         agent._web_context = context
@@ -308,6 +375,8 @@ def init_web_agent_factory(
         sandbox_mode=sandbox_mode,
     )
 
-    logger.info(f"WebAgentFactory initialized with sandbox_mode={sandbox_mode.value}")
+    logger.info(
+        f"WebAgentFactory global instance initialized: sandbox_mode={sandbox_mode.value}"
+    )
 
     return _factory_instance

@@ -1,5 +1,20 @@
 """
 Service layer for ArchiFlow Web Backend.
+
+Phase 4 Notes:
+    - Framework sandbox architecture (SessionRuntimeManager) is now the ONLY architecture
+    - Legacy architecture (SandboxedToolWrapper) has been removed
+    - Adapters (WebStorageQuota, WebAuditTrail) bridge web components to framework
+    - WebAgentFactory is simplified with only framework code path
+    - Feature flag USE_FRAMEWORK_SANDBOX has been removed
+
+Architecture:
+    The web backend now exclusively uses agent_framework's SessionRuntimeManager
+    for all sandbox operations. This provides:
+    - Centralized security policy management
+    - Better performance (no tool wrapping overhead)
+    - Reusability across all interfaces
+    - Easier testing and maintenance
 """
 
 from .session_service import SessionService
@@ -132,3 +147,4 @@ __all__ = [
     "AgentSessionManager",
     "get_agent_session_manager",
 ]
+
