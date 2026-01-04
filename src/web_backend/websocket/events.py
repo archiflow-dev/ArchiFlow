@@ -59,7 +59,7 @@ class WebSocketEvent(BaseModel):
 
     type: EventType = Field(..., description="Event type")
     session_id: Optional[str] = Field(None, description="Associated session ID")
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC))
     payload: Dict[str, Any] = Field(default_factory=dict)
 
     model_config = {
@@ -135,6 +135,6 @@ def create_event(
     return {
         "type": event_type.value,
         "session_id": session_id,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(datetime.UTC).isoformat(),
         "payload": payload,
     }

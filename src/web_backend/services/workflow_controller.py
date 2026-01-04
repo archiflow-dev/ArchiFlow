@@ -5,7 +5,7 @@ Manages workflow state and phase transitions for agent sessions.
 """
 
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 import logging
 import json
@@ -254,7 +254,7 @@ class WorkflowController:
                 }
                 for p in self.phases
             ],
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         with open(state_file, 'w') as f:
@@ -307,7 +307,7 @@ class WorkflowController:
         if self.phases:
             first_phase = self.phases[0]
             first_phase.status = PhaseStatus.IN_PROGRESS
-            first_phase.started_at = datetime.utcnow().isoformat()
+            first_phase.started_at = datetime.now(timezone.utc).isoformat()
             self.current_phase_id = first_phase.id
             self._save_state()
 
@@ -345,13 +345,13 @@ class WorkflowController:
 
         # Update phase status
         phase.status = PhaseStatus.APPROVED
-        phase.completed_at = datetime.utcnow().isoformat()
+        phase.completed_at = datetime.now(timezone.utc).isoformat()
 
         # Advance to next phase
         next_phase = self._get_next_phase(phase_id)
         if next_phase:
             next_phase.status = PhaseStatus.IN_PROGRESS
-            next_phase.started_at = datetime.utcnow().isoformat()
+            next_phase.started_at = datetime.now(timezone.utc).isoformat()
             self.current_phase_id = next_phase.id
         else:
             self.current_phase_id = None
@@ -404,13 +404,13 @@ class WorkflowController:
             raise ValueError(f"Phase {phase_id} not found")
 
         phase.status = PhaseStatus.COMPLETED
-        phase.completed_at = datetime.utcnow().isoformat()
+        phase.completed_at = datetime.now(timezone.utc).isoformat()
 
         # Advance to next phase
         next_phase = self._get_next_phase(phase_id)
         if next_phase:
             next_phase.status = PhaseStatus.IN_PROGRESS
-            next_phase.started_at = datetime.utcnow().isoformat()
+            next_phase.started_at = datetime.now(timezone.utc).isoformat()
             self.current_phase_id = next_phase.id
         else:
             self.current_phase_id = None
