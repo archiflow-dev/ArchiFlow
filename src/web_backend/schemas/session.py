@@ -29,10 +29,9 @@ class SessionCreate(BaseModel):
         max_length=64,
         description="Type of agent to run (e.g., 'comic', 'ppt', 'coding')"
     )
-    user_prompt: str = Field(
-        ...,
-        min_length=1,
-        description="Initial prompt/request for the agent"
+    user_prompt: Optional[str] = Field(
+        None,
+        description="Initial prompt/request for the agent (optional - can send first message via chat)"
     )
     project_directory: Optional[str] = Field(
         None,
@@ -84,7 +83,7 @@ class SessionResponse(BaseModel):
 
     id: str = Field(..., description="Unique session identifier")
     agent_type: str = Field(..., description="Type of agent")
-    user_prompt: str = Field(..., description="Initial user prompt")
+    user_prompt: Optional[str] = Field(None, description="Initial user prompt (if provided)")
     project_directory: Optional[str] = Field(None, description="Working directory")
     status: SessionStatusEnum = Field(..., description="Current session status")
     workflow_state: Optional[Dict[str, Any]] = Field(

@@ -196,8 +196,11 @@ class AgentController:
 
     def _handle_tool_calls(self, message: ToolCallMessage):
         """Execute tools via RuntimeExecutor (Batch)."""
-        logger.info(f"Executing {len(message.tool_calls)} tool calls")
-        
+        logger.info(f"🔧 Executing {len(message.tool_calls)} tool calls")
+        # Log each tool call
+        for tool_call in message.tool_calls:
+            logger.debug(f"  Tool: {tool_call.tool_name}, Args: {tool_call.arguments}")
+
         # Publish AgentThought message if there's thinking content
         if message.thought and message.thought.strip():
             self.broker.publish(self.context.client_topic, {
@@ -206,6 +209,7 @@ class AgentController:
                 "sequence": message.sequence,
                 "content": message.thought
             })
+            logger.debug(f"💭 Published AgentThought to client_topic: {message.thought[:100]}...")
         
         from .runtime.messages import ToolCallRequest, BatchToolCallRequest
         from .runtime.context import ExecutionContext
@@ -253,13 +257,15 @@ class AgentController:
                         break
                 
                 # Publish ToolCall event to client topic for CLI feedback
-                self.broker.publish(self.context.client_topic, {
+                tool_call_event = {
                     "type": "ToolCall",
                     "tool_name": tool_call.tool_name,
                     "session_id": message.session_id,
                     "content": f"Executing {tool_call.tool_name}{details}...",
                     "arguments": params  # Pass full arguments for renderer
-                })
+                }
+                self.broker.publish(self.context.client_topic, tool_call_event)
+                logger.debug(f"📡 Published ToolCall event to client_topic: {tool_call.tool_name}")
 
                 # Create individual request
                 # We don't publish it yet, just add to list
@@ -293,22 +299,26 @@ class AgentController:
         Handle a direct text response from the LLM (no tool calls).
         This usually means the agent is talking to the user.
         """
-        logger.info(f"Handling LLM response: {message.content[:50]}...")
-        
+        logger.info(f"💬 Handling LLM response: {message.content[:50]}...")
+
         # 1. Publish the content as an AssistantMessage for the UI to render
-        self.broker.publish(self.context.client_topic, {
+        assistant_msg = {
             "type": "AssistantMessage",
             "session_id": message.session_id,
             "content": message.content,
             "sequence": message.sequence
-        })
+        }
+        self.broker.publish(self.context.client_topic, assistant_msg)
+        logger.debug(f"📡 Published AssistantMessage to client_topic (len={len(message.content)})")
 
         # 2. Signal that we are waiting for user input
         # This unblocks the CLI input loop
-        self.broker.publish(self.context.client_topic, {
+        wait_msg = {
             "type": "WAIT_FOR_USER_INPUT",
             "session_id": message.session_id,
             "sequence": message.sequence
-        })
+        }
+        self.broker.publish(self.context.client_topic, wait_msg)
+        logger.debug(f"📡 Published WAIT_FOR_USER_INPUT to client_topic")
 
 

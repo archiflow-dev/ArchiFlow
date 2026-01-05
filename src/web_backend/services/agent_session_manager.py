@@ -83,7 +83,7 @@ class AgentSessionManager:
         self,
         agent_type: str,
         user_id: str,
-        user_prompt: str,
+        user_prompt: Optional[str] = None,
         project_directory: Optional[str] = None,
         auto_start: bool = False,
     ) -> "Session":
@@ -93,7 +93,7 @@ class AgentSessionManager:
         Args:
             agent_type: Type of agent (coding, comic, ppt, etc.)
             user_id: User identifier
-            user_prompt: Initial prompt
+            user_prompt: Optional initial prompt (can be None - waits for first chat message)
             project_directory: Ignored for web (workspace used instead)
             auto_start: Whether to start the agent immediately
 
@@ -177,12 +177,17 @@ class AgentSessionManager:
         # Add to pool
         await self.runner_pool.add(runner)
 
-        # Start agent
+        # Start agent only if we have an initial prompt
+        # Otherwise, just create the runner and wait for first message via chat
         prompt = initial_prompt or session.user_prompt
-        await runner.start(prompt)
-
-        # Update session status
-        await self.session_service.update_status(session_id, SessionStatus.RUNNING)
+        if prompt:
+            await runner.start(prompt)
+            # Update session status to RUNNING
+            await self.session_service.update_status(session_id, SessionStatus.RUNNING)
+        else:
+            # No initial prompt - session is ready but waiting for first message
+            logger.info(f"Session {session_id} created without initial prompt - waiting for first chat message")
+            # Status remains CREATED until first message arrives
 
         return runner
 
@@ -239,21 +244,29 @@ class AgentSessionManager:
         """
         Send a message to a running agent.
 
+        If the runner exists but hasn't been started yet (no initial prompt),
+        this will start the agent with the message as the first prompt.
+
         Args:
             session_id: Session ID
             content: Message content
 
         Raises:
-            AgentExecutionError: If session not running
+            AgentExecutionError: If session not active
         """
         runner = await self.runner_pool.get(session_id)
         if not runner:
             raise AgentExecutionError(f"Session {session_id} is not active")
 
+        # If runner exists but hasn't been started yet, start it with this message
         if not runner.is_running:
-            raise AgentExecutionError(f"Session {session_id} is not running")
-
-        await runner.send_message(content)
+            logger.info(f"Starting session {session_id} with first message from chat")
+            await runner.start(content)
+            # Update session status to RUNNING
+            await self.session_service.update_status(session_id, SessionStatus.RUNNING)
+        else:
+            # Runner already running - just send the message
+            await runner.send_message(content)
 
     async def pause_session(self, session_id: str) -> None:
         """Pause a running session."""

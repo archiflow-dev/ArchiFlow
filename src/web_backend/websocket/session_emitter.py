@@ -87,6 +87,7 @@ class SessionEmitter:
                 )
 
             logger.debug(f"Emitted {event_type} event for session {self.session_id}")
+            logger.debug(f"  Event payload: {event}")
 
         except Exception as e:
             logger.error(f"Error emitting event: {e}", exc_info=True)

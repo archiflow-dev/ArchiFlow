@@ -25,7 +25,7 @@ class SessionService:
     async def create(
         self,
         agent_type: str,
-        user_prompt: str,
+        user_prompt: Optional[str] = None,
         project_directory: Optional[str] = None,
         user_id: str = "default_user",
     ) -> Session:
@@ -34,7 +34,7 @@ class SessionService:
 
         Args:
             agent_type: Type of agent to run
-            user_prompt: Initial prompt for the agent
+            user_prompt: Optional initial prompt for the agent (can be None - will wait for chat message)
             project_directory: Optional working directory
             user_id: User ID (default for now)
 

@@ -223,12 +223,22 @@ class WebSessionBroker:
                 logger.warning(f"Non-dict payload received on client_topic: {type(payload)}")
                 return
 
+            # Log the message received from client_topic
+            msg_type = payload.get("type", "unknown")
+            logger.debug(f"📨 Received message from client_topic: {msg_type}")
+            logger.debug(f"  Payload: {payload}")
+
             # Transform to WebSocket event format
             event = self._transform_to_ws_event(payload)
+
+            # Log the transformed event
+            logger.debug(f"🌐 Transformed to WebSocket event: {event.get('type', 'unknown')}")
+            logger.debug(f"  Event: {event}")
 
             # Send to frontend via callback
             if self.ws_callback:
                 await self.ws_callback(event)
+                logger.debug(f"✅ Sent to WebSocket callback for session {self.session_id}")
 
         except Exception as e:
             logger.error(f"Error forwarding to WebSocket: {e}", exc_info=True)
@@ -346,9 +356,10 @@ class WebSessionBroker:
         )
 
         logger.debug(
-            f"Published UserMessage to {self.context.agent_topic}: "
+            f"📤 Published UserMessage to {self.context.agent_topic}: "
             f"seq={self._message_sequence}, content_len={len(content)}"
         )
+        logger.debug(f"  Content: {content[:100]}{'...' if len(content) > 100 else ''}")
 
     async def stop(self) -> None:
         """Stop the broker infrastructure and cleanup resources."""

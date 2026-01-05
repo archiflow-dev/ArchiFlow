@@ -109,7 +109,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     try {
       const response = await sessionApi.create({
         agent_type: agentType,
-        user_prompt: prompt,
+        user_prompt: prompt || undefined,  // Ensure empty strings become undefined
         project_directory: projectDir,
       });
 
@@ -123,10 +123,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         isLoading: false,
       });
 
-      // Start the session automatically
-      await sessionApi.start(newSession.session_id);
-      newSession.status = 'running';
-      set({ currentSession: { ...newSession, status: 'running' } });
+      // Only auto-start if there's an initial prompt
+      // Otherwise, wait for user to send first message via chat
+      if (prompt && prompt.trim()) {
+        await sessionApi.start(newSession.session_id);
+        newSession.status = 'running';
+        set({ currentSession: { ...newSession, status: 'running' } });
+      }
 
       // Load related data
       await Promise.all([

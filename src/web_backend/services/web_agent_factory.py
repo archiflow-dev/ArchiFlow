@@ -217,10 +217,17 @@ class WebAgentFactory:
         if hasattr(agent, 'tools') and agent.tools:
             # agent.tools is a ToolRegistry, call list_tools() to get actual tools
             tools_list = agent.tools.list_tools() if hasattr(agent.tools, 'list_tools') else []
+            logger.info(f"🔧 Configuring {len(tools_list)} tools with session manager")
             for tool in tools_list:
                 # Inject session manager into tools that support it
                 if hasattr(tool, '_session_runtime_manager'):
                     tool._session_runtime_manager = session_manager
+
+                # Log execution context for file tools
+                if hasattr(tool, 'execution_context') and tool.execution_context:
+                    logger.info(
+                        f"   Tool '{tool.name}': working_directory={tool.execution_context.working_directory}"
+                    )
 
         logger.info(
             f"Configured agent with framework SessionRuntimeManager "
@@ -267,6 +274,15 @@ class WebAgentFactory:
 
         workspace_path = context.workspace_path
 
+        logger.info("=" * 60)
+        logger.info(f"🔧 [WebAgentFactory] Creating agent")
+        logger.info(f"   Agent type: {agent_type}")
+        logger.info(f"   Session: {session_id}")
+        logger.info(f"   User: {user_id}")
+        logger.info(f"   Workspace: {workspace_path}")
+        logger.info(f"   Workspace exists: {workspace_path.exists()}")
+        logger.info("=" * 60)
+
         # Log agent creation
         if self.audit_logger:
             self.audit_logger.log_session_event(
@@ -287,6 +303,7 @@ class WebAgentFactory:
             llm_provider = create_llm_provider()
 
         # Create the base agent using CLI factory
+        logger.info(f"📋 [WebAgentFactory] Calling CLI factory with project_directory={workspace_path}")
         agent = cli_create_agent(
             agent_type=agent_type,
             session_id=session_id,
@@ -294,6 +311,10 @@ class WebAgentFactory:
             project_directory=str(workspace_path),
             **kwargs
         )
+        logger.info(f"✅ [WebAgentFactory] Agent created: {type(agent).__name__}")
+        logger.info(f"   Agent has execution_context: {hasattr(agent, 'execution_context')}")
+        if hasattr(agent, 'execution_context') and agent.execution_context:
+            logger.info(f"   Agent execution_context.working_directory: {agent.execution_context.working_directory}")
 
         # Setup sandbox with framework SessionRuntimeManager
         await self._setup_agent_sandbox(agent, context)

@@ -41,7 +41,7 @@ class Session(Base):
 
     # Session configuration
     agent_type = Column(String(64), nullable=False, index=True)
-    user_prompt = Column(Text, nullable=False)
+    user_prompt = Column(Text, nullable=True)  # Optional - can send first message via chat
     project_directory = Column(String(512), nullable=True)
 
     # Status tracking

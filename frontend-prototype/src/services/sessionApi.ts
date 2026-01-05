@@ -15,7 +15,7 @@ export type SessionStatusApi = 'created' | 'running' | 'paused' | 'completed' | 
 
 export interface SessionCreateRequest {
   agent_type: AgentType;
-  user_prompt: string;
+  user_prompt?: string;  // Optional - can send first message via chat
   project_directory?: string;
 }
 

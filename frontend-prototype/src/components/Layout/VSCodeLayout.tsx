@@ -104,8 +104,11 @@ export function VSCodeLayout() {
 
           <div className="flex items-center gap-2">
             <span className="font-semibold text-white">
-              {currentSession.user_prompt.slice(0, 30)}
-              {currentSession.user_prompt.length > 30 ? '...' : ''}
+              {currentSession.user_prompt
+                ? (currentSession.user_prompt.length > 30
+                  ? `${currentSession.user_prompt.slice(0, 30)}...`
+                  : currentSession.user_prompt)
+                : 'New Session'}
             </span>
             <StatusBadge status={currentSession.status} />
             <span className="text-xs text-gray-500 px-2 py-0.5 bg-gray-700 rounded">

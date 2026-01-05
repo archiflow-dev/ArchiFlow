@@ -21,6 +21,7 @@ import { useChatStore } from '../store/chatStore';
 import { useWorkflowStore } from '../store/workflowStore';
 import { useArtifactStore } from '../store/artifactStore';
 import { useSessionStore } from '../store/sessionStore';
+import { formatToolCallDetails, formatToolResult, formatTodoList } from '../lib/toolFormatter';
 
 // ============================================================================
 // Types
@@ -172,6 +173,15 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   const artifactStore = useArtifactStore();
   const sessionStore = useSessionStore();
 
+  // Track the current agent message for associating tool calls
+  const currentAgentMessageRef = useRef<{ id: string; toolCalls: any[] } | null>(null);
+
+  // Fallback timeout to reset processing state (in case waiting_for_input doesn't fire)
+  const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Track if agent has actually started processing (to ignore premature waiting_for_input events)
+  const hasStartedProcessingRef = useRef<boolean>(false);
+
   // Memoized callbacks that sync with stores
   const storeCallbacks = useCallback((): StoreCallbacks => {
     const baseCallbacks: StoreCallbacks = {
@@ -185,25 +195,163 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
             content: message.content,
             timestamp: message.timestamp ?? new Date().toISOString(),
           });
+
+          // Track agent messages for associating tool calls
+          if (message.role === 'assistant') {
+            currentAgentMessageRef.current = {
+              id: message.id,
+              toolCalls: [],
+            };
+          } else {
+            currentAgentMessageRef.current = null;
+          }
         }
         callbacks.onMessage?.(message);
       },
 
       onMessageChunk: (messageId, chunk, isComplete) => {
+        // Mark that agent has actually started processing when we receive chunks
+        if (chunk && chunk.length > 0) {
+          hasStartedProcessingRef.current = true;
+        }
+
         if (syncStores) {
           // Update streaming message in chat store
           chatStore.updateStreamingMessage(messageId, chunk, isComplete);
         }
+
+        // Fallback: When message streaming is complete, reset processing state after a short delay
+        // This ensures the spinner stops even if waiting_for_input doesn't fire
+        if (isComplete) {
+          // Clear any existing timeout
+          if (processingTimeoutRef.current) {
+            clearTimeout(processingTimeoutRef.current);
+          }
+
+          // Set timeout to reset processing state (in case waiting_for_input doesn't fire)
+          processingTimeoutRef.current = setTimeout(() => {
+            console.log('[useWebSocket] ⏱️ Fallback: Resetting processing state after message complete');
+            setIsAgentProcessing(false);
+            setIsWaitingForInput(false);
+          }, 500); // 500ms delay to allow for follow-up events
+        }
+
         callbacks.onMessageChunk?.(messageId, chunk, isComplete);
       },
 
       onToolCall: (toolName, args) => {
+        // Clear fallback timeout when new tool call arrives
+        if (processingTimeoutRef.current) {
+          clearTimeout(processingTimeoutRef.current);
+          processingTimeoutRef.current = null;
+        }
+
+        // Mark that agent has actually started processing
+        hasStartedProcessingRef.current = true;
+
         setIsAgentProcessing(true);
+
+        // Add tool call to current agent message
+        if (syncStores && currentAgentMessageRef.current) {
+          const toolCall = {
+            name: toolName,
+            parameters: args,
+            result: undefined,
+            error: undefined,
+          };
+
+          // Add to message's tool_calls
+          chatStore.updateMessage(currentAgentMessageRef.current.id, {
+            tool_calls: [...(currentAgentMessageRef.current.toolCalls || []), toolCall],
+          });
+
+          // Update ref
+          currentAgentMessageRef.current.toolCalls.push(toolCall);
+        }
+
         callbacks.onToolCall?.(toolName, args);
       },
 
       onToolResult: (toolName, result, status) => {
+        // Update the tool call with result
+        if (syncStores && currentAgentMessageRef.current) {
+          const toolCalls = currentAgentMessageRef.current.toolCalls;
+          const toolCall = toolCalls.find(tc => tc.name === toolName);
+          if (toolCall) {
+            toolCall.result = result;
+            if (status !== 'success') {
+              toolCall.error = result;
+            }
+
+            // Update message in store
+            const messages = chatStore.messages;
+            const message = messages.find(m => m.id === currentAgentMessageRef.current?.id);
+            if (message && message.tool_calls) {
+              chatStore.updateMessage(currentAgentMessageRef.current.id, {
+                tool_calls: [...message.tool_calls],
+              });
+            }
+          }
+        }
+
         callbacks.onToolResult?.(toolName, result, status);
+      },
+
+      onToolCallMessage: (toolName, args) => {
+        // Add tool call as a separate message for display
+        if (syncStores && currentSessionId) {
+          const toolCallId = `tool_call_${Date.now()}`;
+
+          // Special handling for todo_write tools
+          if ((toolName === 'todo_write' || toolName === 'todo_write_v2') && args.todos && Array.isArray(args.todos)) {
+            // Use the new formatTodoList function for nice formatting
+            const formattedTodos = formatTodoList(args.todos);
+
+            chatStore.addMessage({
+              id: toolCallId,
+              sessionId: currentSessionId,
+              role: 'system',
+              content: formattedTodos,
+              timestamp: new Date().toISOString(),
+            });
+          } else {
+            // Format tool call details
+            const details = formatToolCallDetails(toolName, args as Record<string, unknown>);
+            const detailText = details ? `\n   ${details}` : '';
+
+            chatStore.addMessage({
+              id: toolCallId,
+              sessionId: currentSessionId,
+              role: 'system',
+              content: `🔧 ${toolName}${detailText}`,
+              timestamp: new Date().toISOString(),
+            });
+          }
+        }
+        callbacks.onToolCallMessage?.(toolName, args);
+      },
+
+      onToolResultMessage: (toolName, result, status) => {
+        // Add tool result as a separate message for display
+        if (syncStores && currentSessionId) {
+          const toolResultId = `tool_result_${Date.now()}`;
+
+          // Format tool result with tool-specific handling
+          const { formattedResult, icon, colorClass } = formatToolResult(
+            toolName,
+            result,
+            status
+          );
+
+          chatStore.addMessage({
+            id: toolResultId,
+            sessionId: currentSessionId,
+            role: 'system',
+            content: `${icon} ${toolName}:\n${formattedResult}`,
+            timestamp: new Date().toISOString(),
+          });
+        }
+        callbacks.onToolResultMessage?.(toolName, result, status);
       },
 
       onWorkflowUpdate: (update: WorkflowUpdateEvent) => {
@@ -234,26 +382,104 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       },
 
       onAgentThinking: () => {
+        // Clear fallback timeout when agent starts thinking
+        if (processingTimeoutRef.current) {
+          clearTimeout(processingTimeoutRef.current);
+          processingTimeoutRef.current = null;
+        }
+
+        // Mark that agent has actually started processing
+        hasStartedProcessingRef.current = true;
+
         setIsAgentProcessing(true);
         setIsWaitingForInput(false);
         callbacks.onAgentThinking?.();
       },
 
+      onAgentThought: (content: string) => {
+        // Add agent thought as a message to the chat
+        if (syncStores && currentSessionId && content) {
+          const thoughtId = `thought_${Date.now()}`;
+          chatStore.addMessage({
+            id: thoughtId,
+            sessionId: currentSessionId,
+            role: 'assistant',
+            content: `💭 ${content}`,
+            timestamp: new Date().toISOString(),
+          });
+        }
+        callbacks.onAgentThought?.(content);
+      },
+
       onAgentFinished: (reason) => {
+        // Clear fallback timeout when agent finishes
+        if (processingTimeoutRef.current) {
+          clearTimeout(processingTimeoutRef.current);
+          processingTimeoutRef.current = null;
+        }
+
         setIsAgentProcessing(false);
         setIsWaitingForInput(false);
+        currentAgentMessageRef.current = null;  // Clear the reference
+
+        // Reset the processing flag to prepare for next turn
+        hasStartedProcessingRef.current = false;
+
+        // Add agent finished message to chat
+        if (syncStores && currentSessionId && reason) {
+          const finishedId = `finished_${Date.now()}`;
+          chatStore.addMessage({
+            id: finishedId,
+            sessionId: currentSessionId,
+            role: 'system',
+            content: `✅ ${reason}`,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
         callbacks.onAgentFinished?.(reason);
       },
 
       onWaitingForInput: () => {
+        // Ignore waiting_for_input if we haven't actually started processing yet
+        // This handles the case where backend sends this event prematurely
+        if (!hasStartedProcessingRef.current) {
+          console.warn('[useWebSocket] ⚠️ Ignoring premature waiting_for_input event (no processing started yet)');
+          return;
+        }
+
+        // Clear fallback timeout when waiting for input
+        if (processingTimeoutRef.current) {
+          clearTimeout(processingTimeoutRef.current);
+          processingTimeoutRef.current = null;
+        }
+
+        // Agent has finished processing and is waiting for user input
+        // This is the terminal state for each turn - enable input
+        console.log('[useWebSocket] ✅ Agent waiting for input (processing was started, accepting event)');
         setIsAgentProcessing(false);
-        setIsWaitingForInput(true);
+        setIsWaitingForInput(false);  // Don't show indicator, just enable input
         callbacks.onWaitingForInput?.();
       },
 
       onError: (message, code) => {
         console.error('WebSocket error:', message, code);
         callbacks.onError?.(message, code);
+      },
+
+      onRefinementApplied: (content: string) => {
+        // Add refinement notification as a message to the chat
+        if (syncStores && currentSessionId && content) {
+          const refinementId = `refinement_${Date.now()}`;
+          chatStore.addMessage({
+            id: refinementId,
+            sessionId: currentSessionId,
+            role: 'system',
+            content,
+            timestamp: new Date().toISOString(),
+          });
+        }
+        callbacks.onRefinementApplied?.(content);
       },
     };
 
@@ -338,6 +564,15 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       syncStores,
       clientConnected: clientRef.current?.isConnected,
     });
+
+    // Clear any pending fallback timeout when sending a new message
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+      processingTimeoutRef.current = null;
+    }
+
+    // Reset the processing flag - we haven't actually started processing yet
+    hasStartedProcessingRef.current = false;
 
     // Add user message to store optimistically
     if (syncStores && currentSessionId) {

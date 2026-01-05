@@ -16,6 +16,7 @@ import {
 import { useChatStore } from '../../store';
 import { useWorkflowStore } from '../../store/workflowStore';
 import { useSessionStore } from '../../store/sessionStore';
+import { useCommandHistoryStore } from '../../store/commandHistoryStore';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { formatTimestamp, cn } from '../../lib/utils';
 import type { ChatMessage, ToolCall } from '../../types';
@@ -24,6 +25,7 @@ export function ChatPanel() {
   const { messages, streamingMessages, clearMessages } = useChatStore();
   const { workflow } = useWorkflowStore();
   const { currentSession } = useSessionStore();
+  const { addToHistory, navigateUp, navigateDown, resetIndex } = useCommandHistoryStore();
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -33,7 +35,6 @@ export function ChatPanel() {
     status,
     isConnected,
     isAgentProcessing,
-    isWaitingForInput,
     sendMessage,
   } = useWebSocket({
     sessionId: currentSession?.session_id,
@@ -46,30 +47,73 @@ export function ChatPanel() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streamingMessages]);
 
-  // Auto-resize textarea
+  // Auto-resize textarea with better multi-line support
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.style.height = 'auto';
-      inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + 'px';
+      // Allow more expansion for multi-line input
+      const scrollHeight = inputRef.current.scrollHeight;
+      inputRef.current.style.height = Math.min(scrollHeight, 200) + 'px';
     }
   }, [input]);
 
   const handleSend = () => {
-    if (!input.trim() || !isConnected) return;
+    if (!input.trim() || !isConnected || isAgentProcessing) return;
 
     console.log('[ChatPanel] 📤 Sending message:', {
       content: input,
       sessionId: currentSession?.session_id,
       isConnected,
+      isAgentProcessing,
       timestamp: new Date().toISOString()
     });
 
+    // Add to command history before sending
+    addToHistory(input);
+
     sendMessage(input);
     setInput('');
+    // Reset history index when sending
+    resetIndex();
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
+    // Handle command history navigation
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const previousCommand = navigateUp();
+      if (previousCommand) {
+        setInput(previousCommand);
+        // Move cursor to end
+        setTimeout(() => {
+          if (inputRef.current) {
+            inputRef.current.selectionStart = inputRef.current.selectionEnd = previousCommand.length;
+          }
+        }, 0);
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const nextCommand = navigateDown();
+      setInput(nextCommand);
+      // Move cursor to end
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.selectionStart = inputRef.current.selectionEnd = nextCommand.length;
+        }
+      }, 0);
+      return;
+    }
+
+    // Enter to send, Shift+Enter for new line
     if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+    // Allow Ctrl+Enter to also send (common convention)
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       handleSend();
     }
@@ -94,12 +138,27 @@ export function ChatPanel() {
     <div className="flex flex-col h-full bg-gray-850">
       {/* Header */}
       <div className="flex-shrink-0 h-9 px-3 flex items-center justify-between border-b border-gray-700 bg-gray-800/50">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-            Chat
-          </span>
-          {/* Connection status indicator */}
-          <ConnectionIndicator status={status} />
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              Chat
+            </span>
+            {/* Connection status indicator */}
+            <ConnectionIndicator status={status} />
+          </div>
+          {/* Project context indicator */}
+          {currentSession && (
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <span className="px-2 py-0.5 bg-gray-800 rounded">
+                {currentSession.session_id?.slice(0, 8)}
+              </span>
+              {currentSession.project_directory && (
+                <span className="text-gray-600" title={currentSession.project_directory}>
+                  {currentSession.project_directory.split(/[\\/]/).slice(-2).join('/')}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -153,15 +212,6 @@ export function ChatPanel() {
               </div>
             )}
 
-            {/* Waiting for input indicator */}
-            {isWaitingForInput && (
-              <div className="flex justify-center px-3 py-2">
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 rounded-full border border-blue-500/20">
-                  <span className="text-xs text-blue-400">Agent is waiting for your input</span>
-                </div>
-              </div>
-            )}
-
             <div ref={messagesEndRef} />
           </div>
         )}
@@ -181,35 +231,49 @@ export function ChatPanel() {
                   ? 'Connecting...'
                   : isAgentProcessing
                   ? 'Agent is processing...'
-                  : 'Type a message...'
+                  : 'Type a message... (Enter=send, Shift+Enter=new line)'
               }
               disabled={!isConnected}
               rows={1}
               className={cn(
                 'w-full resize-none px-3 py-2 pr-10 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50',
+                'transition-all duration-200',
+                'min-h-[40px] max-h-[200px]',
+                'overflow-y-auto',
                 !isConnected && 'opacity-50 cursor-not-allowed'
               )}
+              style={{ fieldSizing: 'content' }}
             />
             <button
               onClick={handleSend}
-              disabled={!input.trim() || !isConnected}
+              disabled={!input.trim() || !isConnected || isAgentProcessing}
               className={cn(
                 'absolute right-2 bottom-2 p-1.5 rounded transition-colors',
-                input.trim() && isConnected
+                input.trim() && isConnected && !isAgentProcessing
                   ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-500/20'
                   : 'text-gray-600'
               )}
             >
-              <Send className="w-4 h-4" />
+              {isAgentProcessing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
             </button>
           </div>
 
           {/* Quick actions */}
-          <div className="flex items-center gap-2">
-            <button className="p-1.5 text-gray-500 hover:text-gray-300 transition-colors" title="Attach file">
-              <Paperclip className="w-4 h-4" />
-            </button>
-            <span className="text-xs text-gray-600">Press Enter to send, Shift+Enter for new line</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <button className="p-1.5 text-gray-500 hover:text-gray-300 transition-colors" title="Attach file">
+                <Paperclip className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="text-xs text-gray-600">
+              <span className="mr-3">↑↓ = history</span>
+              <span className="mr-3">Enter = send</span>
+              <span>Shift+Enter = new line</span>
+            </div>
           </div>
         </div>
       </div>
@@ -290,10 +354,14 @@ function MessageBubble({ message }: MessageBubbleProps) {
 
   if (isSystem) {
     return (
-      <div className="flex justify-center px-3 py-2">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/50 rounded-full">
-          <Info className="w-3.5 h-3.5 text-gray-500" />
-          <span className="text-xs text-gray-500">{message.content}</span>
+      <div className="flex items-start gap-2 px-3 py-2">
+        <div className="w-7 h-7 rounded-full bg-gray-600/20 flex items-center justify-center flex-shrink-0">
+          <Info className="w-4 h-4 text-gray-400" />
+        </div>
+        <div className="bg-gray-800/50 rounded-lg px-3 py-2 max-w-[95%]">
+          <div className="text-sm text-gray-300 whitespace-pre-wrap break-words">
+            {message.content}
+          </div>
         </div>
       </div>
     );

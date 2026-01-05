@@ -95,17 +95,23 @@ async def start_session(
     This creates the agent instance and begins processing.
     The agent will use the session's initial prompt unless overridden.
     """
+    logger.info(f"[start_session] Starting session {session_id}, request: {request}")
     try:
         initial_prompt = request.initial_prompt if request else None
-        await manager.start_session(session_id, initial_prompt)
+        logger.info(f"[start_session] Initial prompt: {initial_prompt}")
+
+        runner = await manager.start_session(session_id, initial_prompt)
+        logger.info(f"[start_session] Runner created, is_running: {runner.is_running}")
 
         status = await manager.get_session_status(session_id)
+        logger.info(f"[start_session] Session status: {status.get('status')}")
         return SessionStatusResponse(**status)
 
     except AgentExecutionError as e:
+        logger.error(f"[start_session] AgentExecutionError: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.exception(f"Error starting session {session_id}")
+        logger.exception(f"[start_session] Error starting session {session_id}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

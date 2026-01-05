@@ -33,6 +33,25 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# Disable verbose SQLAlchemy logging
+logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
+logging.getLogger('sqlalchemy.pool').setLevel(logging.WARNING)
+logging.getLogger('sqlalchemy.dialects').setLevel(logging.WARNING)
+logging.getLogger('sqlalchemy.orm').setLevel(logging.WARNING)
+
+# Enable detailed logging for agent-related modules
+agent_modules = [
+    'web_backend.services.agent_runner',
+    'web_backend.services.agent_session_manager',
+    'web_backend.services.web_agent_factory',
+    'web_backend.websocket.session_emitter',
+    'web_backend.websocket.server',
+    'message_queue',
+    'agent_framework',
+]
+for module in agent_modules:
+    logging.getLogger(module).setLevel(logging.DEBUG)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -193,4 +212,12 @@ def create_app() -> socketio.ASGIApp:
     return socket_app
 
 
-# For direct uvicorn usage: uvicorn src.web_backend.main:socket_app --reload
+# ============================================================================
+# IMPORTANT: Use socket_app NOT app when running with uvicorn!
+#
+# ❌ WRONG: uvicorn src.web_backend.main:app --reload
+#           This only runs FastAPI, WebSocket connections will FAIL with 403
+#
+# ✅ CORRECT: uvicorn src.web_backend.main:socket_app --reload
+#            This runs both FastAPI AND Socket.IO WebSocket server
+# ============================================================================

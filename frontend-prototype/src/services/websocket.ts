@@ -174,9 +174,13 @@ export interface StoreCallbacks {
   onArtifactUpdate?: (path: string, action: 'created' | 'updated' | 'deleted') => void;
   onSessionUpdate?: (status: string) => void;
   onAgentThinking?: () => void;
+  onAgentThought?: (content: string) => void;  // New: for agent thoughts with actual content
   onAgentFinished?: (reason?: string) => void;
   onWaitingForInput?: () => void;
   onError?: (message: string, code?: string) => void;
+  onToolCallMessage?: (toolName: string, args: Record<string, unknown>) => void;  // New: for displaying tool calls
+  onToolResultMessage?: (toolName: string, result: string, status: string) => void;  // New: for displaying tool results
+  onRefinementApplied?: (content: string) => void;  // Auto-refinement notification
 }
 
 // ============================================================================
@@ -341,6 +345,14 @@ export class WebSocketClient {
       this.dispatchToHandlers({ type: 'agent_thinking', session_id: this.sessionId ?? '' });
     });
 
+    this.socket.on('agent_thought', (event: any) => {
+      console.log('[WebSocketClient] 💭 Agent thought:', event);
+      // Call both callbacks - one for the state, one for the actual content
+      this.storeCallbacks.onAgentThinking?.();
+      this.storeCallbacks.onAgentThought?.(event.content || '');
+      this.dispatchToHandlers({ type: 'agent_thought', session_id: this.sessionId ?? '', ...event });
+    });
+
     this.socket.on('agent_finished', (event: AgentFinishedEvent) => {
       console.log('[WebSocketClient] ✅ Agent finished:', event);
       this.storeCallbacks.onAgentFinished?.(event.reason);
@@ -351,6 +363,37 @@ export class WebSocketClient {
       console.log('[WebSocketClient] ⏳ Waiting for input:', event);
       this.storeCallbacks.onWaitingForInput?.();
       this.dispatchToHandlers(event);
+    });
+
+    // Tool events (direct from backend)
+    this.socket.on('tool_call', (event: any) => {
+      console.log('[WebSocketClient] 🔧 Tool call:', event);
+      // Call both callbacks - one for state, one for displaying
+      this.storeCallbacks.onToolCall?.(
+        event.tool_name as string,
+        event.arguments as Record<string, unknown>,
+      );
+      this.storeCallbacks.onToolCallMessage?.(
+        event.tool_name as string,
+        event.arguments as Record<string, unknown>,
+      );
+      this.dispatchToHandlers({ type: 'tool_call', session_id: this.sessionId ?? '', ...event });
+    });
+
+    this.socket.on('tool_result', (event: any) => {
+      console.log('[WebSocketClient] ✅ Tool result:', event);
+      // Call both callbacks - one for state, one for displaying
+      this.storeCallbacks.onToolResult?.(
+        event.tool_name as string,
+        event.result as string,
+        event.status as string,
+      );
+      this.storeCallbacks.onToolResultMessage?.(
+        event.tool_name as string,
+        event.result as string,
+        event.status as string,
+      );
+      this.dispatchToHandlers({ type: 'tool_result', session_id: this.sessionId ?? '', ...event });
     });
 
     // Workflow events
@@ -375,6 +418,13 @@ export class WebSocketClient {
         this.storeCallbacks.onSessionUpdate?.(status);
       }
       this.dispatchToHandlers(event);
+    });
+
+    // Refinement events
+    this.socket.on('refinement_applied', (event: any) => {
+      console.log('[WebSocketClient] 📝 Refinement applied:', event);
+      this.storeCallbacks.onRefinementApplied?.(event.content || '');
+      this.dispatchToHandlers({ type: 'refinement_applied', session_id: this.sessionId ?? '', ...event });
     });
 
     // Error events

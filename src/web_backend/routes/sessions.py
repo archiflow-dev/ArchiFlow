@@ -38,12 +38,21 @@ async def create_session(
     This creates a new session with the specified agent type and initial prompt.
     The session will be in 'created' status until the agent is started.
     """
-    session = await service.create(
-        agent_type=data.agent_type,
-        user_prompt=data.user_prompt,
-        project_directory=data.project_directory,
-    )
-    return SessionResponse.model_validate(session.to_dict())
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"[create_session] Received request: agent_type={data.agent_type}, user_prompt={data.user_prompt}")
+
+    try:
+        session = await service.create(
+            agent_type=data.agent_type,
+            user_prompt=data.user_prompt,
+            project_directory=data.project_directory,
+        )
+        logger.info(f"[create_session] Session created successfully: {session.id}")
+        return SessionResponse.model_validate(session.to_dict())
+    except Exception as e:
+        logger.exception(f"[create_session] Error creating session: {e}")
+        raise
 
 
 @router.get("/", response_model=SessionList)

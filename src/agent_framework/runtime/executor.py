@@ -111,10 +111,7 @@ class RuntimeExecutor:
             
             # ... (rest of single request handling) ...
             logger.info(
-                "Received tool call request: call_id=%s, tool=%s, session=%s",
-                request.call_id,
-                request.tool_name,
-                request.session_id
+                f"⚙️ Executing single tool call: {request.tool_name} (call_id={request.call_id})"
             )
             
             # Get tool
@@ -184,6 +181,9 @@ class RuntimeExecutor:
             }
 
             logger.info(
+                f"✅ ToolResult: {request.tool_name} (call_id={request.call_id}, success={tool_result.success}, status={tool_result_msg.get('status')})"
+            )
+            logger.debug(
                 "Publishing ToolResult to client_topic %s: tool=%s, call_id=%s, success=%s, status=%s",
                 self.context.client_topic,
                 request.tool_name,
@@ -239,9 +239,12 @@ class RuntimeExecutor:
         """Handle BatchToolCallRequest."""
         from agent_framework.runtime.messages import BatchToolCallRequest
         from agent_framework.messages.types import BatchToolResultObservation, ToolResultObservation
-        
+
         try:
             request = BatchToolCallRequest.from_dict(message.payload)
+            logger.info(f"⚙️ Executing batch tool calls: {len(request.tool_calls)} tools (batch_id={request.batch_id})")
+            for tool_call in request.tool_calls:
+                logger.debug(f"  Tool: {tool_call.tool_name}, Call ID: {tool_call.call_id}")
             
             # For now, we assume all tools are independent and run them in parallel
             # Future: Build DAG for dependencies
@@ -342,6 +345,9 @@ class RuntimeExecutor:
 
                     # Log before publishing to client
                     logger.info(
+                        f"✅ Batch ToolResult: {original_request.tool_name} (call_id={result.call_id}, batch_id={request.batch_id}, status={result.status})"
+                    )
+                    logger.debug(
                         "Publishing batch ToolResult to client_topic %s: tool=%s, call_id=%s, batch_id=%s, status=%s",
                         self.context.client_topic,
                         original_request.tool_name,

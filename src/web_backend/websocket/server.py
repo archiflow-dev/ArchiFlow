@@ -13,14 +13,15 @@ from .manager import connection_manager
 
 logger = logging.getLogger(__name__)
 
-# Create Socket.IO async server
+# Create Socket.IO async server with proper CORS configuration
+# For ASGI mode, we need to configure CORS differently
 sio = socketio.AsyncServer(
     async_mode='asgi',
-    cors_allowed_origins=settings.CORS_ORIGINS,
+    cors_allowed_origins='*',  # Allow all origins during development
     ping_interval=settings.WEBSOCKET_PING_INTERVAL,
     ping_timeout=settings.WEBSOCKET_PING_TIMEOUT,
-    logger=settings.DEBUG,
-    engineio_logger=settings.DEBUG,
+    logger=False,  # Disable Socket.IO verbose logging
+    engineio_logger=False,  # Disable Engine.IO verbose logging
 )
 
 
@@ -35,7 +36,11 @@ async def connect(sid: str, environ: dict, auth: Optional[dict] = None):
         environ: WSGI environment
         auth: Optional authentication data
     """
-    logger.info(f"Client connecting: {sid}")
+    logger.info("=" * 60)
+    logger.info(f"🔗 [WebSocket] Client connecting")
+    logger.info(f"   SID: {sid}")
+    logger.info(f"   Auth: {auth}")
+    logger.info("=" * 60)
 
     # Extract user ID from auth if provided
     user_id = auth.get("user_id") if auth else None
@@ -47,6 +52,8 @@ async def connect(sid: str, environ: dict, auth: Optional[dict] = None):
         'sid': sid,
         'message': 'Connected to ArchiFlow WebSocket server'
     }, to=sid)
+
+    logger.info(f"✅ [WebSocket] Client connected: {sid}")
 
 
 @sio.event
@@ -177,22 +184,38 @@ async def message(sid: str, data: dict):
 
             logger.info(f"🔄 [WebSocket] Getting runner for session {session_id}")
 
-            # Get or create runner for this session
-            runner = await manager.get_or_create_runner(session_id)
+            # Create message callback to forward agent events to WebSocket
+            async def message_callback(event: dict):
+                """Forward agent events to WebSocket clients."""
+                event_type = event.get('type')
+
+                logger.info(f"📤 [WebSocket] Callback: {event_type} - {str(event)[:200]}")
+
+                # Forward to the session's room
+                await emit_to_session(session_id, event_type, event)
+
+            # Get or create runner with message callback
+            runner = await manager.get_or_create_runner(
+                session_id,
+                message_callback=message_callback
+            )
 
             logger.info(f"✅ [WebSocket] Runner obtained: running={runner.is_running}")
 
             # Check if runner is running
             if not runner.is_running:
-                logger.warning(f"⚠️ [WebSocket] Runner not running, starting...")
-                session = await manager.get_session(session_id)
-                await runner.start(session.user_prompt)
-                logger.info(f"✅ [WebSocket] Runner started")
+                logger.warning(f"⚠️ [WebSocket] Runner not running, starting with user's message...")
+                # Start the agent with the user's message as the initial prompt
+                await runner.start(content)
+                logger.info(f"✅ [WebSocket] Runner started with user message")
 
-            # Send the message to the agent
-            logger.info(f"📤 [WebSocket] Sending message to agent runner...")
-            await runner.send_message(content)
-            logger.info(f"✅ [WebSocket] Message sent to agent successfully")
+                # Update callback after start (in case a new runner was created)
+                runner.message_callback = message_callback
+            else:
+                # Runner already running - send the message normally
+                logger.info(f"📤 [WebSocket] Sending message to agent runner...")
+                await runner.send_message(content)
+                logger.info(f"✅ [WebSocket] Message sent to agent successfully")
 
     except Exception as e:
         logger.exception(f"❌ [WebSocket] Error processing message: {e}")
@@ -275,6 +298,6 @@ async def emit_message(session_id: str, message: dict):
     })
 
 
-# Create ASGI app that wraps Socket.IO
-# This will be used to mount Socket.IO on the FastAPI app
-socket_app = socketio.ASGIApp(sio)
+# NOTE: The ASGIApp that wraps Socket.IO is created in main.py
+# to ensure it properly wraps both Socket.IO and the FastAPI app
+# This is necessary for CORS to work correctly for HTTP API routes
