@@ -8,24 +8,43 @@ import {
   Paperclip,
   MoreVertical,
   Copy,
-  RefreshCw
+  RefreshCw,
+  Wifi,
+  WifiOff,
+  Wrench
 } from 'lucide-react';
 import { useChatStore } from '../../store';
 import { useWorkflowStore } from '../../store/workflowStore';
+import { useSessionStore } from '../../store/sessionStore';
+import { useWebSocket } from '../../hooks/useWebSocket';
 import { formatTimestamp, cn } from '../../lib/utils';
 import type { ChatMessage, ToolCall } from '../../types';
 
 export function ChatPanel() {
-  const { messages, addMessage } = useChatStore();
+  const { messages, streamingMessages, clearMessages } = useChatStore();
   const { workflow } = useWorkflowStore();
+  const { currentSession } = useSessionStore();
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
+  // Initialize WebSocket connection
+  const {
+    status,
+    isConnected,
+    isAgentProcessing,
+    isWaitingForInput,
+    sendMessage,
+  } = useWebSocket({
+    sessionId: currentSession?.session_id,
+    autoConnect: true,
+    syncStores: true,
+  });
+
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, streamingMessages]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -36,32 +55,10 @@ export function ChatPanel() {
   }, [input]);
 
   const handleSend = () => {
-    if (!input.trim()) return;
+    if (!input.trim() || !isConnected) return;
 
-    const currentPhase = workflow?.phases.find(p => p.phase_id === workflow.current_phase);
-
-    addMessage({
-      id: `msg-${Date.now()}`,
-      type: 'user',
-      content: input,
-      timestamp: new Date().toISOString(),
-      phase: currentPhase?.name
-    });
-
+    sendMessage(input);
     setInput('');
-    setIsTyping(true);
-
-    // Simulate agent response
-    setTimeout(() => {
-      setIsTyping(false);
-      addMessage({
-        id: `msg-${Date.now()}`,
-        type: 'agent',
-        content: 'I received your message. This is a mock response that would normally come from the ArchiFlow agent.',
-        timestamp: new Date().toISOString(),
-        phase: currentPhase?.name
-      });
-    }, 1500);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -71,15 +68,38 @@ export function ChatPanel() {
     }
   };
 
+  const handleClearChat = () => {
+    clearMessages();
+  };
+
+  // Get streaming message content for display
+  const getStreamingContent = (): { id: string; content: string }[] => {
+    const result: { id: string; content: string }[] = [];
+    streamingMessages.forEach((msg, id) => {
+      result.push({ id, content: msg.content });
+    });
+    return result;
+  };
+
+  const streamingContent = getStreamingContent();
+
   return (
     <div className="flex flex-col h-full bg-gray-850">
       {/* Header */}
       <div className="flex-shrink-0 h-9 px-3 flex items-center justify-between border-b border-gray-700 bg-gray-800/50">
-        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-          Chat
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+            Chat
+          </span>
+          {/* Connection status indicator */}
+          <ConnectionIndicator status={status} />
+        </div>
         <div className="flex items-center gap-1">
-          <button className="p-1 text-gray-500 hover:text-gray-300 transition-colors" title="Clear chat">
+          <button
+            onClick={handleClearChat}
+            className="p-1 text-gray-500 hover:text-gray-300 transition-colors"
+            title="Clear chat"
+          >
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
           <button className="p-1 text-gray-500 hover:text-gray-300 transition-colors" title="More options">
@@ -90,13 +110,17 @@ export function ChatPanel() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-        {messages.length === 0 ? (
+        {messages.length === 0 && streamingContent.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full px-6 text-center">
             <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center mb-4">
               <Bot className="w-6 h-6 text-gray-600" />
             </div>
             <p className="text-gray-500 text-sm">No messages yet</p>
-            <p className="text-gray-600 text-xs mt-1">Start a conversation with the agent</p>
+            <p className="text-gray-600 text-xs mt-1">
+              {isConnected
+                ? 'Start a conversation with the agent'
+                : 'Connecting to server...'}
+            </p>
           </div>
         ) : (
           <div className="py-4 space-y-1">
@@ -104,8 +128,13 @@ export function ChatPanel() {
               <MessageBubble key={message.id} message={message} />
             ))}
 
+            {/* Streaming messages */}
+            {streamingContent.map(({ id, content }) => (
+              <StreamingMessageBubble key={id} content={content} />
+            ))}
+
             {/* Typing indicator */}
-            {isTyping && (
+            {isAgentProcessing && streamingContent.length === 0 && (
               <div className="flex items-start gap-2 px-3 py-2">
                 <div className="w-7 h-7 rounded-full bg-blue-600/20 flex items-center justify-center flex-shrink-0">
                   <Bot className="w-4 h-4 text-blue-400" />
@@ -113,6 +142,15 @@ export function ChatPanel() {
                 <div className="bg-gray-800 rounded-lg px-3 py-2 flex items-center gap-1">
                   <Loader2 className="w-3.5 h-3.5 text-gray-400 animate-spin" />
                   <span className="text-xs text-gray-400">Thinking...</span>
+                </div>
+              </div>
+            )}
+
+            {/* Waiting for input indicator */}
+            {isWaitingForInput && (
+              <div className="flex justify-center px-3 py-2">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 rounded-full border border-blue-500/20">
+                  <span className="text-xs text-blue-400">Agent is waiting for your input</span>
                 </div>
               </div>
             )}
@@ -131,16 +169,26 @@ export function ChatPanel() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}
-              placeholder="Type a message..."
+              placeholder={
+                !isConnected
+                  ? 'Connecting...'
+                  : isAgentProcessing
+                  ? 'Agent is processing...'
+                  : 'Type a message...'
+              }
+              disabled={!isConnected}
               rows={1}
-              className="w-full resize-none px-3 py-2 pr-10 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+              className={cn(
+                'w-full resize-none px-3 py-2 pr-10 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50',
+                !isConnected && 'opacity-50 cursor-not-allowed'
+              )}
             />
             <button
               onClick={handleSend}
-              disabled={!input.trim()}
+              disabled={!input.trim() || !isConnected}
               className={cn(
                 'absolute right-2 bottom-2 p-1.5 rounded transition-colors',
-                input.trim()
+                input.trim() && isConnected
                   ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-500/20'
                   : 'text-gray-600'
               )}
@@ -155,6 +203,58 @@ export function ChatPanel() {
               <Paperclip className="w-4 h-4" />
             </button>
             <span className="text-xs text-gray-600">Press Enter to send, Shift+Enter for new line</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Connection status indicator
+interface ConnectionIndicatorProps {
+  status: 'disconnected' | 'connecting' | 'connected' | 'error';
+}
+
+function ConnectionIndicator({ status }: ConnectionIndicatorProps) {
+  const statusConfig = {
+    disconnected: { icon: WifiOff, color: 'text-gray-500', label: 'Disconnected' },
+    connecting: { icon: Wifi, color: 'text-yellow-500 animate-pulse', label: 'Connecting' },
+    connected: { icon: Wifi, color: 'text-green-500', label: 'Connected' },
+    error: { icon: WifiOff, color: 'text-red-500', label: 'Error' },
+  };
+
+  const config = statusConfig[status];
+  const Icon = config.icon;
+
+  return (
+    <div className="flex items-center gap-1" title={config.label}>
+      <Icon className={cn('w-3 h-3', config.color)} />
+    </div>
+  );
+}
+
+// Streaming message bubble (for in-progress messages)
+interface StreamingMessageBubbleProps {
+  content: string;
+}
+
+function StreamingMessageBubble({ content }: StreamingMessageBubbleProps) {
+  return (
+    <div className="flex items-start gap-2 px-3 py-2">
+      <div className="w-7 h-7 rounded-full bg-blue-600/20 flex items-center justify-center flex-shrink-0">
+        <Bot className="w-4 h-4 text-blue-400" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-xs font-medium text-gray-400">Agent</span>
+          <span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 rounded text-[10px]">
+            Streaming...
+          </span>
+        </div>
+        <div className="bg-gray-800 rounded-lg px-3 py-2 max-w-[95%]">
+          <div className="text-sm text-gray-200 whitespace-pre-wrap break-words">
+            {content}
+            <span className="inline-block w-2 h-4 ml-1 bg-blue-400 animate-pulse" />
           </div>
         </div>
       </div>
@@ -246,7 +346,10 @@ function MessageBubble({ message }: MessageBubbleProps) {
           {/* Tool calls */}
           {message.tool_calls && message.tool_calls.length > 0 && (
             <div className="mt-2 pt-2 border-t border-gray-700/50">
-              <div className="text-[10px] text-gray-500 uppercase mb-1">Tool Calls</div>
+              <div className="text-[10px] text-gray-500 uppercase mb-1 flex items-center gap-1">
+                <Wrench className="w-3 h-3" />
+                Tool Calls
+              </div>
               <div className="flex flex-wrap gap-1">
                 {message.tool_calls.map((tool: ToolCall, idx: number) => (
                   <span

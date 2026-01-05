@@ -7,7 +7,7 @@ Defines event types and helper functions for WebSocket communication.
 from enum import Enum
 from typing import Any, Dict, Optional
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class EventType(str, Enum):
@@ -59,7 +59,7 @@ class WebSocketEvent(BaseModel):
 
     type: EventType = Field(..., description="Event type")
     session_id: Optional[str] = Field(None, description="Associated session ID")
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     payload: Dict[str, Any] = Field(default_factory=dict)
 
     model_config = {
@@ -135,6 +135,6 @@ def create_event(
     return {
         "type": event_type.value,
         "session_id": session_id,
-        "timestamp": datetime.now(datetime.UTC).isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "payload": payload,
     }

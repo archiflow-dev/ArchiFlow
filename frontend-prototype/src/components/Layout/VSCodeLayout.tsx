@@ -1,14 +1,18 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   MessageSquare,
   FolderTree,
   ChevronLeft,
   Settings,
-  RotateCcw
+  RotateCcw,
+  Wifi,
+  WifiOff,
+  Loader2,
 } from 'lucide-react';
 import { useSessionStore } from '../../store/sessionStore';
 import { useWorkflowStore } from '../../store/workflowStore';
 import { useUIStore } from '../../store/uiStore';
+import { useWebSocket } from '../../hooks/useWebSocket';
 import { ArtifactOutlinePanel } from '../Artifact/ArtifactOutlinePanel';
 import { DisplayPanel } from '../Display/DisplayPanel';
 import { ChatPanel } from '../Chat/ChatPanel';
@@ -16,7 +20,7 @@ import { ResizablePanel } from '../Common/ResizablePanel';
 import { StatusBadge } from '../Common/Badge';
 import { Button } from '../Common/Button';
 import { WorkflowStatusBar } from '../Workflow/WorkflowStatusBar';
-import { getWorkflowType } from '../../lib/utils';
+import { getWorkflowType, cn } from '../../lib/utils';
 
 // Panel configuration
 const DEFAULT_LEFT_WIDTH = 260;
@@ -27,8 +31,21 @@ const MAX_RIGHT_WIDTH = 500;
 
 export function VSCodeLayout() {
   const { currentSession, setCurrentSession } = useSessionStore();
-  const { workflow } = useWorkflowStore();
+  const { workflow, loadWorkflow } = useWorkflowStore();
   const { isArtifactPanelOpen, isChatPanelOpen, setArtifactPanelOpen, setChatPanelOpen } = useUIStore();
+
+  // Initialize WebSocket at the layout level
+  const {
+    status: wsStatus,
+    isConnected,
+    isAgentProcessing,
+    subscribeToSession,
+    disconnect,
+  } = useWebSocket({
+    sessionId: currentSession?.session_id,
+    autoConnect: true,
+    syncStores: true,
+  });
 
   // Panel widths
   const [leftWidth, setLeftWidth] = useState(DEFAULT_LEFT_WIDTH);
@@ -42,6 +59,27 @@ export function VSCodeLayout() {
   const handleRightResize = useCallback((delta: number) => {
     setRightWidth(prev => Math.max(MIN_PANEL_WIDTH, Math.min(MAX_RIGHT_WIDTH, prev - delta)));
   }, []);
+
+  // Subscribe to session when session changes
+  useEffect(() => {
+    if (currentSession?.session_id && isConnected) {
+      subscribeToSession(currentSession.session_id);
+    }
+  }, [currentSession?.session_id, isConnected, subscribeToSession]);
+
+  // Load workflow when session changes
+  useEffect(() => {
+    if (currentSession?.session_id) {
+      loadWorkflow(currentSession.session_id);
+    }
+  }, [currentSession?.session_id, loadWorkflow]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      disconnect();
+    };
+  }, [disconnect]);
 
   if (!currentSession) {
     return null;
@@ -158,6 +196,34 @@ export function VSCodeLayout() {
       {/* Bottom Status Bar */}
       <footer className="flex-shrink-0 h-6 bg-gray-800 border-t border-gray-700 flex items-center px-4 text-xs text-gray-400 justify-between">
         <div className="flex items-center gap-4">
+          {/* Connection Status */}
+          <div
+            className={cn(
+              'flex items-center gap-1',
+              wsStatus === 'connected' ? 'text-green-400' :
+              wsStatus === 'connecting' ? 'text-yellow-400' :
+              wsStatus === 'error' ? 'text-red-400' :
+              'text-gray-500'
+            )}
+          >
+            {wsStatus === 'connected' ? (
+              <Wifi className="w-3 h-3" />
+            ) : wsStatus === 'connecting' ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <WifiOff className="w-3 h-3" />
+            )}
+            <span className="capitalize">{wsStatus}</span>
+          </div>
+
+          {/* Agent Processing Indicator */}
+          {isAgentProcessing && (
+            <div className="flex items-center gap-1 text-blue-400">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span>Processing...</span>
+            </div>
+          )}
+
           {currentPhase && (
             <span>
               Phase: <span className="text-gray-300">{currentPhase.name}</span>
