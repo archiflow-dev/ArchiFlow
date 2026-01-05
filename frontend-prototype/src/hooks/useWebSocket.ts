@@ -412,18 +412,23 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       },
 
       onAgentFinished: (reason) => {
+        console.log('[useWebSocket] 🎉 Agent finished callback called, reason:', reason);
+
         // Clear fallback timeout when agent finishes
         if (processingTimeoutRef.current) {
           clearTimeout(processingTimeoutRef.current);
           processingTimeoutRef.current = null;
         }
 
+        console.log('[useWebSocket] 🔄 Clearing processing state...');
         setIsAgentProcessing(false);
         setIsWaitingForInput(false);
         currentAgentMessageRef.current = null;  // Clear the reference
 
         // Reset the processing flag to prepare for next turn
         hasStartedProcessingRef.current = false;
+
+        console.log('[useWebSocket] ✅ Processing state cleared');
 
         // Add agent finished message to chat
         if (syncStores && currentSessionId && reason) {
@@ -499,12 +504,32 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     clientRef.current.setStoreCallbacks(storeCallbacks());
   }, [storeCallbacks]);
 
+  // Debug: Watch isAgentProcessing state changes
+  useEffect(() => {
+    console.log('[useWebSocket] 🔄 isAgentProcessing state changed to:', isAgentProcessing);
+  }, [isAgentProcessing]);
+
   // Set up status change listener
   useEffect(() => {
     const client = clientRef.current;
 
     const unsubscribe = client.onStatusChange((newStatus) => {
       setStatus(newStatus);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  // Sync with shared processing state from WebSocket client
+  useEffect(() => {
+    const client = clientRef.current;
+
+    const unsubscribe = client.onProcessingChange((isProcessing) => {
+      console.log('[useWebSocket] 🔄 Syncing processing state from client:', isProcessing);
+      setIsAgentProcessing(isProcessing);
+      setIsWaitingForInput(false);
     });
 
     return () => {

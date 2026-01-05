@@ -223,10 +223,16 @@ class WebAgentFactory:
                 if hasattr(tool, '_session_runtime_manager'):
                     tool._session_runtime_manager = session_manager
 
-                # Log execution context for file tools
-                if hasattr(tool, 'execution_context') and tool.execution_context:
+                # Set execution_context for tools that support it
+                # This ensures tools use the correct working directory
+                if hasattr(tool, 'execution_context'):
+                    tool.execution_context = context
                     logger.info(
-                        f"   Tool '{tool.name}': working_directory={tool.execution_context.working_directory}"
+                        f"   Tool '{tool.name}': set working_directory={context.workspace_path}"
+                    )
+                else:
+                    logger.warning(
+                        f"   Tool '{tool.name}': no execution_context attribute, working directory may not be set correctly"
                     )
 
         logger.info(

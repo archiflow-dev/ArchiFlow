@@ -145,17 +145,32 @@ class WebSessionBroker:
             # 2. Create topic context
             self.context = TopicContext.default(self.session_id)
 
-            # 3. Create runtime manager with security policy
-            policy = SecurityPolicy(
-                default_runtime="local",
-                max_execution_time=60,  # Web sessions may need longer
-                allow_network=True,  # For API calls
-            )
-            self.runtime_manager = RuntimeManager(security_policy=policy)
+            # 3. Use SessionRuntimeManager from agent if available (for sandbox validation)
+            # The SessionRuntimeManager was attached to the agent by WebAgentFactory
+            # It has workspace isolation, path validation, and quota enforcement
+            session_runtime_manager = getattr(self.agent, '_session_runtime_manager', None)
+            if session_runtime_manager:
+                self.runtime_manager = session_runtime_manager
+                logger.info(
+                    f"Using SessionRuntimeManager for session {self.session_id} "
+                    f"(workspace={session_runtime_manager.workspace_path})"
+                )
+            else:
+                # Fallback: Create plain RuntimeManager (no sandbox validation)
+                logger.warning(
+                    f"Agent has no _session_runtime_manager, using plain RuntimeManager "
+                    f"(no sandbox validation for session {self.session_id})"
+                )
+                policy = SecurityPolicy(
+                    default_runtime="local",
+                    max_execution_time=60,  # Web sessions may need longer
+                    allow_network=True,  # For API calls
+                )
+                self.runtime_manager = RuntimeManager(security_policy=policy)
 
-            # Create sandboxed local runtime
-            local_runtime = LocalRuntime(enable_resource_monitoring=True)
-            self.runtime_manager.register_runtime("local", local_runtime)
+                # Create sandboxed local runtime
+                local_runtime = LocalRuntime(enable_resource_monitoring=True)
+                self.runtime_manager.register_runtime("local", local_runtime)
 
             # 4. Create agent controller
             self.controller = AgentController(

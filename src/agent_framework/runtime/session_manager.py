@@ -143,14 +143,15 @@ class SessionRuntimeManager:
         use_sandbox = self._should_use_sandbox(tool_name)
 
         # Ensure context has correct working directory
+        original_wd = context.working_directory
         context.working_directory = str(self.workspace_path)
 
-        # Execute
-        logger.debug(
-            f"Session {self.session_id}: Executing {tool_name} "
-            f"with {'sandbox' if use_sandbox else 'global'} runtime"
-        )
+        logger.info(f"🔄 [SessionRuntimeManager] Session {self.session_id}: Executing tool '{tool_name}'")
+        logger.info(f"   Workspace: {self.workspace_path}")
+        logger.info(f"   Working directory: {original_wd} → {context.working_directory}")
+        logger.info(f"   Runtime: {'SANDBOX 🛡️' if use_sandbox else 'GLOBAL 🌐'}")
 
+        # Execute
         if use_sandbox:
             # Use session's sandbox runtime
             return await self._sandbox_runtime.execute(tool, params, context)

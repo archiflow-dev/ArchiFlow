@@ -129,7 +129,28 @@ class AgentController:
                 if isinstance(base_message, UserMessage):
                     original_content = base_message.content
                     import asyncio
-                    base_message = asyncio.run(self.prompt_preprocessor.process(base_message))
+
+                    async def run_preprocessor():
+                        try:
+                            return await self.prompt_preprocessor.process(base_message)
+                        except Exception as preprocessor_error:
+                            logger.error(f"Prompt preprocessor error: {preprocessor_error}", exc_info=True)
+                            # Return original message on error
+                            return base_message
+
+                    try:
+                        # Try to get running loop, fall back to asyncio.run()
+                        try:
+                            loop = asyncio.get_running_loop()
+                            # Already in async context - this shouldn't happen in sync on_event
+                            # but if it does, skip the preprocessor to avoid issues
+                            logger.warning("on_event called from async context, skipping prompt preprocessor")
+                        except RuntimeError:
+                            # No running loop, safe to use asyncio.run
+                            base_message = asyncio.run(run_preprocessor())
+                    except Exception as outer_error:
+                        logger.error(f"Failed to run prompt preprocessor: {outer_error}", exc_info=True)
+                        base_message.content = original_content
 
                     # If refinement was applied, publish notification
                     if base_message.content != original_content:
@@ -143,7 +164,15 @@ class AgentController:
                 logger.error(f"Payload type: {payload.get('type')}")
                 logger.error(f"Payload keys: {list(payload.keys())}")
                 import json
-                logger.error(f"Payload (first 500 chars): {json.dumps(payload)[:500]}")
+                try:
+                    payload_str = json.dumps(payload, indent=2, default=str)
+                    logger.error(f"Full payload:\n{payload_str}")
+                except Exception as dump_error:
+                    logger.error(f"Failed to dump payload: {dump_error}")
+                    logger.error(f"Raw payload: {payload}")
+                # Log payload length and character at error position if available
+                if hasattr(e, 'pos') or 'column' in str(e):
+                    logger.error(f"Error indicates JSON parsing issue")
 
         except Exception as e:
             logger.error(f"Error in on_event: {e}", exc_info=True)

@@ -177,9 +177,14 @@ class SandboxRuntime(ToolRuntime):
         """
         tool_name = getattr(tool, "name", str(tool))
 
+        logger.info(f"🛡️  [SandboxRuntime] Executing tool '{tool_name}' with sandbox enforcement")
+        logger.info(f"   Workspace: {self.config.workspace_path}")
+        logger.info(f"   Mode: {self.config.mode}")
+
         # Phase 1: Pre-execution validation
         try:
             validated_params = await self._validate_execution(tool, params)
+            logger.info(f"✅ [SandboxRuntime] Validation passed for '{tool_name}'")
         except PathValidationError as e:
             # Convert to SecurityViolation
             raise SecurityViolation(str(e), "path_violation") from e
@@ -251,16 +256,21 @@ class SandboxRuntime(ToolRuntime):
         tool_name = getattr(tool, "name", str(tool))
         validated_params = params.copy()
 
+        logger.debug(f"   Validating {len(params)} parameters for tool '{tool_name}'")
+
         # Path validation for file tools
         if self._is_file_tool(tool_name):
+            logger.debug(f"   Tool '{tool_name}' is a file tool - checking path parameters")
             for param_name, param_value in params.items():
                 if self._is_path_param(param_name) and isinstance(param_value, str):
                     # Validate and rewrite path
+                    logger.debug(f"   Validating path parameter '{param_name}': '{param_value}'")
                     validated_path = self._path_validator.validate(param_value)
                     # Store as relative path for consistency
                     validated_params[param_name] = str(
                         validated_path.relative_to(self.config.workspace_path)
                     )
+                    logger.debug(f"   Rewritten to relative path: '{validated_params[param_name]}'")
 
         # Command validation for bash tools
         if self._is_bash_tool(tool_name):

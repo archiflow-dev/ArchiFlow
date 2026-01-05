@@ -104,12 +104,17 @@ class PathValidator:
         Raises:
             PathValidationError: If path escapes workspace
         """
+        logger.info(f"🔒 [PathValidator] Validating path: '{requested_path}' (mode={self.mode})")
+
         if self.mode == "disabled":
             # No validation, just resolve
-            return Path(requested_path).resolve()
+            resolved = Path(requested_path).resolve()
+            logger.warning(f"⚠️  [PathValidator] Validation DISABLED, resolved to: {resolved}")
+            return resolved
 
         # Block absolute paths
         if os.path.isabs(requested_path):
+            logger.error(f"❌ [PathValidator] BLOCKED absolute path: '{requested_path}'")
             raise PathValidationError(
                 "Absolute paths are not allowed in sandbox",
                 requested_path=requested_path,
@@ -118,7 +123,9 @@ class PathValidator:
         # Join with workspace and resolve
         try:
             full_path = (self.workspace / requested_path).resolve()
+            logger.debug(f"   Resolved to: {full_path}")
         except Exception as e:
+            logger.error(f"❌ [PathValidator] Failed to resolve path: {e}")
             raise PathValidationError(
                 f"Failed to resolve path: {e}",
                 requested_path=requested_path,
@@ -127,8 +134,10 @@ class PathValidator:
         # Verify still within workspace (path traversal check)
         try:
             relative = full_path.relative_to(self.workspace)
+            logger.info(f"✅ [PathValidator] Path validated: '{requested_path}' -> '{relative}' (within {self.workspace})")
         except ValueError:
             # Path escapes workspace via ../
+            logger.error(f"❌ [PathValidator] BLOCKED path traversal: '{requested_path}' -> '{full_path}' (escapes {self.workspace})")
             raise PathValidationError(
                 "Path escapes workspace (path traversal detected)",
                 requested_path=requested_path,
@@ -138,10 +147,13 @@ class PathValidator:
         # Check for symlink escapes
         if full_path.exists() and full_path.is_symlink():
             real_path = full_path.resolve()
+            logger.debug(f"   Checking symlink: {full_path} -> {real_path}")
             try:
                 real_path.relative_to(self.workspace)
+                logger.info(f"   Symlink is safe (points within workspace)")
             except ValueError:
                 # Symlink points outside workspace
+                logger.error(f"❌ [PathValidator] BLOCKED symlink escape: '{requested_path}' -> symlink -> '{real_path}' (escapes {self.workspace})")
                 raise PathValidationError(
                     "Symlink escapes workspace",
                     requested_path=requested_path,

@@ -234,15 +234,19 @@ class PromptPreprocessor:
 
         # Perform refinement analysis
         try:
+            logger.debug(f"Calling PromptRefinerTool for content: {content[:100]}...")
             result = await self.refiner.execute(prompt=content)
 
             if result.error:
                 logger.warning(f"PromptRefinerTool failed: {result.error}")
                 return message
 
+            logger.debug(f"PromptRefinerTool output (first 200 chars): {result.output[:200] if result.output else 'empty'}...")
+
             # Parse analysis
             analysis = self._parse_analysis(result.output)
             if analysis is None:
+                logger.warning("Failed to parse PromptRefinerTool output, using original message")
                 return message
 
             quality_score = analysis.get("quality_score", 10.0)

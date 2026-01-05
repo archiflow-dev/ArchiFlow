@@ -199,9 +199,11 @@ export class WebSocketClient {
   private sessionId: string | null = null;
   private handlers: Map<string, Set<EventHandler>> = new Map();
   private statusHandlers: Set<(status: ConnectionStatus) => void> = new Set();
+  private processingHandlers: Set<(isProcessing: boolean) => void> = new Set();
   private storeCallbacks: StoreCallbacks = {};
   private _status: ConnectionStatus = ConnectionStatus.Disconnected;
   private _streamingMessages: Map<string, string> = new Map();
+  private _isAgentProcessing: boolean = false;  // Shared processing state
 
   constructor(url: string = 'http://localhost:8000') {
     this.url = url;
@@ -212,6 +214,13 @@ export class WebSocketClient {
    */
   get status(): ConnectionStatus {
     return this._status;
+  }
+
+  /**
+   * Get current agent processing state.
+   */
+  get isAgentProcessing(): boolean {
+    return this._isAgentProcessing;
   }
 
   /**
@@ -341,6 +350,7 @@ export class WebSocketClient {
 
     this.socket.on('agent_thinking', () => {
       console.log('[WebSocketClient] 💭 Agent thinking');
+      this.setProcessingState(true);  // Update shared state
       this.storeCallbacks.onAgentThinking?.();
       this.dispatchToHandlers({ type: 'agent_thinking', session_id: this.sessionId ?? '' });
     });
@@ -355,12 +365,14 @@ export class WebSocketClient {
 
     this.socket.on('agent_finished', (event: AgentFinishedEvent) => {
       console.log('[WebSocketClient] ✅ Agent finished:', event);
+      this.setProcessingState(false);  // Update shared state
       this.storeCallbacks.onAgentFinished?.(event.reason);
       this.dispatchToHandlers(event);
     });
 
     this.socket.on('waiting_for_input', (event: WaitingForInputEvent) => {
       console.log('[WebSocketClient] ⏳ Waiting for input:', event);
+      this.setProcessingState(false);  // Update shared state
       this.storeCallbacks.onWaitingForInput?.();
       this.dispatchToHandlers(event);
     });
@@ -368,6 +380,7 @@ export class WebSocketClient {
     // Tool events (direct from backend)
     this.socket.on('tool_call', (event: any) => {
       console.log('[WebSocketClient] 🔧 Tool call:', event);
+      this.setProcessingState(true);  // Update shared state
       // Call both callbacks - one for state, one for displaying
       this.storeCallbacks.onToolCall?.(
         event.tool_name as string,
@@ -647,6 +660,29 @@ export class WebSocketClient {
     return () => {
       this.statusHandlers.delete(handler);
     };
+  }
+
+  /**
+   * Subscribe to agent processing state changes.
+   */
+  onProcessingChange(handler: (isProcessing: boolean) => void): () => void {
+    this.processingHandlers.add(handler);
+    // Immediately call with current state
+    handler(this._isAgentProcessing);
+    return () => {
+      this.processingHandlers.delete(handler);
+    };
+  }
+
+  /**
+   * Set agent processing state and notify handlers.
+   */
+  private setProcessingState(isProcessing: boolean): void {
+    if (this._isAgentProcessing !== isProcessing) {
+      this._isAgentProcessing = isProcessing;
+      // Notify all handlers
+      this.processingHandlers.forEach(handler => handler(isProcessing));
+    }
   }
 
   /**
