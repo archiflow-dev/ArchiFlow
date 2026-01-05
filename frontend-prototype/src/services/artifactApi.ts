@@ -56,7 +56,7 @@ export async function listArtifacts(
   sessionId: string,
   path: string = '',
 ): Promise<ArtifactListResponse> {
-  return api.get<ArtifactListResponse>(`/sessions/${sessionId}/artifacts/`, { params: { path } });
+  return api.get<ArtifactListResponse>(`sessions/${sessionId}/artifacts/`, { params: { path } });
 }
 
 /**
@@ -66,7 +66,7 @@ export async function getArtifact(
   sessionId: string,
   path: string,
 ): Promise<ArtifactContent> {
-  return api.get<ArtifactContent>(`/sessions/${sessionId}/artifacts/${path}`);
+  return api.get<ArtifactContent>(`sessions/${sessionId}/artifacts/${path}`);
 }
 
 /**
@@ -76,7 +76,7 @@ export async function createArtifact(
   sessionId: string,
   data: ArtifactCreateRequest,
 ): Promise<ArtifactInfo> {
-  return api.post<ArtifactInfo>(`/sessions/${sessionId}/artifacts/`, data);
+  return api.post<ArtifactInfo>(`sessions/${sessionId}/artifacts/`, data);
 }
 
 /**
@@ -87,7 +87,7 @@ export async function updateArtifact(
   path: string,
   data: ArtifactUpdateRequest,
 ): Promise<ArtifactInfo> {
-  return api.put<ArtifactInfo>(`/sessions/${sessionId}/artifacts/${path}`, data);
+  return api.put<ArtifactInfo>(`sessions/${sessionId}/artifacts/${path}`, data);
 }
 
 /**
@@ -97,7 +97,7 @@ export async function deleteArtifact(
   sessionId: string,
   path: string,
 ): Promise<void> {
-  return api.delete<void>(`/sessions/${sessionId}/artifacts/${path}`);
+  return api.delete<void>(`sessions/${sessionId}/artifacts/${path}`);
 }
 
 /**
@@ -115,7 +115,7 @@ export async function createDirectory(
   path: string,
 ): Promise<{ path: string; created: boolean }> {
   return api.post<{ path: string; created: boolean }>(
-    `/sessions/${sessionId}/artifacts/directory`,
+    `sessions/${sessionId}/artifacts/directory`,
     undefined,
     { params: { path } },
   );
@@ -132,9 +132,12 @@ export async function uploadArtifact(
   const formData = new FormData();
   formData.append('file', file);
 
+  // Import API_BASE to build the correct URL
+  const { API_BASE } = await import('./api');
+
   // Note: Using native fetch for file upload with FormData
   const response = await fetch(
-    `http://localhost:8000/api/sessions/${sessionId}/artifacts/upload?path=${encodeURIComponent(targetPath)}`,
+    `${API_BASE}/sessions/${sessionId}/artifacts/upload?path=${encodeURIComponent(targetPath)}`,
     {
       method: 'POST',
       body: formData,

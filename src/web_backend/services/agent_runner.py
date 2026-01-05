@@ -214,8 +214,17 @@ class WebAgentRunner:
         Args:
             user_prompt: Initial user prompt
         """
+        logger.info("=" * 60)
+        logger.info(f"🚀 [AgentRunner] Starting agent in broker mode")
+        logger.info(f"   Session: {self.session.id}")
+        logger.info(f"   Agent type: {self.session.agent_type}")
+        logger.info(f"   Prompt: {user_prompt[:100]}...")
+        logger.info("=" * 60)
+
         # Create session broker
         workspace = self._context.workspace_path if self._context else Path.cwd()
+
+        logger.info(f"📁 [AgentRunner] Workspace: {workspace}")
 
         self._session_broker = WebSessionBroker(
             session_id=self.session.id,
@@ -226,8 +235,12 @@ class WebAgentRunner:
             auto_refine_enabled=os.getenv("AUTO_REFINE_PROMPTS", "false").lower() == "true",
         )
 
+        logger.info(f"🔧 [AgentRunner] Session broker created, starting...")
+
         # Start broker infrastructure
         await self._session_broker.start()
+
+        logger.info(f"✅ [AgentRunner] Broker started successfully")
 
         self._running = True
 
@@ -238,11 +251,13 @@ class WebAgentRunner:
             "mode": "broker",
         })
 
+        logger.info(f"📤 [AgentRunner] Sending initial prompt to broker...")
+
         # Send initial prompt via broker
         await self._session_broker.send_message(user_prompt)
 
         logger.info(
-            f"Started agent with broker for session {self.session.id} "
+            f"✅ [AgentRunner] Started agent with broker for session {self.session.id} "
             f"(agent_type={self.session.agent_type})"
         )
 
@@ -296,18 +311,35 @@ class WebAgentRunner:
         Raises:
             AgentExecutionError: If agent is not running
         """
+        logger.info("=" * 60)
+        logger.info(f"📨 [AgentRunner] send_message called")
+        logger.info(f"   Session: {self.session.id}")
+        logger.info(f"   Content: {content[:100]}...")
+        logger.info(f"   Running: {self._running}")
+        logger.info(f"   Paused: {self._paused}")
+        logger.info(f"   Broker mode: {self._use_broker}")
+        logger.info("=" * 60)
+
         if not self._running:
-            raise AgentExecutionError("Agent is not running")
+            error_msg = "Agent is not running"
+            logger.error(f"❌ [AgentRunner] {error_msg}")
+            raise AgentExecutionError(error_msg)
 
         if self._paused:
-            raise AgentExecutionError("Agent is paused")
+            error_msg = "Agent is paused"
+            logger.error(f"❌ [AgentRunner] {error_msg}")
+            raise AgentExecutionError(error_msg)
 
         if self._use_broker and self._session_broker:
             # Broker mode: Send via broker
+            logger.info(f"🔄 [AgentRunner] Sending via session broker...")
             await self._session_broker.send_message(content)
+            logger.info(f"✅ [AgentRunner] Message sent to broker successfully")
         else:
             # Direct mode: Run agent step
+            logger.info(f"🔄 [AgentRunner] Running agent step (direct mode)...")
             await self._run_agent_step(content)
+            logger.info(f"✅ [AgentRunner] Agent step completed")
 
     async def pause(self) -> None:
         """Pause agent execution."""

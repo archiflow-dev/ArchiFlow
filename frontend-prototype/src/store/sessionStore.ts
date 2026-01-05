@@ -39,6 +39,7 @@ interface SessionState {
   updateSessionStatus: (status: Session['status']) => void;
   deleteSession: (sessionId: string) => Promise<void>;
   clearError: () => void;
+  loadSession: (sessionId: string) => Promise<void>;
 
   // Session control
   startSession: (sessionId: string) => Promise<void>;
@@ -225,5 +226,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       });
       throw error;
     }
+  },
+
+  loadSession: async (sessionId) => {
+    // Delegates to setCurrentSession which handles loading
+    await get().setCurrentSession(sessionId);
   },
 }));

@@ -11,7 +11,12 @@ import { io, Socket } from 'socket.io-client';
 // Types
 // ============================================================================
 
-export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
+export const enum ConnectionStatus {
+  Disconnected = 'disconnected',
+  Connecting = 'connecting',
+  Connected = 'connected',
+  Error = 'error'
+}
 
 export interface WebSocketEvent {
   type: string;
@@ -149,7 +154,9 @@ export type WebSocketEventType =
   | AgentFinishedEvent
   | ErrorEvent;
 
-export type EventHandler<T = WebSocketEventType> = (event: T) => void;
+export interface EventHandler<T = WebSocketEventType> {
+  (event: T): void;
+}
 
 // Store update callbacks
 export interface StoreCallbacks {
@@ -189,7 +196,7 @@ export class WebSocketClient {
   private handlers: Map<string, Set<EventHandler>> = new Map();
   private statusHandlers: Set<(status: ConnectionStatus) => void> = new Set();
   private storeCallbacks: StoreCallbacks = {};
-  private _status: ConnectionStatus = 'disconnected';
+  private _status: ConnectionStatus = ConnectionStatus.Disconnected;
   private _streamingMessages: Map<string, string> = new Map();
 
   constructor(url: string = 'http://localhost:8000') {
@@ -214,7 +221,7 @@ export class WebSocketClient {
    * Check if connected.
    */
   get isConnected(): boolean {
-    return this._status === 'connected' && this.socket?.connected === true;
+    return this._status === ConnectionStatus.Connected && this.socket?.connected === true;
   }
 
   /**
@@ -236,7 +243,7 @@ export class WebSocketClient {
       return;
     }
 
-    this.setStatus('connecting');
+    this.setStatus(ConnectionStatus.Connecting);
 
     try {
       this.socket = io(this.url, {
@@ -259,7 +266,7 @@ export class WebSocketClient {
       }
     } catch (error) {
       console.error('Failed to create Socket.IO connection:', error);
-      this.setStatus('error');
+      this.setStatus(ConnectionStatus.Error);
     }
   }
 
@@ -271,7 +278,7 @@ export class WebSocketClient {
 
     // Connection events
     this.socket.on('connect', () => {
-      this.setStatus('connected');
+      this.setStatus(ConnectionStatus.Connected);
       console.log('Socket.IO connected');
 
       // Re-subscribe to session on reconnect
@@ -281,13 +288,13 @@ export class WebSocketClient {
     });
 
     this.socket.on('disconnect', (reason) => {
-      this.setStatus('disconnected');
+      this.setStatus(ConnectionStatus.Disconnected);
       console.log('Socket.IO disconnected:', reason);
     });
 
     this.socket.on('connect_error', (error) => {
       console.error('Socket.IO connection error:', error);
-      this.setStatus('error');
+      this.setStatus(ConnectionStatus.Error);
     });
 
     this.socket.on('connected', (data: { sid: string; message: string }) => {
@@ -309,47 +316,60 @@ export class WebSocketClient {
 
     // Message events
     this.socket.on('message', (event: AgentMessageEvent) => {
+      console.log('[WebSocketClient] 📨 Received message event:', event);
       this.handleMessageEvent(event);
     });
 
     this.socket.on('message_chunk', (event: MessageChunkEvent) => {
+      console.log('[WebSocketClient] 📝 Received message chunk:', {
+        messageId: event.message_id,
+        chunk: event.chunk.substring(0, 50) + '...',
+        isComplete: event.is_complete,
+      });
       this.handleMessageChunk(event);
     });
 
     // Agent events
     this.socket.on('agent_event', (event: AgentEventWrapper) => {
+      console.log('[WebSocketClient] 🤖 Received agent event:', event.type, event);
       this.handleAgentEvent(event);
     });
 
     this.socket.on('agent_thinking', () => {
+      console.log('[WebSocketClient] 💭 Agent thinking');
       this.storeCallbacks.onAgentThinking?.();
       this.dispatchToHandlers({ type: 'agent_thinking', session_id: this.sessionId ?? '' });
     });
 
     this.socket.on('agent_finished', (event: AgentFinishedEvent) => {
+      console.log('[WebSocketClient] ✅ Agent finished:', event);
       this.storeCallbacks.onAgentFinished?.(event.reason);
       this.dispatchToHandlers(event);
     });
 
     this.socket.on('waiting_for_input', (event: WaitingForInputEvent) => {
+      console.log('[WebSocketClient] ⏳ Waiting for input:', event);
       this.storeCallbacks.onWaitingForInput?.();
       this.dispatchToHandlers(event);
     });
 
     // Workflow events
     this.socket.on('workflow_update', (event: WorkflowUpdateEvent) => {
+      console.log('[WebSocketClient] 🔄 Workflow update:', event);
       this.storeCallbacks.onWorkflowUpdate?.(event);
       this.dispatchToHandlers(event);
     });
 
     // Artifact events
     this.socket.on('artifact_update', (event: ArtifactUpdateEvent) => {
+      console.log('[WebSocketClient] 📄 Artifact update:', event);
       this.storeCallbacks.onArtifactUpdate?.(event.artifact_path, event.action);
       this.dispatchToHandlers(event);
     });
 
     // Session events
     this.socket.on('session_update', (event: SessionUpdateEvent) => {
+      console.log('[WebSocketClient] 📋 Session update:', event);
       const status = event.payload?.status ?? event.status;
       if (status) {
         this.storeCallbacks.onSessionUpdate?.(status);
@@ -359,6 +379,7 @@ export class WebSocketClient {
 
     // Error events
     this.socket.on('error', (event: ErrorEvent | { message: string }) => {
+      console.error('[WebSocketClient] ❌ Error event:', event);
       const errorEvent = event as ErrorEvent;
       this.storeCallbacks.onError?.(errorEvent.message, errorEvent.code);
       this.dispatchToHandlers({ type: 'error', ...event } as ErrorEvent);
@@ -456,7 +477,7 @@ export class WebSocketClient {
     }
     this.sessionId = null;
     this._streamingMessages.clear();
-    this.setStatus('disconnected');
+    this.setStatus(ConnectionStatus.Disconnected);
   }
 
   /**
@@ -493,20 +514,38 @@ export class WebSocketClient {
    * Send a chat message to the current session.
    */
   sendMessage(content: string): void {
+    console.log('[WebSocketClient] 📤 sendMessage called:', {
+      content,
+      sessionId: this.sessionId,
+      socketConnected: this.socket?.connected,
+      socketId: this.socket?.id,
+    });
+
     if (!this.socket?.connected) {
-      console.error('Socket not connected, cannot send message');
+      console.error('[WebSocketClient] ❌ Socket not connected, cannot send message');
       return;
     }
 
     if (!this.sessionId) {
-      console.error('No session subscribed, cannot send message');
+      console.error('[WebSocketClient] ❌ No session subscribed, cannot send message');
       return;
     }
 
-    this.socket.emit('user_message', {
+    const payload = {
+      type: 'message',
+      content: content,
       session_id: this.sessionId,
-      content,
+    };
+
+    console.log('[WebSocketClient] 🔄 Emitting to Socket.IO:', {
+      event: 'message',
+      payload,
     });
+
+    // Use 'message' event type to match backend expectations
+    this.socket.emit('message', payload);
+
+    console.log('[WebSocketClient] ✅ Message emitted successfully');
   }
 
   /**
@@ -580,7 +619,7 @@ let _instance: WebSocketClient | null = null;
  */
 export function getWebSocketClient(): WebSocketClient {
   if (!_instance) {
-    const wsUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:8000';
     _instance = new WebSocketClient(wsUrl);
   }
   return _instance;

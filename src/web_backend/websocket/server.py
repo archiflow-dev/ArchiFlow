@@ -126,6 +126,81 @@ async def ping(sid: str, data: dict = None):
     await sio.emit('pong', {'timestamp': data.get('timestamp') if data else None}, to=sid)
 
 
+# Message event - handles user chat messages
+@sio.event
+async def message(sid: str, data: dict):
+    """
+    Handle message from client.
+
+    Expected data format:
+    {
+        "type": "message",
+        "content": "user message here",
+        "session_id": "session-uuid"
+    }
+    """
+    import asyncio
+    from ..services.agent_session_manager import get_agent_session_manager
+    from ..database.connection import async_session_factory
+
+    logger.info("=" * 60)
+    logger.info("📨 [WebSocket] Received message event")
+    logger.info(f"   SID (socket): {sid}")
+    logger.info(f"   Data type: {data.get('type')}")
+    logger.info(f"   Session ID: {data.get('session_id')}")
+    logger.info(f"   Content: {data.get('content', '')[:100]}...")
+    logger.info("=" * 60)
+
+    msg_type = data.get('type')
+    session_id = data.get('session_id')
+    content = data.get('content', '')
+
+    if not session_id:
+        logger.error("❌ Missing session_id in message")
+        await sio.emit('error', {
+            'message': 'session_id is required'
+        }, to=sid)
+        return
+
+    if msg_type != 'message':
+        logger.warning(f"⚠️ Unexpected message type: {msg_type}")
+        return
+
+    if not content:
+        logger.warning("⚠️ Empty message content, ignoring")
+        return
+
+    try:
+        # Create database session
+        async with async_session_factory() as db:
+            manager = await get_agent_session_manager(db)
+
+            logger.info(f"🔄 [WebSocket] Getting runner for session {session_id}")
+
+            # Get or create runner for this session
+            runner = await manager.get_or_create_runner(session_id)
+
+            logger.info(f"✅ [WebSocket] Runner obtained: running={runner.is_running}")
+
+            # Check if runner is running
+            if not runner.is_running:
+                logger.warning(f"⚠️ [WebSocket] Runner not running, starting...")
+                session = await manager.get_session(session_id)
+                await runner.start(session.user_prompt)
+                logger.info(f"✅ [WebSocket] Runner started")
+
+            # Send the message to the agent
+            logger.info(f"📤 [WebSocket] Sending message to agent runner...")
+            await runner.send_message(content)
+            logger.info(f"✅ [WebSocket] Message sent to agent successfully")
+
+    except Exception as e:
+        logger.exception(f"❌ [WebSocket] Error processing message: {e}")
+        await sio.emit('error', {
+            'message': f'Failed to process message: {str(e)}'
+        }, to=sid)
+
+
 # Helper functions for emitting events to sessions
 async def emit_to_session(session_id: str, event: str, data: dict):
     """

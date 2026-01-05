@@ -57,7 +57,7 @@ export async function listMessages(
   sessionId: string,
   params: MessageListParams = {},
 ): Promise<MessageListResponse> {
-  return api.get<MessageListResponse>(`/sessions/${sessionId}/messages/`, { params });
+  return api.get<MessageListResponse>(`sessions/${sessionId}/messages/`, { params });
 }
 
 /**
@@ -68,7 +68,7 @@ export async function sendMessage(
   content: string,
   role: MessageRoleApi = 'user',
 ): Promise<MessageResponse> {
-  return api.post<MessageResponse>(`/sessions/${sessionId}/messages/`, {
+  return api.post<MessageResponse>(`sessions/${sessionId}/messages/`, {
     role,
     content,
   });
@@ -81,7 +81,7 @@ export async function getMessage(
   sessionId: string,
   messageId: string,
 ): Promise<MessageResponse> {
-  return api.get<MessageResponse>(`/sessions/${sessionId}/messages/${messageId}`);
+  return api.get<MessageResponse>(`sessions/${sessionId}/messages/${messageId}`);
 }
 
 // ============================================================================

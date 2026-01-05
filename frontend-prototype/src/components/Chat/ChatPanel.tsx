@@ -57,6 +57,13 @@ export function ChatPanel() {
   const handleSend = () => {
     if (!input.trim() || !isConnected) return;
 
+    console.log('[ChatPanel] 📤 Sending message:', {
+      content: input,
+      sessionId: currentSession?.session_id,
+      isConnected,
+      timestamp: new Date().toISOString()
+    });
+
     sendMessage(input);
     setInput('');
   };

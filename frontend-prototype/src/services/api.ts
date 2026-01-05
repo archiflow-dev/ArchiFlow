@@ -5,7 +5,8 @@
  */
 
 // API base URL - configurable via environment
-export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+// NOTE: Must have trailing slash for URL constructor to work correctly!
+export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/';
 
 /**
  * Custom error class for API errors.
@@ -204,7 +205,7 @@ export function getDownloadUrl(sessionId: string, path: string): string {
  */
 export async function checkApiHealth(): Promise<boolean> {
   try {
-    await api.get('/health', { timeout: 5000 });
+    await api.get('health', { timeout: 5000 });
     return true;
   } catch {
     return false;

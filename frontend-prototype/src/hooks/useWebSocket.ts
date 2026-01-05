@@ -9,10 +9,12 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   WebSocketClient,
   ConnectionStatus,
-  StoreCallbacks,
+  type StoreCallbacks,
   getWebSocketClient,
+  type EventHandler,
+} from '../services/websocket';
+import type {
   WebSocketEventType,
-  EventHandler,
   WorkflowUpdateEvent,
 } from '../services/websocket';
 import { useChatStore } from '../store/chatStore';
@@ -156,7 +158,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   } = options;
 
   // State
-  const [status, setStatus] = useState<ConnectionStatus>('disconnected');
+  const [status, setStatus] = useState<ConnectionStatus>(ConnectionStatus.Disconnected);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(initialSessionId ?? null);
   const [isAgentProcessing, setIsAgentProcessing] = useState(false);
   const [isWaitingForInput, setIsWaitingForInput] = useState(false);
@@ -330,6 +332,13 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   }, []);
 
   const sendMessage = useCallback((content: string) => {
+    console.log('[useWebSocket] 📤 sendMessage called:', {
+      content,
+      currentSessionId,
+      syncStores,
+      clientConnected: clientRef.current?.isConnected,
+    });
+
     // Add user message to store optimistically
     if (syncStores && currentSessionId) {
       chatStore.addMessage({
@@ -339,9 +348,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
         content,
         timestamp: new Date().toISOString(),
       });
+      console.log('[useWebSocket] ✅ Message added to local store');
     }
 
     clientRef.current.sendMessage(content);
+    console.log('[useWebSocket] 🔄 Sent to WebSocket client');
+
     setIsAgentProcessing(true);
     setIsWaitingForInput(false);
   }, [syncStores, currentSessionId, chatStore]);
@@ -355,7 +367,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
 
   return {
     status,
-    isConnected: status === 'connected',
+    isConnected: status === ConnectionStatus.Connected,
     sessionId: currentSessionId,
     isAgentProcessing,
     isWaitingForInput,
@@ -377,7 +389,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
  * Hook for just the connection status.
  */
 export function useWebSocketStatus(): ConnectionStatus {
-  const [status, setStatus] = useState<ConnectionStatus>('disconnected');
+  const [status, setStatus] = useState<ConnectionStatus>(ConnectionStatus.Disconnected);
 
   useEffect(() => {
     const client = getWebSocketClient();

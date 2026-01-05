@@ -60,14 +60,14 @@ export interface ApprovalResponse {
  * Get the current workflow state for a session.
  */
 export async function getWorkflow(sessionId: string): Promise<WorkflowState> {
-  return api.get<WorkflowState>(`/sessions/${sessionId}/workflow/`);
+  return api.get<WorkflowState>(`sessions/${sessionId}/workflow/`);
 }
 
 /**
  * Start the workflow.
  */
 export async function startWorkflow(sessionId: string): Promise<WorkflowState> {
-  return api.post<WorkflowState>(`/sessions/${sessionId}/workflow/start`);
+  return api.post<WorkflowState>(`sessions/${sessionId}/workflow/start`);
 }
 
 /**
@@ -79,7 +79,7 @@ export async function approvePhase(
   data: ApprovalRequest,
 ): Promise<ApprovalResponse> {
   return api.post<ApprovalResponse>(
-    `/sessions/${sessionId}/workflow/phases/${phaseId}/approve`,
+    `sessions/${sessionId}/workflow/phases/${phaseId}/approve`,
     data,
   );
 }
@@ -113,7 +113,7 @@ export async function completePhase(
   sessionId: string,
   phaseId: string,
 ): Promise<WorkflowState> {
-  return api.post<WorkflowState>(`/sessions/${sessionId}/workflow/phases/${phaseId}/complete`);
+  return api.post<WorkflowState>(`sessions/${sessionId}/workflow/phases/${phaseId}/complete`);
 }
 
 /**
@@ -124,7 +124,7 @@ export async function setPhaseAwaitingApproval(
   phaseId: string,
 ): Promise<WorkflowState> {
   return api.post<WorkflowState>(
-    `/sessions/${sessionId}/workflow/phases/${phaseId}/awaiting-approval`,
+    `sessions/${sessionId}/workflow/phases/${phaseId}/awaiting-approval`,
   );
 }
 
@@ -135,14 +135,14 @@ export async function getPhase(
   sessionId: string,
   phaseId: string,
 ): Promise<WorkflowPhase> {
-  return api.get<WorkflowPhase>(`/sessions/${sessionId}/workflow/phases/${phaseId}`);
+  return api.get<WorkflowPhase>(`sessions/${sessionId}/workflow/phases/${phaseId}`);
 }
 
 /**
  * Reset the workflow to its initial state.
  */
 export async function resetWorkflow(sessionId: string): Promise<WorkflowState> {
-  return api.post<WorkflowState>(`/sessions/${sessionId}/workflow/reset`);
+  return api.post<WorkflowState>(`sessions/${sessionId}/workflow/reset`);
 }
 
 // ============================================================================

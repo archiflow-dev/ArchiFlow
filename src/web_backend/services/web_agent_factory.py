@@ -215,7 +215,9 @@ class WebAgentFactory:
         # The SessionRuntimeManager intercepts tool.execute() calls
         # for file tools and applies sandbox validation
         if hasattr(agent, 'tools') and agent.tools:
-            for tool in agent.tools:
+            # agent.tools is a ToolRegistry, call list_tools() to get actual tools
+            tools_list = agent.tools.list_tools() if hasattr(agent.tools, 'list_tools') else []
+            for tool in tools_list:
                 # Inject session manager into tools that support it
                 if hasattr(tool, '_session_runtime_manager'):
                     tool._session_runtime_manager = session_manager

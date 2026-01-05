@@ -5,7 +5,7 @@ Provides security-focused logging of all agent operations.
 """
 
 from dataclasses import dataclass, field, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 from enum import Enum
@@ -123,7 +123,7 @@ class AuditLogger:
 
     def _generate_event_id(self) -> str:
         """Generate a unique event ID."""
-        timestamp = datetime.now(datetime.UTC).isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
         data = f"{timestamp}-{id(self)}".encode()
         return hashlib.sha256(data).hexdigest()[:16]
 
@@ -134,7 +134,7 @@ class AuditLogger:
 
     def _get_global_audit_file(self) -> Path:
         """Get the global audit file path."""
-        today = datetime.now(datetime.UTC).strftime("%Y-%m-%d")
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         return self._global_audit_dir / f"audit-{today}.jsonl"
 
     def _write_event(self, event: AuditEvent, file_path: Path) -> None:
@@ -220,7 +220,7 @@ class AuditLogger:
 
         event = AuditEvent(
             event_id=self._generate_event_id(),
-            timestamp=datetime.now(datetime.UTC).isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             event_type=AuditEventType.TOOL_CALL,
             severity=severity,
             session_id=session_id,
@@ -267,7 +267,7 @@ class AuditLogger:
 
         event = AuditEvent(
             event_id=self._generate_event_id(),
-            timestamp=datetime.now(datetime.UTC).isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             event_type=event_type,
             severity=AuditSeverity.INFO if success else AuditSeverity.WARNING,
             session_id=session_id,
@@ -304,7 +304,7 @@ class AuditLogger:
         """
         event = AuditEvent(
             event_id=self._generate_event_id(),
-            timestamp=datetime.now(datetime.UTC).isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             event_type=AuditEventType.SECURITY_VIOLATION,
             severity=AuditSeverity.CRITICAL,
             session_id=session_id,
@@ -345,7 +345,7 @@ class AuditLogger:
 
         event = AuditEvent(
             event_id=self._generate_event_id(),
-            timestamp=datetime.now(datetime.UTC).isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             event_type=audit_type,
             severity=AuditSeverity.INFO,
             session_id=session_id,
@@ -383,7 +383,7 @@ class AuditLogger:
         """
         event = AuditEvent(
             event_id=self._generate_event_id(),
-            timestamp=datetime.now(datetime.UTC).isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
             event_type=AuditEventType.WORKFLOW_TRANSITION,
             severity=AuditSeverity.INFO,
             session_id=session_id,

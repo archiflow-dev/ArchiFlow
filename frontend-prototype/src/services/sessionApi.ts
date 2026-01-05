@@ -57,21 +57,21 @@ export interface SessionListParams {
  * Create a new session.
  */
 export async function createSession(data: SessionCreateRequest): Promise<SessionResponse> {
-  return api.post<SessionResponse>('/sessions/', data);
+  return api.post<SessionResponse>('sessions/', data);
 }
 
 /**
  * Get a session by ID.
  */
 export async function getSession(sessionId: string): Promise<SessionResponse> {
-  return api.get<SessionResponse>(`/sessions/${sessionId}`);
+  return api.get<SessionResponse>(`sessions/${sessionId}`);
 }
 
 /**
  * List sessions with optional filtering.
  */
 export async function listSessions(params: SessionListParams = {}): Promise<SessionListResponse> {
-  return api.get<SessionListResponse>('/sessions/', { params });
+  return api.get<SessionListResponse>('sessions/', { params });
 }
 
 /**
@@ -81,35 +81,35 @@ export async function updateSession(
   sessionId: string,
   data: SessionUpdateRequest,
 ): Promise<SessionResponse> {
-  return api.patch<SessionResponse>(`/sessions/${sessionId}`, data);
+  return api.patch<SessionResponse>(`sessions/${sessionId}`, data);
 }
 
 /**
  * Delete a session.
  */
 export async function deleteSession(sessionId: string): Promise<void> {
-  return api.delete<void>(`/sessions/${sessionId}`);
+  return api.delete<void>(`sessions/${sessionId}`);
 }
 
 /**
  * Start a session's agent.
  */
 export async function startSession(sessionId: string): Promise<SessionResponse> {
-  return api.post<SessionResponse>(`/sessions/${sessionId}/start`);
+  return api.post<SessionResponse>(`sessions/${sessionId}/start`);
 }
 
 /**
  * Pause a running session.
  */
 export async function pauseSession(sessionId: string): Promise<SessionResponse> {
-  return api.post<SessionResponse>(`/sessions/${sessionId}/pause`);
+  return api.post<SessionResponse>(`sessions/${sessionId}/pause`);
 }
 
 /**
  * Resume a paused session.
  */
 export async function resumeSession(sessionId: string): Promise<SessionResponse> {
-  return api.post<SessionResponse>(`/sessions/${sessionId}/resume`);
+  return api.post<SessionResponse>(`sessions/${sessionId}/resume`);
 }
 
 // ============================================================================
