@@ -8,6 +8,7 @@ import {
   Wifi,
   WifiOff,
   Loader2,
+  MessagesSquare,
 } from 'lucide-react';
 import { useSessionStore } from '../../store/sessionStore';
 import { useWorkflowStore } from '../../store/workflowStore';
@@ -16,6 +17,7 @@ import { useWebSocket } from '../../hooks/useWebSocket';
 import { ArtifactOutlinePanel } from '../Artifact/ArtifactOutlinePanel';
 import { DisplayPanel } from '../Display/DisplayPanel';
 import { ChatPanel } from '../Chat/ChatPanel';
+import { CommentPanel } from '../Comment';
 import { ResizablePanel } from '../Common/ResizablePanel';
 import { StatusBadge } from '../Common/Badge';
 import { Button } from '../Common/Button';
@@ -25,6 +27,7 @@ import { getWorkflowType, cn } from '../../lib/utils';
 // Panel configuration
 const DEFAULT_LEFT_WIDTH = 260;
 const DEFAULT_RIGHT_WIDTH = 380;
+const COMMENT_PANEL_WIDTH = 320;
 const MIN_PANEL_WIDTH = 200;
 const MAX_LEFT_WIDTH = 400;
 const MAX_RIGHT_WIDTH = 500;
@@ -32,7 +35,7 @@ const MAX_RIGHT_WIDTH = 500;
 export function VSCodeLayout() {
   const { currentSession, setCurrentSession } = useSessionStore();
   const { workflow, loadWorkflow } = useWorkflowStore();
-  const { isArtifactPanelOpen, isChatPanelOpen, setArtifactPanelOpen, setChatPanelOpen } = useUIStore();
+  const { isArtifactPanelOpen, isChatPanelOpen, isCommentPanelOpen, setArtifactPanelOpen, setChatPanelOpen, setCommentPanelOpen } = useUIStore();
 
   // Initialize WebSocket at the layout level
   const {
@@ -50,6 +53,7 @@ export function VSCodeLayout() {
   // Panel widths
   const [leftWidth, setLeftWidth] = useState(DEFAULT_LEFT_WIDTH);
   const [rightWidth, setRightWidth] = useState(DEFAULT_RIGHT_WIDTH);
+  const [commentWidth, setCommentWidth] = useState(COMMENT_PANEL_WIDTH);
 
   // Handle panel resizing
   const handleLeftResize = useCallback((delta: number) => {
@@ -143,6 +147,15 @@ export function VSCodeLayout() {
             <MessageSquare className="w-4 h-4" />
           </Button>
 
+          <Button
+            variant={isCommentPanelOpen ? 'primary' : 'ghost'}
+            size="sm"
+            onClick={() => setCommentPanelOpen(!isCommentPanelOpen)}
+            title="Comments"
+          >
+            <MessagesSquare className="w-4 h-4" />
+          </Button>
+
           <div className="w-px h-6 bg-gray-700 mx-1" />
 
           {/* Session controls */}
@@ -178,6 +191,24 @@ export function VSCodeLayout() {
         <div className="flex-1 min-w-0 bg-gray-900 overflow-hidden">
           <DisplayPanel />
         </div>
+
+        {/* Comment Panel (between display and chat) */}
+        {isCommentPanelOpen && (
+          <>
+            <ResizablePanel
+              direction="horizontal"
+              onResize={(delta) => {
+                setCommentWidth(prev => Math.max(MIN_PANEL_WIDTH, Math.min(MAX_RIGHT_WIDTH, prev + delta)));
+              }}
+            />
+            <div
+              className="flex-shrink-0 bg-gray-850 border-l border-gray-700 overflow-hidden"
+              style={{ width: commentWidth }}
+            >
+              <CommentPanel />
+            </div>
+          </>
+        )}
 
         {/* Right Panel - Chat */}
         {isChatPanelOpen && (

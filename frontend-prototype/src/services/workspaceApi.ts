@@ -36,6 +36,8 @@ export interface FileContent {
 
 /**
  * List files in a session's workspace directory.
+ *
+ * Note: The backend always filters out .archiflow/ audit directory for security.
  */
 export async function listFiles(
   sessionId: string,

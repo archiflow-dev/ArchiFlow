@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   X,
   Edit3,
@@ -16,10 +16,13 @@ import {
   Code,
   Columns,
   Loader2,
+  MessageSquare,
 } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
-import { useSessionStore } from '../../store/sessionStore';
+import { useSessionStore, useCommentStore } from '../../store';
+import { useUIStore } from '../../store/uiStore';
 import { Button } from '../Common/Button';
+import { CommentMarkerGutter } from '../Comment';
 import { cn } from '../../lib/utils';
 
 // View modes for different content types
@@ -137,25 +140,137 @@ function ImagePreview({ src, alt }: { src: string; alt: string }) {
 function CodeEditor({
   content,
   isEditing,
-  onChange
+  onChange,
+  filePath,
+  comments,
+  onTextSelection
 }: {
   content: string;
   isEditing: boolean;
   onChange: (value: string) => void;
+  filePath?: string;
+  comments?: import('../../types').Comment[];
+  onTextSelection?: (selection: { text: string; lineNumber: number }) => void;
 }) {
+  const { focusedCommentId, highlightLine, clearFocus } = useCommentStore();
   const lines = content.split('\n');
+  const preRef = useRef<HTMLPreElement>(null);
+  const codeWrapperRef = useRef<HTMLDivElement>(null);
+  const [selectionPopup, setSelectionPopup] = useState<{
+    text: string;
+    lineNumber: number;
+    position: { top: number; left: number };
+  } | null>(null);
+
+  // Scroll to highlighted line
+  useEffect(() => {
+    if (highlightLine !== null && codeWrapperRef.current) {
+      // Get the gutter to find line elements
+      const gutter = codeWrapperRef.current.children[0];
+      if (gutter && gutter.children[highlightLine - 1]) {
+        const lineElement = gutter.children[highlightLine - 1];
+        lineElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Clear highlight after scroll
+        setTimeout(() => clearFocus(), 2000);
+      }
+    }
+  }, [highlightLine, clearFocus]);
+
+  // Group comments by line number for the current file
+  const commentsByLine = useMemo(() => {
+    const map = new Map<number, import('../../types').Comment[]>();
+    comments?.forEach(comment => {
+      if (comment.file_path === filePath) {
+        if (!map.has(comment.line_number)) {
+          map.set(comment.line_number, []);
+        }
+        map.get(comment.line_number)!.push(comment);
+      }
+    });
+    return map;
+  }, [comments, filePath]);
+
+  // Handle text selection
+  const handleMouseUp = () => {
+    if (!onTextSelection || isEditing) return;
+
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+
+    const range = selection.getRangeAt(0);
+    const selectedText = selection.toString().trim();
+
+    if (!selectedText) {
+      setSelectionPopup(null);
+      return;
+    }
+
+    // Find the line number of the selection
+    const preNode = preRef.current;
+    if (!preNode) return;
+
+    const rangeAt = (node: Node | null, offset: number): number => {
+      if (!node) return 0;
+      if (node === preNode) return offset;
+
+      let count = 0;
+      const walker = document.createTreeWalker(
+        preNode,
+        NodeFilter.SHOW_TEXT,
+        null
+      );
+
+      let currentNode: Node | null;
+      while (currentNode = walker.nextNode()) {
+        if (currentNode === node) {
+          return count + offset;
+        }
+        count += currentNode.textContent?.length || 0;
+      }
+
+      return count;
+    };
+
+    const startOffset = rangeAt(range.startContainer, range.startOffset);
+    const textBeforeSelection = content.substring(0, startOffset);
+    const lineNumber = textBeforeSelection.split('\n').length;
+
+    // Calculate popup position
+    const rect = range.getBoundingClientRect();
+    const preRect = preNode.getBoundingClientRect();
+
+    setSelectionPopup({
+      text: selectedText,
+      lineNumber,
+      position: {
+        top: rect.top - preRect.top - 40,
+        left: rect.left - preRect.left + rect.width / 2,
+      }
+    });
+  };
+
+  // Handle adding comment from selection
+  const handleAddComment = () => {
+    if (!selectionPopup || !onTextSelection) return;
+    onTextSelection({
+      text: selectionPopup.text,
+      lineNumber: selectionPopup.lineNumber
+    });
+    setSelectionPopup(null);
+    // Clear selection
+    window.getSelection()?.removeAllRanges();
+  };
 
   if (isEditing) {
     return (
       <div className="h-full flex">
-        {/* Line numbers */}
-        <div className="flex-shrink-0 w-12 bg-gray-800/50 text-right pr-2 py-4 select-none">
-          {lines.map((_, i) => (
-            <div key={i} className="text-xs text-gray-600 leading-6">
-              {i + 1}
-            </div>
-          ))}
-        </div>
+        {/* Line numbers with comment markers */}
+        <CommentMarkerGutter
+          commentsByLine={commentsByLine}
+          focusedCommentId={focusedCommentId}
+          highlightLine={highlightLine}
+          lineCount={lines.length}
+        />
         {/* Editor */}
         <textarea
           value={content}
@@ -168,19 +283,53 @@ function CodeEditor({
   }
 
   return (
-    <div className="h-full flex overflow-auto">
-      {/* Line numbers */}
-      <div className="flex-shrink-0 w-12 bg-gray-800/50 text-right pr-2 py-4 select-none">
-        {lines.map((_, i) => (
-          <div key={i} className="text-xs text-gray-600 leading-6">
-            {i + 1}
-          </div>
-        ))}
-      </div>
+    <div ref={codeWrapperRef} className="h-full flex relative overflow-auto">
+      {/* Line numbers with comment markers */}
+      <CommentMarkerGutter
+        commentsByLine={commentsByLine}
+        focusedCommentId={focusedCommentId}
+        highlightLine={highlightLine}
+        lineCount={lines.length}
+      />
       {/* Code */}
-      <pre className="flex-1 font-mono text-sm text-gray-200 p-4 leading-6">
+      <pre
+        ref={preRef}
+        className="flex-1 font-mono text-sm text-gray-200 p-4 leading-6"
+        onMouseUp={handleMouseUp}
+      >
         <code>{content}</code>
       </pre>
+
+      {/* Selection Popup */}
+      {selectionPopup && !isEditing && (
+        <div
+          className="absolute z-50 bg-gray-700 border border-blue-500 rounded-lg shadow-xl p-2"
+          style={{
+            top: selectionPopup.position.top,
+            left: selectionPopup.position.left,
+            transform: 'translateX(-50%)'
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-300 max-w-xs truncate">
+              "{selectionPopup.text.slice(0, 50)}{selectionPopup.text.length > 50 ? '...' : ''}"
+            </span>
+            <button
+              onClick={handleAddComment}
+              className="flex items-center gap-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+            >
+              <MessageSquare className="w-3 h-3" />
+              <span>Add Comment</span>
+            </button>
+            <button
+              onClick={() => setSelectionPopup(null)}
+              className="p-1 text-gray-400 hover:text-white transition-colors"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -333,6 +482,8 @@ export function DisplayPanel() {
     selectFile,
     setViewMode,
   } = useWorkspaceStore();
+  const { comments, setFilterFilePath, setPendingSelection: setCommentPendingSelection } = useCommentStore();
+  const { setCommentPanelOpen } = useUIStore();
 
   const [localViewMode, setLocalViewMode] = useState<ViewMode>('preview');
 
@@ -400,6 +551,19 @@ export function DisplayPanel() {
     setViewMode(mode);
   };
 
+  // Handle text selection for commenting
+  const handleTextSelection = (selection: { text: string; lineNumber: number }) => {
+    setCommentPendingSelection({
+      filePath: selectedFile.path,
+      lineNumber: selection.lineNumber,
+      selectedText: selection.text
+    });
+    // Open comment panel
+    setCommentPanelOpen(true);
+    // Set filter to current file
+    setFilterFilePath(selectedFile.path);
+  };
+
   // Render content based on type
   const renderContent = () => {
     // Image files
@@ -434,6 +598,9 @@ export function DisplayPanel() {
                 content={content}
                 isEditing={false}
                 onChange={() => {}}
+                filePath={selectedFile.path}
+                comments={comments}
+                onTextSelection={handleTextSelection}
               />
             </div>
             <div className="w-1/2 overflow-auto p-6">
@@ -449,6 +616,9 @@ export function DisplayPanel() {
             content={content}
             isEditing={false}
             onChange={() => {}}
+            filePath={selectedFile.path}
+            comments={comments}
+            onTextSelection={handleTextSelection}
           />
         </div>
       );
@@ -471,6 +641,9 @@ export function DisplayPanel() {
             content={content}
             isEditing={false}
             onChange={() => {}}
+            filePath={selectedFile.path}
+            comments={comments}
+            onTextSelection={handleTextSelection}
           />
         </div>
       );

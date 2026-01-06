@@ -80,57 +80,7 @@ export const AGENT_CATALOG: AgentMetadata[] = [
     placeholder: 'What is your presentation about? (e.g., "AI in healthcare")'
   },
 
-  // Development Agents
-  {
-    type: 'coding',
-    name: 'Coding Agent',
-    description: 'Write, debug, and refactor code with AI assistance',
-    icon: 'Code',
-    color: 'green',
-    category: 'development',
-    workflowType: 'chat_heavy',
-    requiresProjectDir: true,
-    features: ['Code Generation', 'Bug Fixing', 'Refactoring', 'Testing', 'Git Integration'],
-    placeholder: 'Describe your coding task... (e.g., "Implement user authentication")'
-  },
-  {
-    type: 'codingv2',
-    name: 'Coding Agent v2',
-    description: 'Enhanced coding agent with Claude Code features',
-    icon: 'Code2',
-    color: 'emerald',
-    category: 'development',
-    workflowType: 'chat_heavy',
-    requiresProjectDir: true,
-    features: ['Enhanced Code Gen', 'Smart Refactoring', 'Code Review', 'Documentation'],
-    placeholder: 'Describe your development task...'
-  },
-  {
-    type: 'codingv3',
-    name: 'Coding Agent v3',
-    description: 'Structured coding with planning, implementation, and testing modes',
-    icon: 'Workflow',
-    color: 'teal',
-    category: 'development',
-    workflowType: 'chat_heavy',
-    requiresProjectDir: true,
-    features: ['Planning Mode', 'Implementation Mode', 'Testing Mode', 'Structured Workflow'],
-    placeholder: 'Describe your project requirements...'
-  },
-
   // Analysis Agents
-  {
-    type: 'analyzer',
-    name: 'Codebase Analyzer',
-    description: 'Analyze and document your entire codebase',
-    icon: 'Search',
-    color: 'blue',
-    category: 'analysis',
-    workflowType: 'phase_heavy',
-    requiresProjectDir: true,
-    features: ['Discovery', 'Cataloging', 'Analysis', 'Metrics', 'Report Generation'],
-    placeholder: 'What aspects of the codebase to analyze?'
-  },
   {
     type: 'reviewer',
     name: 'Code Reviewer',
@@ -357,6 +307,59 @@ export interface SelectedArtifactState {
 
 export interface WorkflowPanelState {
   expandedPhases: Set<string>;
+}
+
+// ----------------------------------------------------------------------------
+// Comment Types
+// ----------------------------------------------------------------------------
+
+/**
+ * Status of a comment.
+ */
+export type CommentStatus = 'pending' | 'resolved' | 'applied' | 'submitted';
+
+/**
+ * A comment on a document.
+ */
+export interface Comment {
+  id: string;
+  session_id: string;
+  file_path: string;
+  line_number: number;
+  selected_text: string;
+  comment_text: string;
+  author: string;
+  status: CommentStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Request data for creating a comment.
+ */
+export interface CommentCreate {
+  file_path: string;
+  line_number: number;
+  selected_text?: string;
+  comment_text: string;
+  author?: string;
+}
+
+/**
+ * Request data for updating a comment.
+ */
+export interface CommentUpdate {
+  comment_text?: string;
+  status?: CommentStatus;
+}
+
+/**
+ * Response from listing comments.
+ */
+export interface CommentListResponse {
+  comments: Comment[];
+  total_count: number;
+  file_path?: string;
 }
 
 // ----------------------------------------------------------------------------

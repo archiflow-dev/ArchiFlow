@@ -23,6 +23,9 @@ interface UIState {
   // Chat Panel
   isChatPanelOpen: boolean;
 
+  // Comment Panel
+  isCommentPanelOpen: boolean;
+
   // Actions
   openApprovalDialog: (phase: WorkflowPhase, artifacts: Artifact[]) => void;
   closeApprovalDialog: () => void;
@@ -37,6 +40,10 @@ interface UIState {
 
   toggleChatPanel: () => void;
   setChatPanelOpen: (open: boolean) => void;
+
+  // Comment Panel actions
+  toggleCommentPanel: () => void;
+  setCommentPanelOpen: (open: boolean) => void;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -50,6 +57,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   expandedPhases: new Set<string>(),
   isArtifactPanelOpen: true,
   isChatPanelOpen: true,
+  isCommentPanelOpen: false,
 
   // Approval Dialog actions
   openApprovalDialog: (phase, artifacts) => {
@@ -141,5 +149,14 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   setChatPanelOpen: (open) => {
     set({ isChatPanelOpen: open });
+  },
+
+  // Comment Panel actions
+  toggleCommentPanel: () => {
+    set(state => ({ isCommentPanelOpen: !state.isCommentPanelOpen }));
+  },
+
+  setCommentPanelOpen: (open) => {
+    set({ isCommentPanelOpen: open });
   }
 }));

@@ -436,8 +436,13 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
         // This ensures newly created files appear in the Explorer panel
         if (syncStores && currentSessionId) {
           console.log('[useWebSocket] 🔄 Auto-refreshing workspace files...');
+          // Refresh workspace files
           workspaceStore.loadFiles('', true).catch((err) => {
             console.warn('[useWebSocket] Failed to refresh workspace files:', err);
+          });
+          // Refresh artifacts (for the Artifact panel)
+          artifactStore.loadArtifacts(currentSessionId).catch((err) => {
+            console.warn('[useWebSocket] Failed to refresh artifacts:', err);
           });
         }
 

@@ -87,6 +87,12 @@ from .agent_session_manager import (
     AgentSessionManager,
     get_agent_session_manager,
 )
+from .comment_service import (
+    CommentService,
+    CommentNotFoundError,
+    CommentServiceError,
+    get_comment_service,
+)
 
 __all__ = [
     # Session
@@ -146,5 +152,10 @@ __all__ = [
     # Agent Session Manager
     "AgentSessionManager",
     "get_agent_session_manager",
+    # Comment Service
+    "CommentService",
+    "CommentNotFoundError",
+    "CommentServiceError",
+    "get_comment_service",
 ]
 

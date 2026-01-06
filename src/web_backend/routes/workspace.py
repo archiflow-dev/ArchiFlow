@@ -105,6 +105,8 @@ async def list_workspace_files(
     """
     List files in a session's workspace directory.
 
+    Note: .archiflow/ audit directory is always filtered out for security and UX.
+
     Args:
         session_id: Session ID
         path: Relative path within workspace to list
@@ -130,7 +132,14 @@ async def list_workspace_files(
             for item in sorted(target_path.rglob("*")):
                 try:
                     relative = item.relative_to(session_path)
-                    files.append(_get_file_info(item, str(relative)))
+                    relative_str = str(relative)
+
+                    # Always filter out .archiflow/ audit directory
+                    parts = relative.parts
+                    if len(parts) > 0 and parts[0] == ".archiflow":
+                        continue
+
+                    files.append(_get_file_info(item, relative_str))
                 except (ValueError, OSError) as e:
                     logger.warning(f"Skipping {item}: {e}")
         else:
@@ -138,7 +147,13 @@ async def list_workspace_files(
             for item in sorted(target_path.iterdir()):
                 try:
                     relative = item.relative_to(session_path)
-                    files.append(_get_file_info(item, str(relative)))
+                    relative_str = str(relative)
+
+                    # Always filter out .archiflow/ audit directory
+                    if item.name == ".archiflow":
+                        continue
+
+                    files.append(_get_file_info(item, relative_str))
                 except (ValueError, OSError) as e:
                     logger.warning(f"Skipping {item}: {e}")
 

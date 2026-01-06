@@ -84,3 +84,23 @@ export type {
   EventHandler,
   StoreCallbacks,
 } from './websocket';
+
+// Workspace API
+export { workspaceApi } from './workspaceApi';
+export type {
+  FileInfo,
+  FileListResponse,
+  FileContent,
+} from './workspaceApi';
+
+// Comment API
+export { commentApi } from './commentApi';
+export type {
+  Comment,
+  CommentStatus,
+  CommentCreate,
+  CommentUpdate,
+  CommentListResponse,
+  CommentSubmissionRequest,
+  CommentSubmissionResponse,
+} from './commentApi';

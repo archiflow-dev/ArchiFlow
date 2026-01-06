@@ -1,9 +1,6 @@
 import { useState, useMemo } from 'react';
 import {
   Zap,
-  Code,
-  Code2,
-  Workflow,
   Presentation,
   BookOpen,
   Search,
@@ -14,7 +11,6 @@ import {
   Bot,
   Users,
   Wand2,
-  FolderOpen,
   Play,
   ChevronRight,
   Sparkles,
@@ -29,9 +25,6 @@ import { Button } from '../Common/Button';
 
 // Icon mapping
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  Code,
-  Code2,
-  Workflow,
   Presentation,
   BookOpen,
   Search,
@@ -135,8 +128,6 @@ function AgentCard({ agent, isSelected, onSelect }: AgentCardProps) {
 export function CreateSessionLayout() {
   const { createSession, isLoading } = useSessionStore();
   const [selectedAgent, setSelectedAgent] = useState<AgentType | null>(null);
-  const [prompt, setPrompt] = useState('');
-  const [projectDir, setProjectDir] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -155,8 +146,7 @@ export function CreateSessionLayout() {
     setError(null);
 
     try {
-      // Prompt is now optional - can be sent via chat after session starts
-      await createSession(selectedAgent, prompt.trim() || undefined);
+      await createSession(selectedAgent);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create session');
     }
@@ -188,7 +178,7 @@ export function CreateSessionLayout() {
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-white mb-2">Create New Session</h2>
             <p className="text-gray-400">
-              Select an agent type to get started. You can provide your task in the prompt field or start with an empty session and type it in the chat.
+              Select an agent type to get started. You can provide your task in the chat after starting the session.
             </p>
           </div>
 
@@ -299,45 +289,6 @@ export function CreateSessionLayout() {
                           ))}
                         </div>
                       </div>
-
-                      {/* Prompt Input */}
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 uppercase mb-2">
-                          Your Prompt <span className="text-gray-600">(Optional)</span>
-                        </label>
-                        <textarea
-                          value={prompt}
-                          onChange={(e) => setPrompt(e.target.value)}
-                          placeholder={selectedAgentMeta.placeholder || 'Optional: Describe your task here, or start with an empty session and type it in the chat...'}
-                          rows={4}
-                          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 resize-none"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          You can provide your task now or type it in the chat after starting
-                        </p>
-                      </div>
-
-                      {/* Project Directory (if required) */}
-                      {selectedAgentMeta.requiresProjectDir && (
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 uppercase mb-2">
-                            Project Directory
-                          </label>
-                          <div className="relative">
-                            <FolderOpen className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                            <input
-                              type="text"
-                              value={projectDir}
-                              onChange={(e) => setProjectDir(e.target.value)}
-                              placeholder="/path/to/project"
-                              className="w-full pl-10 pr-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
-                            />
-                          </div>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Optional: Leave empty to use current directory
-                          </p>
-                        </div>
-                      )}
 
                       {/* API Key Warning */}
                       {selectedAgentMeta.requiresApiKey && (

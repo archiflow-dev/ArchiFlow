@@ -5,6 +5,7 @@ Pytest configuration and fixtures for web backend tests.
 import pytest
 import asyncio
 from typing import AsyncGenerator, Generator
+from unittest.mock import AsyncMock, MagicMock
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
@@ -86,7 +87,23 @@ async def client(test_engine) -> AsyncGenerator[AsyncClient, None]:
             finally:
                 await session.close()
 
+    # Create mock agent session manager
+    mock_manager = MagicMock()
+    mock_manager.send_message = AsyncMock()
+
+    # Override the get_manager dependency
+    # Need to import it after the comments module is loaded
+    async def override_get_manager() -> MagicMock:
+        return mock_manager
+
     app.dependency_overrides[get_db] = override_get_db
+
+    # Override get_manager in the comments router if it exists
+    try:
+        from src.web_backend.routes.comments import get_manager
+        app.dependency_overrides[get_manager] = override_get_manager
+    except ImportError:
+        pass
 
     # Create test client
     transport = ASGITransport(app=app)
