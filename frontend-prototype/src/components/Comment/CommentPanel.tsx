@@ -50,6 +50,13 @@ export function CommentPanel({ initialData }: CommentPanelProps) {
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Store pending selection data in a ref (persists across renders, won't be cleared)
+  const pendingSelectionRef = useRef<{
+    filePath: string;
+    lineNumber: number;
+    selectedText: string;
+  } | null>(null);
+
   // Set session ID when session changes
   useEffect(() => {
     if (currentSession?.session_id) {
@@ -64,6 +71,13 @@ export function CommentPanel({ initialData }: CommentPanelProps) {
     }
   }, [currentSession?.session_id]);
 
+  // Sync pending selection from store to our ref (persists even if store is cleared)
+  useEffect(() => {
+    if (pendingSelection) {
+      pendingSelectionRef.current = pendingSelection;
+    }
+  }, [pendingSelection]);
+
   // Open add form if pending selection or initial data provided
   useEffect(() => {
     if (pendingSelection || initialData?.filePath || initialData?.selectedText) {
@@ -74,6 +88,7 @@ export function CommentPanel({ initialData }: CommentPanelProps) {
   // Clear pending selection when form is closed
   useEffect(() => {
     if (!showAddForm) {
+      // Clear the store's pendingSelection (but our ref still has the data for AddCommentForm)
       clearPendingSelection();
     }
   }, [showAddForm, clearPendingSelection]);
@@ -146,10 +161,14 @@ export function CommentPanel({ initialData }: CommentPanelProps) {
 
   const handleAddSuccess = () => {
     setShowAddForm(false);
+    // Clear the ref data for the next comment
+    pendingSelectionRef.current = null;
   };
 
   const handleAddCancel = () => {
     setShowAddForm(false);
+    // Clear the ref data for the next comment
+    pendingSelectionRef.current = null;
   };
 
   const handleSubmitToAgent = async () => {
@@ -438,7 +457,7 @@ export function CommentPanel({ initialData }: CommentPanelProps) {
         <div className="flex-1 overflow-y-auto">
           <AddCommentForm
             initialData={
-              pendingSelection || initialData || undefined
+              pendingSelectionRef.current || pendingSelection || initialData || undefined
             }
             onSuccess={handleAddSuccess}
             onCancel={handleAddCancel}

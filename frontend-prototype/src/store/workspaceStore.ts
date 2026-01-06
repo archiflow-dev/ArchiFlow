@@ -6,7 +6,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { listFiles, readFile, type FileInfo } from '../services/workspaceApi';
+import { listFiles, readFile, writeFile, type FileInfo } from '../services/workspaceApi';
 
 interface WorkspaceFile extends FileInfo {
   isOpen?: boolean;
@@ -38,6 +38,7 @@ interface WorkspaceState {
   loadFiles: (path?: string, recursive?: boolean) => Promise<void>;
   selectFile: (file: WorkspaceFile | null) => void;
   loadFileContent: (path: string) => Promise<void>;
+  saveFileContent: (path: string, content: string) => Promise<void>;
   setViewMode: (mode: 'raw' | 'preview') => void;
   toggleFolder: (path: string) => void;
   setExpandedFolders: (folders: Set<string>) => void;
@@ -108,6 +109,29 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           set({ fileContent: content.content });
         } catch (error) {
           set({ error: (error as Error).message });
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      // Save file content
+      saveFileContent: async (path, content) => {
+        const { sessionId } = get();
+        if (!sessionId) {
+          set({ error: 'No session selected' });
+          throw new Error('No session selected');
+        }
+
+        set({ isLoading: true, error: null });
+
+        try {
+          const result = await writeFile(sessionId, path, content);
+          // Update the file content in state
+          set({ fileContent: result.content });
+        } catch (error) {
+          const errorMsg = (error as Error).message;
+          set({ error: errorMsg });
+          throw new Error(errorMsg);
         } finally {
           set({ isLoading: false });
         }

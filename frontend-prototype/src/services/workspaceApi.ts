@@ -70,6 +70,27 @@ export async function readFile(
   return response as FileContent;
 }
 
+/**
+ * Write content to a file in the session's workspace.
+ */
+export async function writeFile(
+  sessionId: string,
+  path: string,
+  content: string,
+  options?: {
+    encoding?: string;
+  }
+): Promise<FileContent> {
+  const params = new URLSearchParams();
+  params.append('path', path);
+
+  const response = await api.put(`/api/sessions/${sessionId}/files/content?${params.toString()}`, {
+    content,
+    encoding: options?.encoding || 'utf-8',
+  });
+  return response as FileContent;
+}
+
 // ============================================================================
 // API Object (for convenience)
 // ============================================================================
@@ -77,4 +98,5 @@ export async function readFile(
 export const workspaceApi = {
   listFiles,
   readFile,
+  writeFile,
 };

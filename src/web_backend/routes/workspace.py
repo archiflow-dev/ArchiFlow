@@ -33,6 +33,12 @@ class FileContent(BaseModel):
     encoding: str = "utf-8"
 
 
+class FileWriteRequest(BaseModel):
+    """Request model for writing file content."""
+    content: str
+    encoding: str = "utf-8"
+
+
 class FileListResponse(BaseModel):
     """Response model for file listing."""
     files: List[FileInfo]
@@ -216,3 +222,45 @@ async def read_workspace_file(
     except Exception as e:
         logger.error(f"Error reading workspace file: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
+
+
+@router.put("/sessions/{session_id}/files/content")
+async def write_workspace_file(
+    session_id: str,
+    request: FileWriteRequest,
+    path: str = Query(..., description="Relative path to the file within workspace"),
+) -> FileContent:
+    """
+    Write content to a file in the session's workspace.
+
+    Args:
+        session_id: Session ID
+        path: Relative path to the file
+        request: Write request with content and encoding
+
+    Returns:
+        Updated file content
+    """
+    try:
+        session_path = _validate_session_path(session_id)
+        file_path = session_path / path
+
+        # Create parent directories if they don't exist
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Write file content
+        file_path.write_text(request.content, encoding=request.encoding)
+
+        logger.info(f"Wrote file {path} in workspace {session_id} ({len(request.content)} chars)")
+
+        return FileContent(
+            path=path.replace("\\", "/"),
+            content=request.content,
+            encoding=request.encoding,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error writing workspace file: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to write file: {str(e)}")

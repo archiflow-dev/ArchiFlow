@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Send } from 'lucide-react';
 import { useCommentStore, useSessionStore, useWorkspaceStore } from '../../store';
 import type { CommentCreate } from '../../types';
@@ -17,42 +17,27 @@ interface AddCommentFormProps {
 export function AddCommentForm({ initialData, onSuccess, onCancel }: AddCommentFormProps) {
   const { currentSession } = useSessionStore();
   const { selectedFile } = useWorkspaceStore();
-  const { addComment, isLoading, pendingSelection } = useCommentStore();
+  const { addComment, isLoading } = useCommentStore();
 
   const [commentText, setCommentText] = useState('');
-  const [selectedText, setSelectedText] = useState(initialData?.selectedText || '');
-  const [lineNumber, setLineNumber] = useState(initialData?.lineNumber || 1);
   const [error, setError] = useState<string | null>(null);
 
-  // Track if we've initialized from pendingSelection
-  const initializedRef = useRef(false);
+  // Initialize from initialData (passed from CommentPanel)
+  const [selectedText, setSelectedText] = useState(initialData?.selectedText || '');
+  const [lineNumber, setLineNumber] = useState(initialData?.lineNumber || 1);
 
   // Auto-fill file path from selected file
   const filePath = initialData?.filePath || selectedFile?.path || '';
 
-  // Update form when initialData changes (for pending selection)
+  // Update from initialData when it changes (when CommentPanel receives new selection)
   useEffect(() => {
-    if (initialData?.selectedText) {
+    if (initialData?.selectedText !== undefined) {
       setSelectedText(initialData.selectedText);
     }
-    if (initialData?.lineNumber) {
+    if (initialData?.lineNumber !== undefined) {
       setLineNumber(initialData.lineNumber);
     }
   }, [initialData?.selectedText, initialData?.lineNumber]);
-
-  // Initialize from pendingSelection if local state is empty (for first render when panel opens)
-  useEffect(() => {
-    if (!initializedRef.current && pendingSelection) {
-      // Only populate if local state is empty (no user input yet)
-      if (!selectedText && pendingSelection.selectedText) {
-        setSelectedText(pendingSelection.selectedText);
-      }
-      if (!lineNumber || lineNumber === 1) {
-        setLineNumber(pendingSelection.lineNumber);
-      }
-      initializedRef.current = true;
-    }
-  }, [pendingSelection, selectedText, lineNumber]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

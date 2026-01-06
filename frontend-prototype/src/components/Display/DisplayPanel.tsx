@@ -40,7 +40,14 @@ const isEditable = (file: { extension?: string }): boolean => {
 };
 
 // Markdown Preview Component
-function MarkdownPreview({ content }: { content: string }) {
+function MarkdownPreview({
+  content,
+  filePath: _filePath,
+}: {
+  content: string;
+  filePath?: string;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
   // Simple markdown rendering (in production, use react-markdown or similar)
   const html = useMemo(() => {
     return content
@@ -74,6 +81,7 @@ function MarkdownPreview({ content }: { content: string }) {
 
   return (
     <div
+      ref={containerRef}
       className="prose prose-invert max-w-none markdown-preview"
       dangerouslySetInnerHTML={{ __html: html }}
     />
@@ -450,15 +458,58 @@ function TabBar({
 function ActionBar({
   file,
   onCopy,
-  onDownload
+  onDownload,
+  isEditing,
+  isEditable,
+  hasUnsavedChanges,
+  onEdit,
+  onSave,
+  onCancel,
 }: {
   file: { name: string };
   onCopy: () => void;
   onDownload: () => void;
+  isEditing: boolean;
+  isEditable: boolean;
+  hasUnsavedChanges: boolean;
+  onEdit: () => void;
+  onSave: () => void;
+  onCancel: () => void;
 }) {
   return (
-    <div className="flex-shrink-0 h-10 px-3 bg-gray-800/50 border-t border-gray-700 flex items-center justify-end">
+    <div className="flex-shrink-0 h-10 px-3 bg-gray-800/50 border-t border-gray-700 flex items-center justify-between">
+      {/* Unsaved changes indicator */}
+      {isEditing && hasUnsavedChanges && (
+        <div className="text-xs text-orange-400 flex items-center gap-1">
+          <span className="w-2 h-2 rounded-full bg-orange-400"></span>
+          Unsaved changes
+        </div>
+      )}
+
+      {/* Action buttons */}
       <div className="flex items-center gap-1">
+        {isEditable && !isEditing && (
+          <Button variant="ghost" size="sm" onClick={onEdit} title="Edit file">
+            <Edit3 className="w-4 h-4" />
+          </Button>
+        )}
+        {isEditing && (
+          <>
+            <Button variant="ghost" size="sm" onClick={onCancel} title="Cancel editing">
+              <X className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={onSave}
+              title="Save changes"
+              className="flex items-center gap-1"
+            >
+              <Save className="w-4 h-4" />
+              <span className="text-xs">Save</span>
+            </Button>
+          </>
+        )}
         <Button variant="ghost" size="sm" onClick={onCopy} title="Copy to clipboard">
           <Copy className="w-4 h-4" />
         </Button>
@@ -479,6 +530,7 @@ export function DisplayPanel() {
     error,
     viewMode,
     loadFileContent,
+    saveFileContent,
     selectFile,
     setViewMode,
   } = useWorkspaceStore();
@@ -486,11 +538,16 @@ export function DisplayPanel() {
   const { setCommentPanelOpen } = useUIStore();
 
   const [localViewMode, setLocalViewMode] = useState<ViewMode>('preview');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState('');
 
   // Load file content when a file is selected
   useEffect(() => {
     if (selectedFile?.path) {
       loadFileContent(selectedFile.path);
+      // Reset edit state when file changes
+      setIsEditing(false);
+      setEditedContent('');
     }
   }, [selectedFile?.path]);
 
@@ -500,6 +557,13 @@ export function DisplayPanel() {
       setLocalViewMode(viewMode);
     }
   }, [viewMode]);
+
+  // Sync edited content when file content changes
+  useEffect(() => {
+    if (fileContent !== null && !isEditing) {
+      setEditedContent(fileContent);
+    }
+  }, [fileContent, isEditing]);
 
   if (!selectedFile) {
     return <EmptyState />;
@@ -564,6 +628,36 @@ export function DisplayPanel() {
     setFilterFilePath(selectedFile.path);
   };
 
+  // Handle entering edit mode
+  const handleEdit = () => {
+    setIsEditing(true);
+  };
+
+  // Handle saving edits
+  const handleSave = async () => {
+    if (!selectedFile?.path) return;
+
+    try {
+      await saveFileContent(selectedFile.path, editedContent);
+      setIsEditing(false);
+    } catch (err) {
+      console.error('Failed to save file:', err);
+      // Error is already set in store
+    }
+  };
+
+  // Handle canceling edits
+  const handleCancel = () => {
+    setEditedContent(fileContent || '');
+    setIsEditing(false);
+  };
+
+  // Check if file is editable
+  const fileIsEditable = isEditable(selectedFile);
+
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = editedContent !== fileContent;
+
   // Render content based on type
   const renderContent = () => {
     // Image files
@@ -586,7 +680,10 @@ export function DisplayPanel() {
       if (localViewMode === 'preview') {
         return (
           <div className="h-full overflow-auto p-6">
-            <MarkdownPreview content={content} />
+            <MarkdownPreview
+              content={isEditing ? editedContent : content}
+              filePath={selectedFile.path}
+            />
           </div>
         );
       }
@@ -595,16 +692,19 @@ export function DisplayPanel() {
           <div className="h-full flex">
             <div className="w-1/2 border-r border-gray-700 overflow-auto">
               <CodeEditor
-                content={content}
-                isEditing={false}
-                onChange={() => {}}
+                content={isEditing ? editedContent : content}
+                isEditing={isEditing}
+                onChange={setEditedContent}
                 filePath={selectedFile.path}
                 comments={comments}
                 onTextSelection={handleTextSelection}
               />
             </div>
             <div className="w-1/2 overflow-auto p-6">
-              <MarkdownPreview content={content} />
+              <MarkdownPreview
+                content={isEditing ? editedContent : content}
+                filePath={selectedFile.path}
+              />
             </div>
           </div>
         );
@@ -613,9 +713,9 @@ export function DisplayPanel() {
       return (
         <div className="h-full overflow-auto">
           <CodeEditor
-            content={content}
-            isEditing={false}
-            onChange={() => {}}
+            content={isEditing ? editedContent : content}
+            isEditing={isEditing}
+            onChange={setEditedContent}
             filePath={selectedFile.path}
             comments={comments}
             onTextSelection={handleTextSelection}
@@ -638,9 +738,9 @@ export function DisplayPanel() {
       return (
         <div className="h-full overflow-auto">
           <CodeEditor
-            content={content}
-            isEditing={false}
-            onChange={() => {}}
+            content={isEditing ? editedContent : content}
+            isEditing={isEditing}
+            onChange={setEditedContent}
             filePath={selectedFile.path}
             comments={comments}
             onTextSelection={handleTextSelection}
@@ -651,8 +751,19 @@ export function DisplayPanel() {
 
     // Default: plain text
     return (
-      <div className="h-full overflow-auto p-6">
-        <pre className="font-mono text-sm text-gray-300 whitespace-pre-wrap">{content}</pre>
+      <div className="h-full overflow-auto">
+        {isEditing ? (
+          <textarea
+            value={editedContent}
+            onChange={(e) => setEditedContent(e.target.value)}
+            className="w-full h-full bg-gray-900 font-mono text-sm text-gray-200 p-6 resize-none outline-none"
+            spellCheck={false}
+          />
+        ) : (
+          <div className="p-6">
+            <pre className="font-mono text-sm text-gray-300 whitespace-pre-wrap">{content}</pre>
+          </div>
+        )}
       </div>
     );
   };
@@ -674,6 +785,12 @@ export function DisplayPanel() {
         file={selectedFile}
         onCopy={handleCopy}
         onDownload={handleDownload}
+        isEditing={isEditing}
+        isEditable={fileIsEditable}
+        hasUnsavedChanges={hasUnsavedChanges}
+        onEdit={handleEdit}
+        onSave={handleSave}
+        onCancel={handleCancel}
       />
     </div>
   );

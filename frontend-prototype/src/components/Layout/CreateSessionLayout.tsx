@@ -40,7 +40,6 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
 // Category metadata
 const CATEGORIES = {
   creative: { name: 'Creative', icon: Sparkles, color: 'text-orange-400' },
-  development: { name: 'Development', icon: Code, color: 'text-green-400' },
   analysis: { name: 'Analysis', icon: Search, color: 'text-blue-400' },
   planning: { name: 'Planning', icon: Lightbulb, color: 'text-yellow-400' },
   utility: { name: 'Utility', icon: Bot, color: 'text-gray-400' }
