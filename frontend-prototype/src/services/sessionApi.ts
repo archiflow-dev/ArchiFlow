@@ -26,7 +26,7 @@ export interface SessionUpdateRequest {
 export interface SessionResponse {
   id: string;
   agent_type: AgentType;
-  user_prompt: string;
+  user_prompt: string | null;  // Optional - can be null if no initial prompt
   project_directory?: string;
   status: SessionStatusApi;
   workflow_state?: Record<string, unknown>;

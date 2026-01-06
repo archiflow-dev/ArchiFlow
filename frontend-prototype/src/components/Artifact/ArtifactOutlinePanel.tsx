@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   ChevronRight,
   ChevronDown,
@@ -13,19 +13,27 @@ import {
   Plus,
   RefreshCw
 } from 'lucide-react';
-import { useArtifactStore } from '../../store/artifactStore';
-import type { Artifact } from '../../types';
+import { useWorkspaceStore } from '../../store/workspaceStore';
+import { useSessionStore } from '../../store/sessionStore';
 import { cn, formatFileSize } from '../../lib/utils';
 
 // File type icons mapping
-const getFileIcon = (artifact: Artifact) => {
-  const ext = artifact.path.split('.').pop()?.toLowerCase();
+const getFileIcon = (file: { name: string; extension?: string; type: string }) => {
+  const ext = file.extension?.toLowerCase();
+  const name = file.name.toLowerCase();
+
+  if (file.type === 'directory') {
+    return Folder;
+  }
 
   switch (ext) {
     case 'md':
     case 'txt':
+    case 'rst':
       return FileText;
     case 'json':
+    case 'yaml':
+    case 'yml':
       return FileJson;
     case 'png':
     case 'jpg':
@@ -41,95 +49,138 @@ const getFileIcon = (artifact: Artifact) => {
     case 'py':
     case 'css':
     case 'html':
+    case 'scss':
       return FileCode;
     default:
       return File;
   }
 };
 
-// Group artifacts by folder
-function groupArtifactsByFolder(artifacts: Artifact[]): Map<string, Artifact[]> {
-  const groups = new Map<string, Artifact[]>();
+// Group files by folder
+function groupFilesByFolder(files: any[], basePath = ''): Map<string, any[]> {
+  const groups = new Map<string, any[]>();
 
-  artifacts.forEach(artifact => {
-    const parts = artifact.path.split('/');
-    const folder = parts.length > 1 ? parts.slice(0, -1).join('/') : '/';
+  files
+    .filter(f => f.path.startsWith(basePath) && f.path !== basePath)
+    .forEach(file => {
+      const relativePath = file.path.slice(basePath.length);
+      const parts = relativePath.split('/').filter(p => p);
 
-    if (!groups.has(folder)) {
-      groups.set(folder, []);
-    }
-    groups.get(folder)!.push(artifact);
-  });
+      if (parts.length === 1) {
+        // File at root level
+        if (!groups.has('/')) {
+          groups.set('/', []);
+        }
+        groups.get('/')!.push(file);
+      } else {
+        // File in subfolder
+        const folder = parts[0];
+        if (!groups.has(folder)) {
+          groups.set(folder, []);
+        }
+        groups.get(folder)!.push(file);
+      }
+    });
 
   return groups;
 }
 
 interface FolderNodeProps {
   name: string;
-  artifacts: Artifact[];
+  path: string;
+  files: any[];
   level: number;
   isExpanded: boolean;
   onToggle: () => void;
+  onFileClick: (file: any) => void;
+  selectedPath: string | null;
 }
 
-function FolderNode({ name, artifacts, level, isExpanded, onToggle }: FolderNodeProps) {
-  const { selectedArtifact, selectArtifact } = useArtifactStore();
+function FolderNode({ name, path, files, level, isExpanded, onToggle, onFileClick, selectedPath }: FolderNodeProps) {
+  const { expandedFolders, toggleFolder } = useWorkspaceStore();
+
+  // Separate directories and files
+  const directories = files.filter(f => f.type === 'directory');
+  const regularFiles = files.filter(f => f.type === 'file');
 
   return (
     <div>
       {/* Folder header */}
-      <button
-        onClick={onToggle}
-        className={cn(
-          'w-full flex items-center gap-1.5 px-2 py-1 text-sm text-gray-300 hover:bg-gray-700/50 transition-colors',
-        )}
-        style={{ paddingLeft: `${level * 12 + 8}px` }}
-      >
-        {isExpanded ? (
-          <ChevronDown className="w-4 h-4 text-gray-500 flex-shrink-0" />
-        ) : (
-          <ChevronRight className="w-4 h-4 text-gray-500 flex-shrink-0" />
-        )}
-        {isExpanded ? (
-          <FolderOpen className="w-4 h-4 text-yellow-500 flex-shrink-0" />
-        ) : (
-          <Folder className="w-4 h-4 text-yellow-500 flex-shrink-0" />
-        )}
-        <span className="truncate font-medium">{name}</span>
-        <span className="text-xs text-gray-500 ml-auto">{artifacts.length}</span>
-      </button>
+      {name !== '/' && (
+        <button
+          onClick={() => toggleFolder(path)}
+          className={cn(
+            'w-full flex items-center gap-1.5 px-2 py-1 text-sm text-gray-300 hover:bg-gray-700/50 transition-colors',
+          )}
+          style={{ paddingLeft: `${level * 12 + 8}px` }}
+        >
+          {isExpanded ? (
+            <ChevronDown className="w-4 h-4 text-gray-500 flex-shrink-0" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-gray-500 flex-shrink-0" />
+          )}
+          {isExpanded ? (
+            <FolderOpen className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+          ) : (
+            <Folder className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+          )}
+          <span className="truncate font-medium">{name}</span>
+          <span className="text-xs text-gray-500 ml-auto">{files.length}</span>
+        </button>
+      )}
 
       {/* Folder contents */}
       {isExpanded && (
         <div>
-          {artifacts.map(artifact => {
-            const FileIcon = getFileIcon(artifact);
-            const fileName = artifact.path.split('/').pop() || artifact.path;
-            const isSelected = selectedArtifact?.id === artifact.id;
+          {/* Subdirectories */}
+          {directories.map(dir => {
+            const dirPath = dir.path;
+            const dirExpanded = expandedFolders.has(dirPath);
+
+            return (
+              <FolderNode
+                key={dirPath}
+                name={dir.name}
+                path={dirPath}
+                files={files.filter(f => f.path.startsWith(dirPath + '/'))}
+                level={name === '/' ? level : level + 1}
+                isExpanded={dirExpanded}
+                onToggle={() => toggleFolder(dirPath)}
+                onFileClick={onFileClick}
+                selectedPath={selectedPath}
+              />
+            );
+          })}
+
+          {/* Regular files */}
+          {regularFiles.map(file => {
+            const FileIcon = getFileIcon(file);
+            const isSelected = selectedPath === file.path;
 
             return (
               <button
-                key={artifact.id}
-                onClick={() => selectArtifact(artifact)}
+                key={file.path}
+                onClick={() => onFileClick(file)}
                 className={cn(
                   'w-full flex items-center gap-1.5 px-2 py-1 text-sm transition-colors',
                   isSelected
                     ? 'bg-blue-600/30 text-white border-l-2 border-blue-500'
                     : 'text-gray-400 hover:bg-gray-700/50 hover:text-gray-200'
                 )}
-                style={{ paddingLeft: `${(level + 1) * 12 + 8}px` }}
+                style={{ paddingLeft: `${(name === '/' ? level : level + 1) * 12 + 8}px` }}
               >
                 <FileIcon className={cn(
                   'w-4 h-4 flex-shrink-0',
-                  artifact.type === 'image' ? 'text-purple-400' :
-                  artifact.type === 'json' ? 'text-yellow-400' :
-                  artifact.type === 'markdown' ? 'text-blue-400' :
+                  file.extension === 'md' || file.extension === 'txt' ? 'text-blue-400' :
+                  file.extension === 'json' ? 'text-yellow-400' :
+                  file.extension === 'png' || file.extension === 'jpg' || file.extension === 'svg' ? 'text-purple-400' :
+                  ['tsx', 'ts', 'jsx', 'js', 'py', 'css', 'html'].includes(file.extension || '') ? 'text-green-400' :
                   'text-gray-400'
                 )} />
-                <span className="truncate">{fileName}</span>
-                {artifact.size && (
+                <span className="truncate">{file.name}</span>
+                {file.size > 0 && (
                   <span className="text-xs text-gray-600 ml-auto">
-                    {formatFileSize(artifact.size)}
+                    {formatFileSize(file.size)}
                   </span>
                 )}
               </button>
@@ -142,47 +193,65 @@ function FolderNode({ name, artifacts, level, isExpanded, onToggle }: FolderNode
 }
 
 export function ArtifactOutlinePanel() {
-  const { artifacts, selectedArtifact } = useArtifactStore();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['/']));
+  const { currentSession } = useSessionStore();
+  const {
+    files,
+    selectedFile,
+    isLoading,
+    error,
+    expandedFolders,
+    loadFiles,
+    selectFile,
+    toggleFolder,
+    setSessionId,
+  } = useWorkspaceStore();
 
-  // Filter and group artifacts
-  const filteredArtifacts = useMemo(() => {
-    if (!searchQuery.trim()) return artifacts;
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Set session ID in workspace store when session changes
+  useEffect(() => {
+    if (currentSession?.session_id) {
+      setSessionId(currentSession.session_id);
+    }
+  }, [currentSession?.session_id, setSessionId]);
+
+  // Load files when session ID is set
+  useEffect(() => {
+    if (currentSession?.session_id) {
+      loadFiles('', true);
+    }
+  }, [currentSession?.session_id]);
+
+  // Filter files
+  const filteredFiles = useMemo(() => {
+    if (!searchQuery.trim()) return files;
 
     const query = searchQuery.toLowerCase();
-    return artifacts.filter(a =>
-      a.path.toLowerCase().includes(query) ||
-      a.name?.toLowerCase().includes(query)
+    return files.filter(f =>
+      f.path.toLowerCase().includes(query) ||
+      f.name.toLowerCase().includes(query)
     );
-  }, [artifacts, searchQuery]);
+  }, [files, searchQuery]);
 
-  const groupedArtifacts = useMemo(() =>
-    groupArtifactsByFolder(filteredArtifacts),
-    [filteredArtifacts]
+  // Group files by folder
+  const groupedFiles = useMemo(() =>
+    groupFilesByFolder(filteredFiles),
+    [filteredFiles]
   );
 
-  const toggleFolder = (path: string) => {
-    setExpandedFolders(prev => {
-      const next = new Set(prev);
-      if (next.has(path)) {
-        next.delete(path);
-      } else {
-        next.add(path);
-      }
-      return next;
-    });
+  // Handle refresh
+  const handleRefresh = () => {
+    if (currentSession?.session_id) {
+      loadFiles('', true);
+    }
   };
 
-  // Sort folders: root first, then alphabetically
-  const sortedFolders = useMemo(() => {
-    const folders = Array.from(groupedArtifacts.keys());
-    return folders.sort((a, b) => {
-      if (a === '/') return -1;
-      if (b === '/') return 1;
-      return a.localeCompare(b);
-    });
-  }, [groupedArtifacts]);
+  // Handle file click
+  const handleFileClick = (file: any) => {
+    if (file.type === 'file') {
+      selectFile(file);
+    }
+  };
 
   return (
     <div className="h-full flex flex-col">
@@ -193,16 +262,17 @@ export function ArtifactOutlinePanel() {
         </span>
         <div className="flex items-center gap-1">
           <button
-            className="p-1 text-gray-500 hover:text-gray-300 transition-colors"
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className={cn(
+              "p-1 transition-colors",
+              isLoading
+                ? "text-gray-600 animate-spin"
+                : "text-gray-500 hover:text-gray-300"
+            )}
             title="Refresh"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-          </button>
-          <button
-            className="p-1 text-gray-500 hover:text-gray-300 transition-colors"
-            title="New File"
-          >
-            <Plus className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
@@ -221,50 +291,54 @@ export function ArtifactOutlinePanel() {
         </div>
       </div>
 
-      {/* Artifacts Tree */}
+      {/* Files Tree */}
       <div className="flex-1 overflow-y-auto py-1 custom-scrollbar">
-        {artifacts.length === 0 ? (
+        {isLoading ? (
+          <div className="px-4 py-8 text-center text-gray-500 text-sm">
+            <RefreshCw className="w-8 h-8 mx-auto mb-2 animate-spin" />
+            <p>Loading files...</p>
+          </div>
+        ) : error ? (
+          <div className="px-4 py-8 text-center text-red-400 text-sm">
+            <p>{error}</p>
+          </div>
+        ) : files.length === 0 ? (
           <div className="px-4 py-8 text-center text-gray-500 text-sm">
             <Folder className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p>No artifacts yet</p>
-            <p className="text-xs mt-1">Artifacts will appear here as they are created</p>
+            <p>No files yet</p>
+            <p className="text-xs mt-1">Files will appear here as they are created</p>
           </div>
-        ) : filteredArtifacts.length === 0 ? (
+        ) : filteredFiles.length === 0 ? (
           <div className="px-4 py-8 text-center text-gray-500 text-sm">
             <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
             <p>No matching files</p>
           </div>
         ) : (
           <div>
-            {sortedFolders.map(folder => {
-              const folderArtifacts = groupedArtifacts.get(folder)!;
-              const folderName = folder === '/' ? 'Artifacts' : folder.split('/').pop() || folder;
-
-              return (
-                <FolderNode
-                  key={folder}
-                  name={folderName}
-                  artifacts={folderArtifacts}
-                  level={0}
-                  isExpanded={expandedFolders.has(folder) || searchQuery.length > 0}
-                  onToggle={() => toggleFolder(folder)}
-                />
-              );
-            })}
+            <FolderNode
+              name="/"
+              path=""
+              files={filteredFiles}
+              level={0}
+              isExpanded={true}
+              onToggle={() => {}}
+              onFileClick={handleFileClick}
+              selectedPath={selectedFile?.path || null}
+            />
           </div>
         )}
       </div>
 
       {/* Panel Footer - Selected file info */}
-      {selectedArtifact && (
+      {selectedFile && (
         <div className="flex-shrink-0 px-3 py-2 border-t border-gray-700 bg-gray-800/30">
           <div className="text-xs text-gray-400 truncate">
             <span className="text-gray-500">Selected:</span>{' '}
-            <span className="text-gray-300">{selectedArtifact.path}</span>
+            <span className="text-gray-300">{selectedFile.name}</span>
           </div>
-          {selectedArtifact.size && (
+          {selectedFile.size > 0 && (
             <div className="text-xs text-gray-500 mt-0.5">
-              {formatFileSize(selectedArtifact.size)}
+              {formatFileSize(selectedFile.size)}
             </div>
           )}
         </div>

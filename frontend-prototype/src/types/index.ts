@@ -320,7 +320,7 @@ export interface ToolCall {
 export interface Session {
   session_id: string;
   agent_type: AgentType;
-  user_prompt: string;
+  user_prompt: string | null;  // Can be null if no initial prompt provided
   project_directory?: string;
   status: 'running' | 'paused' | 'completed' | 'failed';
   created_at: string;
@@ -333,7 +333,7 @@ export interface Session {
 // Session creation request
 export interface CreateSessionRequest {
   agent_type: AgentType;
-  user_prompt: string;
+  user_prompt?: string;  // Optional - can send first message via chat
   project_directory?: string;
   options?: Record<string, unknown>;
 }

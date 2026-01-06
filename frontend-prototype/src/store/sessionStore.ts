@@ -107,13 +107,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
+      console.log('[createSession] Creating session:', { agentType, prompt, projectDir });
+
       const response = await sessionApi.create({
         agent_type: agentType,
         user_prompt: prompt || undefined,  // Ensure empty strings become undefined
         project_directory: projectDir,
       });
 
+      console.log('[createSession] API response:', response);
+
       const newSession = mapSessionResponse(response);
+
+      console.log('[createSession] Mapped session:', newSession);
 
       // Add to sessions list
       const { sessions } = get();
@@ -123,6 +129,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         isLoading: false,
       });
 
+      console.log('[createSession] Session set as current');
+
       // Only auto-start if there's an initial prompt
       // Otherwise, wait for user to send first message via chat
       if (prompt && prompt.trim()) {
@@ -131,15 +139,17 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         set({ currentSession: { ...newSession, status: 'running' } });
       }
 
-      // Load related data
-      await Promise.all([
+      // Load related data (don't fail if some data doesn't exist)
+      await Promise.allSettled([
         useWorkflowStore.getState().loadWorkflow(newSession.session_id),
         useArtifactStore.getState().loadArtifacts(newSession.session_id),
         useChatStore.getState().loadMessages(newSession.session_id),
       ]);
 
+      console.log('[createSession] Session created successfully');
       return newSession;
     } catch (error) {
+      console.error('[createSession] Error:', error);
       set({
         error: error instanceof Error ? error.message : 'Failed to create session',
         isLoading: false,

@@ -21,6 +21,7 @@ import { useChatStore } from '../store/chatStore';
 import { useWorkflowStore } from '../store/workflowStore';
 import { useArtifactStore } from '../store/artifactStore';
 import { useSessionStore } from '../store/sessionStore';
+import { useWorkspaceStore } from '../store/workspaceStore';
 import { formatToolCallDetails, formatToolResult, formatTodoList } from '../lib/toolFormatter';
 
 // ============================================================================
@@ -172,6 +173,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   const workflowStore = useWorkflowStore();
   const artifactStore = useArtifactStore();
   const sessionStore = useSessionStore();
+  const workspaceStore = useWorkspaceStore();
 
   // Track the current agent message for associating tool calls
   const currentAgentMessageRef = useRef<{ id: string; toolCalls: any[] } | null>(null);
@@ -429,6 +431,15 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
         hasStartedProcessingRef.current = false;
 
         console.log('[useWebSocket] ✅ Processing state cleared');
+
+        // Auto-refresh workspace files when agent finishes
+        // This ensures newly created files appear in the Explorer panel
+        if (syncStores && currentSessionId) {
+          console.log('[useWebSocket] 🔄 Auto-refreshing workspace files...');
+          workspaceStore.loadFiles('', true).catch((err) => {
+            console.warn('[useWebSocket] Failed to refresh workspace files:', err);
+          });
+        }
 
         // Add agent finished message to chat
         if (syncStores && currentSessionId && reason) {

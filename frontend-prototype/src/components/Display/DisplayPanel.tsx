@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   X,
   Edit3,
@@ -14,10 +14,11 @@ import {
   FileCode,
   Eye,
   Code,
-  Columns
+  Columns,
+  Loader2,
 } from 'lucide-react';
-import { useArtifactStore } from '../../store/artifactStore';
-import type { Artifact } from '../../types';
+import { useWorkspaceStore } from '../../store/workspaceStore';
+import { useSessionStore } from '../../store/sessionStore';
 import { Button } from '../Common/Button';
 import { cn } from '../../lib/utils';
 
@@ -30,9 +31,9 @@ const getFileExtension = (path: string): string => {
 };
 
 // Determine if file is editable
-const isEditable = (artifact: Artifact): boolean => {
-  const ext = getFileExtension(artifact.path);
-  return ['md', 'txt', 'json', 'tsx', 'ts', 'jsx', 'js', 'css', 'html', 'py'].includes(ext);
+const isEditable = (file: { extension?: string }): boolean => {
+  const ext = file.extension?.toLowerCase();
+  return ['md', 'txt', 'json', 'tsx', 'ts', 'jsx', 'js', 'css', 'html', 'py', 'rst'].includes(ext || '');
 };
 
 // Markdown Preview Component
@@ -51,6 +52,8 @@ function MarkdownPreview({ content }: { content: string }) {
       .replace(/```(\w+)?\n([\s\S]+?)```/g, '<pre class="bg-gray-800 rounded-lg p-4 my-3 overflow-x-auto"><code class="text-sm text-green-400">$2</code></pre>')
       // Inline code
       .replace(/`([^`]+)`/g, '<code class="bg-gray-800 px-1.5 py-0.5 rounded text-sm text-yellow-400">$1</code>')
+      // Links
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>')
       // Lists
       .replace(/^- (.+)$/gm, '<li class="ml-4 text-gray-300">$1</li>')
       .replace(/^\d+\. (.+)$/gm, '<li class="ml-4 text-gray-300 list-decimal">$1</li>')
@@ -93,14 +96,8 @@ function JsonPreview({ content }: { content: string }) {
 }
 
 // Image Preview Component
-function ImagePreview({ artifact }: { artifact: Artifact }) {
+function ImagePreview({ src, alt }: { src: string; alt: string }) {
   const [zoom, setZoom] = useState(1);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-
-  // Use content as base64 or path as URL
-  const imageSrc = artifact.content?.startsWith('data:')
-    ? artifact.content
-    : artifact.path;
 
   return (
     <div className="relative h-full flex flex-col">
@@ -113,7 +110,7 @@ function ImagePreview({ artifact }: { artifact: Artifact }) {
         <Button variant="ghost" size="sm" onClick={() => setZoom(z => Math.min(4, z + 0.25))}>
           <ZoomIn className="w-4 h-4" />
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => { setZoom(1); setPosition({ x: 0, y: 0 }); }}>
+        <Button variant="ghost" size="sm" onClick={() => setZoom(1)}>
           <RotateCcw className="w-4 h-4" />
         </Button>
       </div>
@@ -121,10 +118,10 @@ function ImagePreview({ artifact }: { artifact: Artifact }) {
       {/* Image display */}
       <div className="flex-1 overflow-auto flex items-center justify-center bg-[#1a1a1a] p-4">
         <img
-          src={imageSrc}
-          alt={artifact.name || artifact.path}
+          src={src}
+          alt={alt}
           style={{
-            transform: `scale(${zoom}) translate(${position.x}px, ${position.y}px)`,
+            transform: `scale(${zoom})`,
             maxWidth: '100%',
             maxHeight: '100%',
             objectFit: 'contain'
@@ -136,7 +133,7 @@ function ImagePreview({ artifact }: { artifact: Artifact }) {
   );
 }
 
-// Code Editor Component (simplified)
+// Code Editor Component
 function CodeEditor({
   content,
   isEditing,
@@ -198,7 +195,7 @@ function EmptyState() {
         </div>
         <h3 className="text-lg font-medium text-gray-400 mb-2">No file selected</h3>
         <p className="text-sm text-gray-600">
-          Select a file from the Explorer panel to view or edit its contents.
+          Select a file from the Explorer panel to view its contents.
         </p>
         <div className="mt-6 flex items-center justify-center gap-4 text-xs text-gray-600">
           <div className="flex items-center gap-1.5">
@@ -219,22 +216,31 @@ function EmptyState() {
   );
 }
 
+// Loading State Component
+function LoadingState() {
+  return (
+    <div className="h-full flex items-center justify-center bg-gray-900">
+      <div className="text-center">
+        <Loader2 className="w-8 h-8 mx-auto mb-4 text-blue-500 animate-spin" />
+        <p className="text-sm text-gray-500">Loading file content...</p>
+      </div>
+    </div>
+  );
+}
+
 // Tab Bar Component
 function TabBar({
-  artifact,
-  hasChanges,
+  file,
   onClose,
   viewMode,
   setViewMode
 }: {
-  artifact: Artifact;
-  hasChanges: boolean;
+  file: { name: string; extension?: string; path: string };
   onClose: () => void;
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;
 }) {
-  const fileName = artifact.path.split('/').pop() || artifact.path;
-  const ext = getFileExtension(artifact.path);
+  const ext = file.extension || getFileExtension(file.path);
 
   return (
     <div className="flex-shrink-0 h-9 bg-gray-800 border-b border-gray-700 flex items-center justify-between">
@@ -248,8 +254,7 @@ function TabBar({
           {ext === 'json' && <FileJson className="w-4 h-4 text-yellow-400" />}
           {['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext) && <FileImage className="w-4 h-4 text-purple-400" />}
           {['tsx', 'ts', 'jsx', 'js', 'py', 'css', 'html'].includes(ext) && <FileCode className="w-4 h-4 text-green-400" />}
-          <span className="text-sm">{fileName}</span>
-          {hasChanges && <span className="w-2 h-2 rounded-full bg-blue-500" />}
+          <span className="text-sm">{file.name}</span>
           <button
             onClick={onClose}
             className="ml-1 p-0.5 text-gray-500 hover:text-gray-300 hover:bg-gray-700 rounded transition-colors"
@@ -266,6 +271,7 @@ function TabBar({
             variant={viewMode === 'source' ? 'primary' : 'ghost'}
             size="sm"
             onClick={() => setViewMode('source')}
+            title="Raw mode"
           >
             <Code className="w-4 h-4" />
           </Button>
@@ -273,6 +279,7 @@ function TabBar({
             variant={viewMode === 'preview' ? 'primary' : 'ghost'}
             size="sm"
             onClick={() => setViewMode('preview')}
+            title="Preview mode"
           >
             <Eye className="w-4 h-4" />
           </Button>
@@ -280,6 +287,7 @@ function TabBar({
             variant={viewMode === 'split' ? 'primary' : 'ghost'}
             size="sm"
             onClick={() => setViewMode('split')}
+            title="Split view"
           >
             <Columns className="w-4 h-4" />
           </Button>
@@ -291,53 +299,21 @@ function TabBar({
 
 // Action Bar Component
 function ActionBar({
-  artifact,
-  isEditing,
-  hasChanges,
-  onEdit,
-  onSave,
-  onCancel,
+  file,
   onCopy,
   onDownload
 }: {
-  artifact: Artifact;
-  isEditing: boolean;
-  hasChanges: boolean;
-  onEdit: () => void;
-  onSave: () => void;
-  onCancel: () => void;
+  file: { name: string };
   onCopy: () => void;
   onDownload: () => void;
 }) {
-  const canEdit = isEditable(artifact);
-
   return (
-    <div className="flex-shrink-0 h-10 px-3 bg-gray-800/50 border-t border-gray-700 flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        {isEditing ? (
-          <>
-            <Button variant="primary" size="sm" onClick={onSave} disabled={!hasChanges}>
-              <Save className="w-4 h-4 mr-1.5" />
-              Save
-            </Button>
-            <Button variant="ghost" size="sm" onClick={onCancel}>
-              Cancel
-            </Button>
-          </>
-        ) : (
-          canEdit && (
-            <Button variant="ghost" size="sm" onClick={onEdit}>
-              <Edit3 className="w-4 h-4 mr-1.5" />
-              Edit
-            </Button>
-          )
-        )}
-      </div>
+    <div className="flex-shrink-0 h-10 px-3 bg-gray-800/50 border-t border-gray-700 flex items-center justify-end">
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm" onClick={onCopy}>
+        <Button variant="ghost" size="sm" onClick={onCopy} title="Copy to clipboard">
           <Copy className="w-4 h-4" />
         </Button>
-        <Button variant="ghost" size="sm" onClick={onDownload}>
+        <Button variant="ghost" size="sm" onClick={onDownload} title="Download file">
           <Download className="w-4 h-4" />
         </Button>
       </div>
@@ -346,25 +322,54 @@ function ActionBar({
 }
 
 export function DisplayPanel() {
+  const { currentSession } = useSessionStore();
   const {
-    selectedArtifact,
-    isEditing,
-    editedContent,
-    selectArtifact,
-    startEditing,
-    saveEdit,
-    cancelEdit,
-    updateEditedContent
-  } = useArtifactStore();
-  const [viewMode, setViewMode] = useState<ViewMode>('preview');
+    selectedFile,
+    fileContent,
+    isLoading,
+    error,
+    viewMode,
+    loadFileContent,
+    selectFile,
+    setViewMode,
+  } = useWorkspaceStore();
 
-  if (!selectedArtifact) {
+  const [localViewMode, setLocalViewMode] = useState<ViewMode>('preview');
+
+  // Load file content when a file is selected
+  useEffect(() => {
+    if (selectedFile?.path) {
+      loadFileContent(selectedFile.path);
+    }
+  }, [selectedFile?.path]);
+
+  // Sync view mode with store
+  useEffect(() => {
+    if (viewMode) {
+      setLocalViewMode(viewMode);
+    }
+  }, [viewMode]);
+
+  if (!selectedFile) {
     return <EmptyState />;
   }
 
-  const ext = getFileExtension(selectedArtifact.path);
-  const content = isEditing ? editedContent : (selectedArtifact.content || '');
-  const hasChanges = isEditing && editedContent !== selectedArtifact.content;
+  if (isLoading) {
+    return <LoadingState />;
+  }
+
+  if (error && !fileContent) {
+    return (
+      <div className="h-full flex items-center justify-center bg-gray-900">
+        <div className="text-center text-red-400">
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const ext = selectedFile.extension || getFileExtension(selectedFile.path);
+  const content = fileContent || '';
 
   const handleCopy = async () => {
     try {
@@ -379,7 +384,7 @@ export function DisplayPanel() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = selectedArtifact.path.split('/').pop() || 'file';
+    a.download = selectedFile.name;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -387,52 +392,48 @@ export function DisplayPanel() {
   };
 
   const handleClose = () => {
-    if (isEditing) {
-      cancelEdit();
-    }
-    selectArtifact(null);
+    selectFile(null);
   };
 
-  const handleEdit = () => {
-    startEditing(selectedArtifact);
-  };
-
-  const handleSave = () => {
-    saveEdit();
-  };
-
-  const handleCancel = () => {
-    cancelEdit();
-  };
-
-  const handleContentChange = (newContent: string) => {
-    updateEditedContent(newContent);
+  const handleViewModeChange = (mode: ViewMode) => {
+    setLocalViewMode(mode);
+    setViewMode(mode);
   };
 
   // Render content based on type
   const renderContent = () => {
     // Image files
     if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
-      return <ImagePreview artifact={selectedArtifact} />;
+      // For images, we'd need to construct the URL
+      // For now, show a placeholder
+      return (
+        <div className="h-full flex items-center justify-center bg-gray-900">
+          <div className="text-center text-gray-500">
+            <FileImage className="w-12 h-12 mx-auto mb-2" />
+            <p>Image preview not available</p>
+            <p className="text-xs mt-1">Use download to view the image</p>
+          </div>
+        </div>
+      );
     }
 
     // Markdown files
-    if (ext === 'md') {
-      if (viewMode === 'preview') {
+    if (ext === 'md' || ext === 'rst') {
+      if (localViewMode === 'preview') {
         return (
           <div className="h-full overflow-auto p-6">
             <MarkdownPreview content={content} />
           </div>
         );
       }
-      if (viewMode === 'split') {
+      if (localViewMode === 'split') {
         return (
           <div className="h-full flex">
             <div className="w-1/2 border-r border-gray-700 overflow-auto">
               <CodeEditor
                 content={content}
-                isEditing={isEditing}
-                onChange={handleContentChange}
+                isEditing={false}
+                onChange={() => {}}
               />
             </div>
             <div className="w-1/2 overflow-auto p-6">
@@ -446,8 +447,8 @@ export function DisplayPanel() {
         <div className="h-full overflow-auto">
           <CodeEditor
             content={content}
-            isEditing={isEditing}
-            onChange={handleContentChange}
+            isEditing={false}
+            onChange={() => {}}
           />
         </div>
       );
@@ -463,13 +464,13 @@ export function DisplayPanel() {
     }
 
     // Code files
-    if (['tsx', 'ts', 'jsx', 'js', 'py', 'css', 'html'].includes(ext)) {
+    if (['tsx', 'ts', 'jsx', 'js', 'py', 'css', 'html', 'yaml', 'yml'].includes(ext)) {
       return (
         <div className="h-full overflow-auto">
           <CodeEditor
             content={content}
-            isEditing={isEditing}
-            onChange={handleContentChange}
+            isEditing={false}
+            onChange={() => {}}
           />
         </div>
       );
@@ -486,11 +487,10 @@ export function DisplayPanel() {
   return (
     <div className="h-full flex flex-col">
       <TabBar
-        artifact={selectedArtifact}
-        hasChanges={hasChanges}
+        file={selectedFile}
         onClose={handleClose}
-        viewMode={viewMode}
-        setViewMode={setViewMode}
+        viewMode={localViewMode}
+        setViewMode={handleViewModeChange}
       />
 
       <div className="flex-1 overflow-hidden">
@@ -498,12 +498,7 @@ export function DisplayPanel() {
       </div>
 
       <ActionBar
-        artifact={selectedArtifact}
-        isEditing={isEditing}
-        hasChanges={hasChanges}
-        onEdit={handleEdit}
-        onSave={handleSave}
-        onCancel={handleCancel}
+        file={selectedFile}
         onCopy={handleCopy}
         onDownload={handleDownload}
       />

@@ -13,7 +13,7 @@ import sys
 
 from .config import settings
 from .database.connection import init_db, close_db
-from .routes import sessions, agents, artifacts, workflow, messages, agent_execution
+from .routes import sessions, agents, artifacts, workflow, messages, agent_execution, workspace
 from .websocket.server import sio
 from .services import (
     get_workspace_manager,
@@ -189,6 +189,12 @@ app.include_router(
     agent_execution.router,
     prefix=f"{settings.API_PREFIX}/sessions",
     tags=["agent-execution"]
+)
+
+app.include_router(
+    workspace.router,
+    prefix=f"{settings.API_PREFIX}",
+    tags=["workspace"]
 )
 
 
