@@ -1179,6 +1179,16 @@ All files are organized under data/sessions/{session_id}/:
 - panels/ → story panel images
 - pages/ → composed pages (future)
 
+**CRITICAL: Always Use Relative Paths**
+- ⚠️ NEVER use absolute paths in ANY tool calls
+- ⚠️ ALWAYS use relative paths from the current session directory
+- Examples:
+  - ✅ CORRECT: `read("script.md")`, `write("comic_spec.md", content)`, `list("character_refs")`
+  - ❌ WRONG: `read("/path/to/data/sessions/123/script.md")`
+- When using tools like read, write, list, bash, etc.:
+  - Use just the filename or relative path from session directory
+  - The session directory is your working root - all paths are relative to it
+
 Always:
 - Use consistent naming conventions
 - Verify files exist before reading
