@@ -326,6 +326,7 @@ export interface Comment {
   session_id: string;
   file_path: string;
   line_number: number;
+  end_line_number?: number;  // Phase 3: Support for multi-line/range comments
   selected_text: string;
   comment_text: string;
   author: string;
@@ -340,6 +341,7 @@ export interface Comment {
 export interface CommentCreate {
   file_path: string;
   line_number: number;
+  end_line_number?: number;  // Phase 3: Support for multi-line/range comments
   selected_text?: string;
   comment_text: string;
   author?: string;

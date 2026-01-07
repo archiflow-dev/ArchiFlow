@@ -8,6 +8,7 @@ interface AddCommentFormProps {
   initialData?: {
     filePath?: string;
     lineNumber?: number;
+    endLineNumber?: number;  // Phase 3: Support for range comments
     selectedText?: string;
   };
   onSuccess?: () => void;
@@ -15,6 +16,8 @@ interface AddCommentFormProps {
 }
 
 export function AddCommentForm({ initialData, onSuccess, onCancel }: AddCommentFormProps) {
+  console.log('🟡 [AddCommentForm] Component rendered with initialData:', initialData);
+
   const { currentSession } = useSessionStore();
   const { selectedFile } = useWorkspaceStore();
   const { addComment, isLoading } = useCommentStore();
@@ -25,19 +28,26 @@ export function AddCommentForm({ initialData, onSuccess, onCancel }: AddCommentF
   // Initialize from initialData (passed from CommentPanel)
   const [selectedText, setSelectedText] = useState(initialData?.selectedText || '');
   const [lineNumber, setLineNumber] = useState(initialData?.lineNumber || 1);
+  const [endLineNumber, setEndLineNumber] = useState<number | undefined>(initialData?.endLineNumber);
 
   // Auto-fill file path from selected file
   const filePath = initialData?.filePath || selectedFile?.path || '';
 
   // Update from initialData when it changes (when CommentPanel receives new selection)
   useEffect(() => {
+    console.log('🔵 [AddCommentForm] initialData changed:', initialData);
     if (initialData?.selectedText !== undefined) {
       setSelectedText(initialData.selectedText);
     }
     if (initialData?.lineNumber !== undefined) {
       setLineNumber(initialData.lineNumber);
     }
-  }, [initialData?.selectedText, initialData?.lineNumber]);
+    if (initialData?.endLineNumber !== undefined) {
+      setEndLineNumber(initialData.endLineNumber);
+    } else {
+      setEndLineNumber(undefined);
+    }
+  }, [initialData?.selectedText, initialData?.lineNumber, initialData?.endLineNumber, initialData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +71,7 @@ export function AddCommentForm({ initialData, onSuccess, onCancel }: AddCommentF
     const data: CommentCreate = {
       file_path: filePath,
       line_number: lineNumber,
+      end_line_number: endLineNumber,  // Phase 3: Include range information
       selected_text: selectedText,
       comment_text: commentText.trim(),
       author: 'default_user',
@@ -71,6 +82,7 @@ export function AddCommentForm({ initialData, onSuccess, onCancel }: AddCommentF
       setCommentText('');
       setSelectedText('');
       setLineNumber(1);
+      setEndLineNumber(undefined);
       onSuccess?.();
     } catch (err) {
       setError((err as Error).message || 'Failed to add comment');
@@ -106,7 +118,10 @@ export function AddCommentForm({ initialData, onSuccess, onCancel }: AddCommentF
             {lineNumber > 0 && (
               <>
                 <span className="mx-1">•</span>
-                <span className="font-medium">Line:</span> {lineNumber}
+                <span className="font-medium">
+                  Line: {lineNumber}
+                  {endLineNumber && endLineNumber !== lineNumber && `-${endLineNumber}`}
+                </span>
               </>
             )}
           </div>

@@ -157,6 +157,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   },
 
   setCommentPanelOpen: (open) => {
+    console.log('🟣 [UIStore] setCommentPanelOpen called:', open);
     set({ isCommentPanelOpen: open });
+    console.log('✅ [UIStore] isCommentPanelOpen is now:', open);
   }
 }));

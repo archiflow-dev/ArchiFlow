@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   MessageSquare,
   Plus,
@@ -6,8 +6,6 @@ import {
   Send,
   X,
   FileText,
-  ChevronDown,
-  ChevronRight,
   Filter,
   Check,
 } from 'lucide-react';
@@ -26,6 +24,11 @@ interface CommentPanelProps {
 }
 
 export function CommentPanel({ initialData }: CommentPanelProps) {
+  console.log('🔴 [CommentPanel] Component render START', {
+    isCommentPanelOpen: useUIStore.getState().isCommentPanelOpen,
+    initialData
+  });
+
   const { currentSession } = useSessionStore();
   const { isCommentPanelOpen, setCommentPanelOpen } = useUIStore();
   const {
@@ -44,6 +47,12 @@ export function CommentPanel({ initialData }: CommentPanelProps) {
     setFilterStatus,
   } = useCommentStore();
 
+  console.log('🔴 [CommentPanel] State:', {
+    isCommentPanelOpen,
+    pendingSelection,
+    filterFilePath
+  });
+
   const [showAddForm, setShowAddForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<string | null>(null);
@@ -54,6 +63,7 @@ export function CommentPanel({ initialData }: CommentPanelProps) {
   const pendingSelectionRef = useRef<{
     filePath: string;
     lineNumber: number;
+    endLineNumber?: number;
     selectedText: string;
   } | null>(null);
 
@@ -73,25 +83,40 @@ export function CommentPanel({ initialData }: CommentPanelProps) {
 
   // Sync pending selection from store to our ref (persists even if store is cleared)
   useEffect(() => {
+    console.log('🔴 [CommentPanel] pendingSelection changed:', {
+      pendingSelection,
+      hasInitialData: !!initialData
+    });
     if (pendingSelection) {
+      console.log('💾 [CommentPanel] Storing pendingSelection to ref');
       pendingSelectionRef.current = pendingSelection;
-    }
-  }, [pendingSelection]);
-
-  // Open add form if pending selection or initial data provided
-  useEffect(() => {
-    if (pendingSelection || initialData?.filePath || initialData?.selectedText) {
-      setShowAddForm(true);
     }
   }, [pendingSelection, initialData]);
 
-  // Clear pending selection when form is closed
+  // Open add form if pending selection or initial data provided
   useEffect(() => {
-    if (!showAddForm) {
-      // Clear the store's pendingSelection (but our ref still has the data for AddCommentForm)
-      clearPendingSelection();
+    console.log('🟠 [CommentPanel] Checking if should show add form:', {
+      hasPendingSelection: !!pendingSelection,
+      hasInitialFilePath: !!initialData?.filePath,
+      hasInitialSelectedText: !!initialData?.selectedText,
+      currentShowAddForm: showAddForm
+    });
+
+    if (pendingSelection || initialData?.filePath || initialData?.selectedText) {
+      console.log('✅ [CommentPanel] Showing add form!');
+      setShowAddForm(true);
     }
-  }, [showAddForm, clearPendingSelection]);
+  }, [pendingSelection, initialData, showAddForm]);
+
+  // REMOVED: Effect to clear pending selection on showAddForm change.
+  // This caused a race condition on mount where the selection was cleared before the form could open.
+
+  // Helper to close form and clean up
+  const closeAddForm = () => {
+    setShowAddForm(false);
+    pendingSelectionRef.current = null;
+    clearPendingSelection();
+  };
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -115,7 +140,7 @@ export function CommentPanel({ initialData }: CommentPanelProps) {
         if (showFilterMenu) {
           setShowFilterMenu(false);
         } else if (showAddForm) {
-          setShowAddForm(false);
+          closeAddForm();
         }
       }
 
@@ -128,7 +153,7 @@ export function CommentPanel({ initialData }: CommentPanelProps) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isCommentPanelOpen, showAddForm, showFilterMenu, refreshComments]);
+  }, [isCommentPanelOpen, showAddForm, showFilterMenu, refreshComments, clearPendingSelection]);
 
   // Close filter menu when clicking outside
   useEffect(() => {
@@ -160,16 +185,13 @@ export function CommentPanel({ initialData }: CommentPanelProps) {
   };
 
   const handleAddSuccess = () => {
-    setShowAddForm(false);
-    // Clear the ref data for the next comment
-    pendingSelectionRef.current = null;
+    closeAddForm();
   };
 
   const handleAddCancel = () => {
-    setShowAddForm(false);
-    // Clear the ref data for the next comment
-    pendingSelectionRef.current = null;
+    closeAddForm();
   };
+
 
   const handleSubmitToAgent = async () => {
     if (!currentSession?.session_id) return;
@@ -189,7 +211,7 @@ export function CommentPanel({ initialData }: CommentPanelProps) {
       // Clear success message after 3 seconds
       setTimeout(() => setSubmitResult(null), 3000);
     } catch (err) {
-      setSubmitResult(`✗ Failed: ${(err as Error).message}`);
+      setSubmitResult(`✗ Failed: ${(err as Error).message} `);
     } finally {
       setIsSubmitting(false);
     }
@@ -455,13 +477,22 @@ export function CommentPanel({ initialData }: CommentPanelProps) {
       ) : (
         /* Add Comment Form */
         <div className="flex-1 overflow-y-auto">
-          <AddCommentForm
-            initialData={
-              pendingSelectionRef.current || pendingSelection || initialData || undefined
-            }
-            onSuccess={handleAddSuccess}
-            onCancel={handleAddCancel}
-          />
+          {(() => {
+            const dataToPass = pendingSelection || pendingSelectionRef.current || initialData || undefined;
+            console.log('📤 [CommentPanel] Passing to AddCommentForm:', {
+              fromRef: pendingSelectionRef.current,
+              fromStore: pendingSelection,
+              fromProps: initialData,
+              finalData: dataToPass
+            });
+            return (
+              <AddCommentForm
+                initialData={dataToPass}
+                onSuccess={handleAddSuccess}
+                onCancel={handleAddCancel}
+              />
+            );
+          })()}
         </div>
       )}
     </div>

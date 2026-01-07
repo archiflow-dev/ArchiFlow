@@ -51,6 +51,7 @@ interface CommentState {
   pendingSelection: {
     filePath: string;
     lineNumber: number;
+    endLineNumber?: number;
     selectedText: string;
   } | null;
 
@@ -68,7 +69,7 @@ interface CommentState {
   setSessionId: (sessionId: string | null) => void;
 
   // Actions - Pending Selection
-  setPendingSelection: (selection: { filePath: string; lineNumber: number; selectedText: string } | null) => void;
+  setPendingSelection: (selection: { filePath: string; lineNumber: number; endLineNumber?: number; selectedText: string } | null) => void;
   clearPendingSelection: () => void;
 
   // Actions - Comments
@@ -151,7 +152,12 @@ export const useCommentStore = create<CommentState>()(
 
       // Set pending selection for new comment
       setPendingSelection: (selection) => {
+        console.log('🟤 [CommentStore] setPendingSelection called:', {
+          selection,
+          previousValue: get().pendingSelection
+        });
         set({ pendingSelection: selection });
+        console.log('✅ [CommentStore] pendingSelection is now:', selection);
       },
 
       // Clear pending selection

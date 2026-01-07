@@ -31,6 +31,7 @@ class Comment(BaseModel):
     session_id: str = Field(..., description="Session this comment belongs to")
     file_path: str = Field(..., description="Path to the file being commented on (relative to workspace)")
     line_number: int = Field(..., ge=1, description="Line number where comment is placed")
+    end_line_number: Optional[int] = Field(None, ge=1, description="End line number for multi-line/range comments")
     selected_text: str = Field(default="", description="Text snippet being commented on")
     comment_text: str = Field(..., min_length=1, description="User's comment content")
     author: str = Field(default="default_user", description="User who created the comment")
@@ -45,6 +46,7 @@ class Comment(BaseModel):
                 "session_id": "session_123456789abc",
                 "file_path": "docs/chapter1.md",
                 "line_number": 23,
+                "end_line_number": 25,
                 "selected_text": "The quick brown fox",
                 "comment_text": "This should be more descriptive",
                 "author": "default_user",
@@ -59,6 +61,7 @@ class CommentCreate(BaseModel):
     """Request model for creating a comment."""
     file_path: str = Field(..., description="Path to the file being commented on")
     line_number: int = Field(..., ge=1, description="Line number where comment is placed")
+    end_line_number: Optional[int] = Field(None, ge=1, description="End line number for multi-line/range comments")
     selected_text: str = Field(default="", description="Text snippet being commented on")
     comment_text: str = Field(..., min_length=1, description="User's comment content")
     author: str = Field(default="default_user", description="User who created the comment")

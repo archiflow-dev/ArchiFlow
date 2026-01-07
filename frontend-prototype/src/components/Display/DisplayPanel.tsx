@@ -23,6 +23,7 @@ import { useSessionStore, useCommentStore } from '../../store';
 import { useUIStore } from '../../store/uiStore';
 import { Button } from '../Common/Button';
 import { CommentMarkerGutter } from '../Comment';
+import { LineAwareMarkdownPreview } from './LineAwareMarkdownPreview';
 import { cn } from '../../lib/utils';
 
 // View modes for different content types
@@ -616,16 +617,40 @@ export function DisplayPanel() {
   };
 
   // Handle text selection for commenting
-  const handleTextSelection = (selection: { text: string; lineNumber: number }) => {
+  const handleTextSelection = (selection: { text: string; lineNumber: number; endLineNumber?: number }) => {
+    console.log('🟢 [DisplayPanel] handleTextSelection START', {
+      selection,
+      selectedFile
+    });
+
+    if (!selectedFile?.path) {
+      console.error('❌ [DisplayPanel] No selected file!');
+      return;
+    }
+
+    console.log('📝 [DisplayPanel] Setting pending selection:', {
+      filePath: selectedFile.path,
+      lineNumber: selection.lineNumber,
+      endLineNumber: selection.endLineNumber,
+      selectedText: selection.text.slice(0, 50) + '...'
+    });
+
     setCommentPendingSelection({
       filePath: selectedFile.path,
       lineNumber: selection.lineNumber,
+      endLineNumber: selection.endLineNumber,
       selectedText: selection.text
     });
+
+    console.log('🚪 [DisplayPanel] Opening comment panel');
     // Open comment panel
     setCommentPanelOpen(true);
+
+    console.log('🔍 [DisplayPanel] Setting filter for file:', selectedFile.path);
     // Set filter to current file
     setFilterFilePath(selectedFile.path);
+
+    console.log('✅ [DisplayPanel] handleTextSelection END');
   };
 
   // Handle entering edit mode
@@ -680,9 +705,10 @@ export function DisplayPanel() {
       if (localViewMode === 'preview') {
         return (
           <div className="h-full overflow-auto p-6">
-            <MarkdownPreview
+            <LineAwareMarkdownPreview
               content={isEditing ? editedContent : content}
               filePath={selectedFile.path}
+              onTextSelection={handleTextSelection}
             />
           </div>
         );
@@ -701,9 +727,10 @@ export function DisplayPanel() {
               />
             </div>
             <div className="w-1/2 overflow-auto p-6">
-              <MarkdownPreview
+              <LineAwareMarkdownPreview
                 content={isEditing ? editedContent : content}
                 filePath={selectedFile.path}
+                onTextSelection={handleTextSelection}
               />
             </div>
           </div>
