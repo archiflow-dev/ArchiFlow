@@ -40,6 +40,9 @@ class Settings(BaseSettings):
         # Allow all localhost ports 5173-5199 for Vite dev server
         *[f"http://localhost:{port}" for port in range(5173, 5200)],
         *[f"http://127.0.0.1:{port}" for port in range(5173, 5200)],
+        # Also allow port 5174 explicitly (might be assigned dynamically)
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
     ]
 
     # Workspace Management

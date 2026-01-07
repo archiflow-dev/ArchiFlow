@@ -123,7 +123,13 @@ class ExportComicPDFTool(BaseTool):
 
         try:
             # 1. Setup paths
-            session_dir = Path(f"data/sessions/{session_id}")
+            # Use workspace from execution context, or fall back to legacy path
+            if self.execution_context and self.execution_context.working_directory:
+                session_dir = Path(self.execution_context.working_directory)
+            else:
+                # Legacy fallback for CLI sessions
+                session_dir = Path(f"data/sessions/{session_id}")
+
             if not session_dir.exists():
                 return self.fail_response(f"Session directory not found: {session_dir}")
 

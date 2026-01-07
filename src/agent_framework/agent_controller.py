@@ -157,22 +157,39 @@ class AgentController:
                         self._publish_refinement_notification(original_content, base_message.content)
 
                 # Step the agent
+                logger.info(f"[AgentController] Stepping agent with message type: {type(base_message).__name__}")
+                logger.info(f"[AgentController] Message sequence: {base_message.sequence}")
+
+                # Log content safely (not all message types have 'content' attribute)
+                if hasattr(base_message, 'content'):
+                    logger.info(f"[AgentController] Message content (first 200 chars): {str(base_message.content)[:200]}")
+                elif hasattr(base_message, 'tool_results'):
+                    logger.info(f"[AgentController] Batch tool results count: {len(base_message.tool_results)}")
+                elif hasattr(base_message, 'result'):
+                    logger.info(f"[AgentController] Tool result: {base_message.result}")
+                else:
+                    logger.info(f"[AgentController] Message attributes: {vars(base_message).keys()}")
+
                 response = self.agent.step(base_message)
                 self._handle_agent_response(response)
             except ValueError as e:
-                logger.error(f"Failed to deserialize message: {e}")
-                logger.error(f"Payload type: {payload.get('type')}")
-                logger.error(f"Payload keys: {list(payload.keys())}")
-                import json
+                logger.error(f"[AgentController] ValueError during agent step: {e}")
+                logger.error(f"[AgentController] Payload type: {payload.get('type')}")
+                logger.error(f"[AgentController] Payload keys: {list(payload.keys())}")
+                logger.error(f"[AgentController] Exception type: {type(e).__name__}")
+                logger.error(f"[AgentController] Exception message: {str(e)}")
+                import traceback
+                logger.error(f"[AgentController] Traceback:\n{traceback.format_exc()}")
+
                 try:
                     payload_str = json.dumps(payload, indent=2, default=str)
-                    logger.error(f"Full payload:\n{payload_str}")
+                    logger.error(f"[AgentController] Full payload:\n{payload_str}")
                 except Exception as dump_error:
-                    logger.error(f"Failed to dump payload: {dump_error}")
-                    logger.error(f"Raw payload: {payload}")
+                    logger.error(f"[AgentController] Failed to dump payload: {dump_error}")
+                    logger.error(f"[AgentController] Raw payload: {payload}")
                 # Log payload length and character at error position if available
-                if hasattr(e, 'pos') or 'column' in str(e):
-                    logger.error(f"Error indicates JSON parsing issue")
+                if 'column' in str(e) or 'char' in str(e):
+                    logger.error(f"[AgentController] Error indicates JSON parsing issue at specific position")
 
         except Exception as e:
             logger.error(f"Error in on_event: {e}", exc_info=True)

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   X,
   Edit3,
@@ -17,10 +17,12 @@ import {
   Columns,
   Loader2,
   MessageSquare,
+  File,
 } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useSessionStore, useCommentStore } from '../../store';
 import { useUIStore } from '../../store/uiStore';
+import { API_BASE } from '../../services/api';
 import { Button } from '../Common/Button';
 import { CommentMarkerGutter } from '../Comment';
 import { LineAwareMarkdownPreview } from './LineAwareMarkdownPreview';
@@ -110,6 +112,25 @@ function JsonPreview({ content }: { content: string }) {
 // Image Preview Component
 function ImagePreview({ src, alt }: { src: string; alt: string }) {
   const [zoom, setZoom] = useState(1);
+  const [imageError, setImageError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Debug: log when src changes
+  useEffect(() => {
+    console.log('🖼️ [ImagePreview] src changed:', { src, alt });
+  }, [src, alt]);
+
+  const handleImageLoad = () => {
+    console.log('✅ [ImagePreview] Image loaded successfully');
+    setIsLoading(false);
+    setImageError(false);
+  };
+
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    console.error('❌ [ImagePreview] Image failed to load:', { src, alt, event: e });
+    setIsLoading(false);
+    setImageError(true);
+  };
 
   return (
     <div className="relative h-full flex flex-col">
@@ -129,16 +150,61 @@ function ImagePreview({ src, alt }: { src: string; alt: string }) {
 
       {/* Image display */}
       <div className="flex-1 overflow-auto flex items-center justify-center bg-[#1a1a1a] p-4">
-        <img
+        {isLoading && (
+          <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+        )}
+        {imageError ? (
+          <div className="text-center text-gray-500">
+            <FileImage className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p>Failed to load image</p>
+            <p className="text-xs mt-1">URL: {src}</p>
+            <p className="text-xs mt-1">Try refreshing or selecting the file again</p>
+          </div>
+        ) : (
+          <img
+            src={src}
+            alt={alt}
+            onLoad={handleImageLoad}
+            onError={handleImageError}
+            style={{
+              transform: `scale(${zoom})`,
+              maxWidth: '100%',
+              maxHeight: '100%',
+              objectFit: 'contain',
+              display: isLoading ? 'none' : 'block',
+            }}
+            className="transition-transform duration-150"
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// PDF Preview Component
+function PdfPreview({ src, title }: { src: string; title: string }) {
+  return (
+    <div className="h-full flex flex-col">
+      {/* PDF header */}
+      <div className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-gray-800/50 border-b border-gray-700">
+        <File className="w-4 h-4 text-red-400" />
+        <span className="text-xs text-gray-400 truncate flex-1">{title}</span>
+        <a
+          href={src}
+          download={title}
+          className="text-xs text-blue-400 hover:text-blue-300"
+        >
+          Open in new tab
+        </a>
+      </div>
+
+      {/* PDF iframe */}
+      <div className="flex-1 overflow-hidden">
+        <iframe
           src={src}
-          alt={alt}
-          style={{
-            transform: `scale(${zoom})`,
-            maxWidth: '100%',
-            maxHeight: '100%',
-            objectFit: 'contain'
-          }}
-          className="transition-transform duration-150"
+          title={title}
+          className="w-full h-full border-0"
+          style={{ background: '#1a1a1a' }}
         />
       </div>
     </div>
@@ -410,6 +476,7 @@ function TabBar({
         )}>
           {ext === 'md' && <FileText className="w-4 h-4 text-blue-400" />}
           {ext === 'json' && <FileJson className="w-4 h-4 text-yellow-400" />}
+          {ext === 'pdf' && <File className="w-4 h-4 text-red-400" />}
           {['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext) && <FileImage className="w-4 h-4 text-purple-400" />}
           {['tsx', 'ts', 'jsx', 'js', 'py', 'css', 'html'].includes(ext) && <FileCode className="w-4 h-4 text-green-400" />}
           <span className="text-sm">{file.name}</span>
@@ -685,18 +752,48 @@ export function DisplayPanel() {
 
   // Render content based on type
   const renderContent = () => {
+    // Helper to get file URL
+    const getFileUrl = () => {
+      if (!currentSession?.session_id || !selectedFile?.path) return '';
+      // Remove leading slash to avoid double slash (API_BASE already has trailing slash)
+      return `${API_BASE}sessions/${currentSession.session_id}/files/content?path=${encodeURIComponent(selectedFile.path)}`;
+    };
+
     // Image files
     if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
-      // For images, we'd need to construct the URL
-      // For now, show a placeholder
-      return (
-        <div className="h-full flex items-center justify-center bg-gray-900">
-          <div className="text-center text-gray-500">
-            <FileImage className="w-12 h-12 mx-auto mb-2" />
-            <p>Image preview not available</p>
-            <p className="text-xs mt-1">Use download to view the image</p>
+      const imageUrl = getFileUrl();
+      if (!imageUrl) {
+        return (
+          <div className="h-full flex items-center justify-center bg-gray-900">
+            <LoadingState />
           </div>
-        </div>
+        );
+      }
+      return (
+        <ImagePreview
+          key={imageUrl}
+          src={imageUrl}
+          alt={selectedFile.name}
+        />
+      );
+    }
+
+    // PDF files
+    if (ext === 'pdf') {
+      const pdfUrl = getFileUrl();
+      if (!pdfUrl) {
+        return (
+          <div className="h-full flex items-center justify-center bg-gray-900">
+            <LoadingState />
+          </div>
+        );
+      }
+      return (
+        <PdfPreview
+          key={pdfUrl}
+          src={pdfUrl}
+          title={selectedFile.name}
+        />
       );
     }
 

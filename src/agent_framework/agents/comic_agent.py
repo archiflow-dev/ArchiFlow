@@ -1170,11 +1170,11 @@ Exit condition: Task marked complete"""
 - Consider page turns for dramatic reveals
 
 ### File Management
-All files are organized under data/sessions/{session_id}/:
-- script.md → session root
-- comic_spec.md → session root
-- panel_map.json → session root (tracking)
-- metadata.json → session root (project info)
+All files are organized in your workspace directory:
+- script.md → workspace root
+- comic_spec.md → workspace root
+- panel_map.json → workspace root (tracking)
+- metadata.json → workspace root (project info)
 - character_refs/ → character reference sheets
 - panels/ → story panel images
 - pages/ → composed pages (future)
@@ -1332,8 +1332,8 @@ CRITICAL REQUIREMENTS:
 6. **Note panel count** - match the exact count from spec
 
 ### File Paths
-- All paths relative to session: data/sessions/{session_id}/
-- script.md, comic_spec.md in session root
+- All paths are relative to your workspace directory
+- script.md, comic_spec.md in workspace root
 - character_refs/ for character reference images
 - pages/ for generated pages"""
 
@@ -1361,7 +1361,7 @@ Call `finish_task` when you have delivered:
 - Spec: comic_spec.md (detailed visual specifications)
 - Character References: 3 characters in character_refs/
 - Story Panels: 36 panels in panels/
-- All files in: data/sessions/session_123/
+- All files in your workspace directory
 
 PDF export functionality will be available in Phase 5.
 Would you like me to make any adjustments?"""
@@ -1384,7 +1384,7 @@ Would you like me to make any adjustments?"""
             llm: The LLM provider for intelligent conversation.
             google_api_key: API key for Google image generation.
             project_directory: Directory for session files.
-                              Defaults to data/sessions/{session_id}.
+                              Defaults to workspace directory.
             tools: Optional custom tools. If None, uses global registry.
             publish_callback: Callback for publishing messages to broker.
             debug_log_path: Optional path to debug log file.
@@ -1559,11 +1559,90 @@ Would you like me to make any adjustments?"""
             # Create ToolCallMessage
             tool_calls = []
             for tc in response.tool_calls:
-                tool_calls.append(ToolCall(
-                    id=tc.id,
-                    tool_name=tc.name,
-                    arguments=json.loads(tc.arguments) if isinstance(tc.arguments, str) else tc.arguments
-                ))
+                logger.info(f"[ComicAgent] Parsing tool call: {tc.name}, arguments_type: {type(tc.arguments)}")
+
+                try:
+                    if isinstance(tc.arguments, str):
+                        logger.debug(f"[ComicAgent] Attempting to parse JSON arguments for {tc.name} (length: {len(tc.arguments)})")
+                        logger.debug(f"[ComicAgent] Arguments preview (first 200 chars): {tc.arguments[:200]}")
+
+                        # Try parsing normally first
+                        try:
+                            parsed_args = json.loads(tc.arguments)
+                        except json.JSONDecodeError as je:
+                            logger.warning(f"[ComicAgent] Initial JSON parse failed, attempting repair...")
+                            logger.warning(f"[ComicAgent] Error: {je} at position {je.pos}")
+
+                            # Attempt common JSON repairs for LLM-generated content
+                            repaired_json = tc.arguments
+                            import re
+
+                            # Fix 1: Unquoted string values (e.g., "character_names":SUPERMAN)
+                            # Pattern: :WORD[,\}\]] -> :"WORD"[,\}\]] where WORD is alphanumeric + underscore
+                            repaired_json = re.sub(
+                                r':\s*([a-zA-Z_][a-zA-Z0-9_]*)([,\]\}])',
+                                r': "\1"\2',
+                                repaired_json
+                            )
+
+                            # Fix 2: Missing quotes around array items with single value
+                            # e.g., "character_names":SUPERMAN -> "character_names":["SUPERMAN"]
+                            repaired_json = re.sub(
+                                r'"character_names"\s*:\s*([a-zA-Z_][a-zA-Z0-9_]*)([,\}\]])',
+                                r'"character_names": ["\1"]\2',
+                                repaired_json
+                            )
+
+                            # Fix 3: Similar for other array fields
+                            for field in ['characters', 'character_names', 'panel_types']:
+                                repaired_json = re.sub(
+                                    rf'"{field}"\s*:\s*([a-zA-Z_][a-zA-Z0-9_]*)([,\\}}\\]])',
+                                    rf'"{field}": ["\1"]\2',
+                                    repaired_json
+                                )
+
+                            # Fix 4: Unescaped quotes in prompt strings (common LLM error)
+                            # Look for "prompt": "text with "quotes" inside"
+                            # Try to fix by escaping quotes that aren't at string boundaries
+                            # This is tricky - we'll try a simple approach first
+
+                            logger.info(f"[ComicAgent] Attempting to parse repaired JSON...")
+                            logger.debug(f"[ComicAgent] Repaired JSON preview (first 200 chars): {repaired_json[:200]}")
+
+                            try:
+                                parsed_args = json.loads(repaired_json)
+                                logger.info(f"[ComicAgent] Successfully parsed repaired JSON for {tc.name}")
+                            except json.JSONDecodeError as je2:
+                                logger.error(f"[ComicAgent] Repair attempt failed: {je2}")
+                                logger.error(f"[ComicAgent] Full repaired JSON (first 1000 chars): {repaired_json[:1000]}")
+                                logger.error(f"[ComicAgent] Full repaired JSON (last 200 chars): ...{repaired_json[-200:]}")
+
+                                # Last resort: try to extract at least the prompt field if it exists
+                                prompt_match = re.search(r'"prompt"\s*:\s*"([^"]*(?:\\.[^"]*)*)"', repaired_json)
+                                if prompt_match:
+                                    logger.warning(f"[ComicAgent] Extracting prompt field as fallback")
+                                    logger.warning(f"[ComicAgent] Prompt (first 200 chars): {prompt_match.group(1)[:200]}")
+                                    # Create minimal valid args
+                                    parsed_args = {"prompt": prompt_match.group(1)}
+                                else:
+                                    raise
+
+                    else:
+                        parsed_args = tc.arguments
+                        logger.info(f"[ComicAgent] Arguments already parsed for {tc.name}")
+
+                    tool_calls.append(ToolCall(
+                        id=tc.id,
+                        tool_name=tc.name,
+                        arguments=parsed_args
+                    ))
+                except json.JSONDecodeError as je:
+                    logger.error(f"[ComicAgent] JSON decode error for tool {tc.name}")
+                    logger.error(f"[ComicAgent] Error: {je}")
+                    logger.error(f"[ComicAgent] Error position: {je.pos}")
+                    logger.error(f"[ComicAgent] Arguments (first 500 chars): {tc.arguments[:500]}")
+                    logger.error(f"[ComicAgent] Arguments around error: {tc.arguments[max(0, je.pos-100):je.pos+100]}")
+                    raise
 
             tool_msg = ToolCallMessage(
                 session_id=self.session_id,

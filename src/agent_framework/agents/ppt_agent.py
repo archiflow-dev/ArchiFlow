@@ -339,8 +339,8 @@ Exit condition: When user approves revision"""
 
 ### File Management
 Always save intermediate results
-All files are organized under data/sessions/{session_id}/:
-- outline.json, descriptions.json → session root
+All files are organized in your workspace directory:
+- outline.json, descriptions.json → workspace root
 - Generated images → images/ subdirectory
 - Exported PPTX/PDF → ppt_exports/ subdirectory
 - Revision history → revisions/ subdirectory
@@ -445,7 +445,7 @@ Call `finish_task` when you have delivered:
 "[SUCCESS] Your presentation is ready! I've created:
 - PPTX: data/ppt_exports/Your_Title_20241220_143022.pptx (2.1 MB)
 - PDF: data/ppt_exports/Your_Title_20241220_143022.pdf (1.8 MB)
-- All images saved in: data/sessions/session_123/images/
+- All images saved in: images/
 
 Would you like me to open the presentation or make any adjustments?"""
 
@@ -794,10 +794,6 @@ Would you like me to open the presentation or make any adjustments?"""
             publish_callback: Callback for publishing messages to broker.
             debug_log_path: Optional path to debug log file.
         """
-        # PPT agent always uses session directory, not the provided project_directory
-        # The session directory is where all PPT files are stored
-        session_directory = f"data/sessions/{session_id}"
-
         # Define allowed tools
         self.allowed_tools = [
             "read", "write",              # File operations
@@ -821,10 +817,12 @@ Would you like me to open the presentation or make any adjustments?"""
             self.tools = tools
         self.tool_registry = self.tools
         self.session_id = session_id
-        # PPT agent uses session_directory for all its files
-        self.project_directory = session_directory
-        # Store the original project_directory if needed for other purposes
-        self._original_project_directory = project_directory
+
+        # PPT agent uses execution context's working directory when available
+        # This ensures proper workspace isolation in web environment
+        # The execution_context will be set by parent constructor with correct working_directory
+        # For CLI sessions, project_directory is used as fallback
+        self.project_directory = project_directory or f"data/sessions/{session_id}"
         self.publish_callback = publish_callback
         self.is_running = True
         self._system_added = False

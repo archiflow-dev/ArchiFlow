@@ -543,9 +543,12 @@ class GenerateComicPanelTool(BaseTool):
 
             # Determine output directory BEFORE generating image (for logging)
             if output_dir is None:
-                # Always use session folder for organizing comic files
-                # working_directory should NOT be used as it's typically the project root
-                base_dir = os.path.join("data", "sessions", session_id)
+                # Use workspace from execution context, or fall back to legacy path
+                if self.execution_context and self.execution_context.working_directory:
+                    base_dir = self.execution_context.working_directory
+                else:
+                    # Legacy fallback for CLI sessions
+                    base_dir = os.path.join("data", "sessions", session_id)
 
                 if panel_type == "character_reference":
                     output_dir = os.path.join(base_dir, "character_refs")
@@ -723,10 +726,11 @@ class GenerateComicPanelTool(BaseTool):
             return None
 
         try:
-            # Determine base directory
+            # Determine base directory (use workspace from execution context)
             if self.execution_context and self.execution_context.working_directory:
                 base_dir = self.execution_context.working_directory
             else:
+                # Legacy fallback for CLI sessions
                 base_dir = os.path.join("data", "sessions", session_id)
 
             ref_dir = os.path.join(base_dir, "character_refs")

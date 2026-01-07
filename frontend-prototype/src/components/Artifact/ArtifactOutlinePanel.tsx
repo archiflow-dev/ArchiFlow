@@ -10,7 +10,6 @@ import {
   Folder,
   FolderOpen,
   Search,
-  Plus,
   RefreshCw
 } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
@@ -20,7 +19,6 @@ import { cn, formatFileSize } from '../../lib/utils';
 // File type icons mapping
 const getFileIcon = (file: { name: string; extension?: string; type: string }) => {
   const ext = file.extension?.toLowerCase();
-  const name = file.name.toLowerCase();
 
   if (file.type === 'directory') {
     return Folder;
@@ -56,52 +54,36 @@ const getFileIcon = (file: { name: string; extension?: string; type: string }) =
   }
 };
 
-// Group files by folder
-function groupFilesByFolder(files: any[], basePath = ''): Map<string, any[]> {
-  const groups = new Map<string, any[]>();
-
-  files
-    .filter(f => f.path.startsWith(basePath) && f.path !== basePath)
-    .forEach(file => {
-      const relativePath = file.path.slice(basePath.length);
-      const parts = relativePath.split('/').filter(p => p);
-
-      if (parts.length === 1) {
-        // File at root level
-        if (!groups.has('/')) {
-          groups.set('/', []);
-        }
-        groups.get('/')!.push(file);
-      } else {
-        // File in subfolder
-        const folder = parts[0];
-        if (!groups.has(folder)) {
-          groups.set(folder, []);
-        }
-        groups.get(folder)!.push(file);
-      }
-    });
-
-  return groups;
-}
-
 interface FolderNodeProps {
   name: string;
   path: string;
   files: any[];
   level: number;
   isExpanded: boolean;
-  onToggle: () => void;
   onFileClick: (file: any) => void;
   selectedPath: string | null;
 }
 
-function FolderNode({ name, path, files, level, isExpanded, onToggle, onFileClick, selectedPath }: FolderNodeProps) {
+function FolderNode({ name, path, files, level, isExpanded, onFileClick, selectedPath }: FolderNodeProps) {
   const { expandedFolders, toggleFolder } = useWorkspaceStore();
 
-  // Separate directories and files
+  // Separate directories and files at the current level only
   const directories = files.filter(f => f.type === 'directory');
-  const regularFiles = files.filter(f => f.type === 'file');
+
+  // Only include files that are directly in this folder (not in subdirectories)
+  const regularFiles = files.filter(f => {
+    if (f.type !== 'file') return false;
+
+    // For root folder (empty path), files should have no '/' in their path
+    if (path === '') {
+      return !f.path.includes('/');
+    }
+
+    // For subfolders, file path should be exactly {path}/{filename}
+    // Remove the folder path prefix and check there are no additional '/'
+    const relativePath = f.path.slice(path.length + 1); // +1 to skip the '/'
+    return !relativePath.includes('/');
+  });
 
   return (
     <div>
@@ -145,7 +127,6 @@ function FolderNode({ name, path, files, level, isExpanded, onToggle, onFileClic
                 files={files.filter(f => f.path.startsWith(dirPath + '/'))}
                 level={name === '/' ? level : level + 1}
                 isExpanded={dirExpanded}
-                onToggle={() => toggleFolder(dirPath)}
                 onFileClick={onFileClick}
                 selectedPath={selectedPath}
               />
@@ -199,10 +180,8 @@ export function ArtifactOutlinePanel() {
     selectedFile,
     isLoading,
     error,
-    expandedFolders,
     loadFiles,
     selectFile,
-    toggleFolder,
     setSessionId,
   } = useWorkspaceStore();
 
@@ -233,11 +212,8 @@ export function ArtifactOutlinePanel() {
     );
   }, [files, searchQuery]);
 
-  // Group files by folder
-  const groupedFiles = useMemo(() =>
-    groupFilesByFolder(filteredFiles),
-    [filteredFiles]
-  );
+  // Don't group files when using recursive listing - FolderNode handles hierarchy
+  // groupFilesByFolder is only needed for non-recursive listings
 
   // Handle refresh
   const handleRefresh = () => {
@@ -314,18 +290,15 @@ export function ArtifactOutlinePanel() {
             <p>No matching files</p>
           </div>
         ) : (
-          <div>
-            <FolderNode
-              name="/"
-              path=""
-              files={filteredFiles}
-              level={0}
-              isExpanded={true}
-              onToggle={() => {}}
-              onFileClick={handleFileClick}
-              selectedPath={selectedFile?.path || null}
-            />
-          </div>
+          <FolderNode
+            name="/"
+            path=""
+            files={filteredFiles}
+            level={0}
+            isExpanded={true}
+            onFileClick={handleFileClick}
+            selectedPath={selectedFile?.path || null}
+          />
         )}
       </div>
 

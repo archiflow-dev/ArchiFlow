@@ -122,7 +122,13 @@ class GenerateComicPageTool(BaseTool):
 
         try:
             # Setup output directory
-            base_dir = os.path.join("data", "sessions", session_id)
+            # Use workspace from execution context, or fall back to legacy path
+            if self.execution_context and self.execution_context.working_directory:
+                base_dir = self.execution_context.working_directory
+            else:
+                # Legacy fallback for CLI sessions
+                base_dir = os.path.join("data", "sessions", session_id)
+
             pages_dir = os.path.join(base_dir, "pages")
             logs_dir = os.path.join(pages_dir, "logs")
             os.makedirs(pages_dir, exist_ok=True)

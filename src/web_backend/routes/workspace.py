@@ -8,7 +8,8 @@ import os
 import logging
 from pathlib import Path
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Response, Request
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -111,7 +112,7 @@ async def list_workspace_files(
     """
     List files in a session's workspace directory.
 
-    Note: .archiflow/ audit directory is always filtered out for security and UX.
+    Note: .archiflow/ audit directory and logs/ folders are always filtered out for security and UX.
 
     Args:
         session_id: Session ID
@@ -140,9 +141,12 @@ async def list_workspace_files(
                     relative = item.relative_to(session_path)
                     relative_str = str(relative)
 
-                    # Always filter out .archiflow/ audit directory
+                    # Always filter out .archiflow/ audit directory and logs/ folders
                     parts = relative.parts
-                    if len(parts) > 0 and parts[0] == ".archiflow":
+                    if len(parts) > 0 and (
+                        parts[0] == ".archiflow" or
+                        "logs" in parts
+                    ):
                         continue
 
                     files.append(_get_file_info(item, relative_str))
@@ -155,8 +159,8 @@ async def list_workspace_files(
                     relative = item.relative_to(session_path)
                     relative_str = str(relative)
 
-                    # Always filter out .archiflow/ audit directory
-                    if item.name == ".archiflow":
+                    # Always filter out .archiflow/ audit directory and logs/ folders
+                    if item.name in (".archiflow", "logs"):
                         continue
 
                     files.append(_get_file_info(item, relative_str))
@@ -177,22 +181,26 @@ async def list_workspace_files(
         raise HTTPException(status_code=500, detail=f"Failed to list files: {str(e)}")
 
 
-@router.get("/sessions/{session_id}/files/content", response_model=FileContent)
+@router.get("/sessions/{session_id}/files/content")
 async def read_workspace_file(
+    request: Request,
     session_id: str,
     path: str = Query(..., description="Relative path to the file within workspace"),
     encoding: str = Query("utf-8", description="File encoding"),
-) -> FileContent:
+):  # Returns FileContent for text files, FileResponse for binary files
     """
     Read the content of a file in the session's workspace.
+
+    Note: For binary files (images, PDFs, etc.), this endpoint will return
+    the raw binary data with appropriate content-type.
 
     Args:
         session_id: Session ID
         path: Relative path to the file
-        encoding: File encoding (default: utf-8)
+        encoding: File encoding (default: utf-8, only used for text files)
 
     Returns:
-        File content
+        File content (text) or binary data for images/PDFs
     """
     try:
         session_path = _validate_session_path(session_id)
@@ -203,10 +211,69 @@ async def read_workspace_file(
         if not file_path.is_file():
             raise HTTPException(status_code=400, detail=f"Path is not a file: {path}")
 
-        # Read file content
+        # Binary file extensions
+        binary_extensions = {
+            'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico',
+            'pdf', 'zip', 'tar', 'gz', 'rar', '7z',
+            'mp3', 'mp4', 'wav', 'avi', 'mov', 'wmv',
+            'ttf', 'otf', 'woff', 'woff2', 'eot',
+        }
+
+        file_extension = file_path.suffix.lstrip('.').lower()
+
+        # Check if this is a binary file
+        if file_extension in binary_extensions:
+            # For binary files, use FileResponse to serve the raw data
+            logger.info(f"Serving binary file {path} from workspace {session_id}")
+
+            # Set appropriate media type
+            media_types = {
+                'png': 'image/png',
+                'jpg': 'image/jpeg',
+                'jpeg': 'image/jpeg',
+                'gif': 'image/gif',
+                'webp': 'image/webp',
+                'svg': 'image/svg+xml',
+                'ico': 'image/x-icon',
+                'pdf': 'application/pdf',
+                'zip': 'application/zip',
+                'tar': 'application/x-tar',
+                'gz': 'application/gzip',
+                'mp3': 'audio/mpeg',
+                'mp4': 'video/mp4',
+                'wav': 'audio/wav',
+                'ttf': 'font/ttf',
+                'otf': 'font/otf',
+                'woff': 'font/woff',
+                'woff2': 'font/woff2',
+            }
+
+            media_type = media_types.get(file_extension, 'application/octet-stream')
+
+            # Get origin from request for CORS
+            origin = request.headers.get("origin")
+
+            # Manually add CORS headers for FileResponse
+            # FileResponse doesn't go through CORSMiddleware properly
+            headers = {}
+            if origin:
+                # In production, you should validate the origin against allowed origins
+                headers["Access-Control-Allow-Origin"] = origin
+                headers["Access-Control-Allow-Credentials"] = "true"
+                headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+                headers["Access-Control-Allow-Headers"] = "*"
+
+            return FileResponse(
+                path=str(file_path),
+                media_type=media_type,
+                filename=file_path.name,
+                headers=headers,
+            )
+
+        # For text files, read and return content
         content = file_path.read_text(encoding=encoding)
 
-        logger.info(f"Read file {path} from workspace {session_id} ({len(content)} chars)")
+        logger.info(f"Read text file {path} from workspace {session_id} ({len(content)} chars)")
 
         return FileContent(
             path=path.replace("\\", "/"),
